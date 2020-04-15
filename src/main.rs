@@ -1,12 +1,57 @@
-extern crate rusb;
 mod aura;
+mod core;
 
-use aura::RogCore;
+use crate::aura::{BuiltInMode, ModeMessage};
+use crate::core::RogCore;
+use gumdrop::{Options, ParsingStyle};
+use std::env;
+
+#[derive(Debug, Options)]
+struct CLIStart {
+    #[options(command, required)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, Options)]
+enum Command {
+    #[options(help = "show help for a command (eg: help aura)")]
+    Help(FreeOptions),
+    #[options(help = "Set the keyboard lighting from built-in modes")]
+    LedMode(BuiltInMode),
+}
+
+#[derive(Debug, Options)]
+struct FreeOptions {
+    #[options(free)]
+    free: Vec<String>,
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut core = RogCore::new()?;
-    core.aura_set_brightness(3)?;
-    core.aura_set_colour((0xff, 0x00, 0x00))?;
+    let args: Vec<String> = env::args().collect();
+    match CLIStart::parse_args(&args[1..], ParsingStyle::AllOptions) {
+        Ok(okk) => {
+            dbg!(&okk);
+            match okk.command {
+                Some(Command::Help(help)) => {
+                    if help.free.contains(&"aura".to_string()) {
+                        println!("\n{}", BuiltInMode::usage())
+                    }
+                }
+                Some(Command::LedMode(aura)) => {
+                    let mut core = RogCore::new()?;
+                    let mode = ModeMessage::from(aura);
+                    core.aura_set_mode(mode)?;
+                }
+                None => {}
+            }
+        }
+        Err(err) => {
+            println!("\n{}", err);
+            println!("\nUsage:\n{}", Command::usage());
+        }
+    }
+
+    //core.aura_set_brightness(3)?;
 
     //   core.test_builtins(aura::LED_SPEED_BYTES[2])?;
 
