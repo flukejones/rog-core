@@ -38,7 +38,7 @@ impl Error for AuraError {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Options)]
+#[derive(Debug, PartialEq, Options)]
 pub struct Colour {
     #[options(help = "print help message")]
     help: bool,
@@ -49,7 +49,16 @@ pub struct Colour {
     #[options(help = "blue: eg, 166")]
     b: u8,
 }
-
+impl Default for Colour {
+    fn default() -> Self {
+        Colour {
+            r: 255,
+            g: 0,
+            b: 0,
+            help: false,
+        }
+    }
+}
 impl FromStr for Colour {
     type Err = AuraError;
 
@@ -71,13 +80,13 @@ impl FromStr for Colour {
 
 #[derive(Debug, PartialEq)]
 pub enum Speed {
-    Slow = 0xe1,
-    Medium = 0xeb,
-    Fast = 0xf5,
+    Low = 0xe1,
+    Med = 0xeb,
+    High = 0xf5,
 }
 impl Default for Speed {
     fn default() -> Self {
-        Speed::Slow
+        Speed::Med
     }
 }
 impl FromStr for Speed {
@@ -86,9 +95,9 @@ impl FromStr for Speed {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.to_lowercase();
         match s.as_str() {
-            "low" => Ok(Speed::Slow),
-            "med" => Ok(Speed::Medium),
-            "high" => Ok(Speed::Fast),
+            "low" => Ok(Speed::Low),
+            "med" => Ok(Speed::Med),
+            "high" => Ok(Speed::High),
             _ => Err(AuraError::ParseSpeed),
         }
     }
@@ -124,43 +133,6 @@ impl FromStr for Direction {
     }
 }
 
-/// Byte value for setting the built-in mode.
-///
-/// Enum corresponds to the required integer value
-#[derive(Debug, Options)]
-pub enum SetAuraBuiltin {
-    #[options(help = "set a single static colour")]
-    Stable(Colour), // colour1
-    #[options(help = "pulse between one or two colours")]
-    Breathe(Breathe), // colour1, colour2, speed
-    #[options(help = "cycle through all colours")]
-    Cycle(SingleSpeed), // speed
-    // Rainbow,      // speed, direction
-    #[options(help = "random pattern mimicing raindrops")]
-    Rain(SingleColourSpeed), // colour1, speed
-    #[options(help = "random pattern of three preset colours")]
-    Random(SingleSpeed), // speed
-    #[options(help = "pressed keys are highlighted to fade")]
-    Highlight(SingleColourSpeed), // colour1, speed
-    #[options(help = "pressed keys generate horizontal laser")]
-    Laser(SingleColourSpeed), // colour1, speed
-    #[options(help = "pressed keys ripple outwards like a splash")]
-    Ripple(SingleColourSpeed), // colour1, speed
-    // Off,          // none
-    #[options(help = "set a rapid pulse")]
-    Pulse(Colour), // colour1
-    #[options(help = "set a vertical line racing from left")]
-    LineRace(Colour), // colour1
-    #[options(help = "set a wide vertical line racing from left")]
-    WideLineRace(Colour), // colour1
-}
-
-impl Default for SetAuraBuiltin {
-    fn default() -> Self {
-        SetAuraBuiltin::Stable(Colour::default())
-    }
-}
-
 #[derive(Debug, PartialEq, Options)]
 pub struct Breathe {
     #[options(help = "print help message")]
@@ -182,6 +154,22 @@ pub struct SingleSpeed {
 }
 
 #[derive(Debug, PartialEq, Options)]
+pub struct SingleColour {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(help = "set the colour, must be hex string e.g, ff00ff")]
+    colour: Colour,
+}
+
+#[derive(Debug, PartialEq, Options)]
+pub struct SingleDirection {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(help = "set the direction: up, down, left, right")]
+    direction: Direction,
+}
+
+#[derive(Debug, PartialEq, Options)]
 pub struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -191,15 +179,61 @@ pub struct SingleColourSpeed {
     speed: Speed,
 }
 
-/// Packet Data:
+/// Byte value for setting the built-in mode.
+///
+/// Enum corresponds to the required integer value
+#[derive(Debug, Options)]
+pub enum SetAuraBuiltin {
+    #[options(help = "set a single static colour")]
+    Stable(SingleColour),
+    #[options(help = "pulse between one or two colours")]
+    Breathe(Breathe),
+    #[options(help = "cycle through all colours")]
+    Cycle(SingleSpeed),
+    Rainbow(SingleDirection),
+    #[options(help = "random pattern mimicing raindrops")]
+    Rain(SingleColourSpeed),
+    #[options(help = "random pattern of three preset colours")]
+    Random(SingleSpeed),
+    #[options(help = "pressed keys are highlighted to fade")]
+    Highlight(SingleColourSpeed),
+    #[options(help = "pressed keys generate horizontal laser")]
+    Laser(SingleColourSpeed),
+    #[options(help = "pressed keys ripple outwards like a splash")]
+    Ripple(SingleColourSpeed),
+    #[options(help = "set a rapid pulse")]
+    Pulse(SingleColour),
+    #[options(help = "set a vertical line racing from left")]
+    LineRace(SingleColour),
+    #[options(help = "set a wide vertical line racing from left")]
+    WideLineRace(SingleColour),
+}
+
+impl Default for SetAuraBuiltin {
+    fn default() -> Self {
+        SetAuraBuiltin::Stable(SingleColour {
+            help: false,
+            colour: Colour {
+                r: 255,
+                g: 0,
+                b: 0,
+                help: false,
+            },
+        })
+    }
+}
+
+/// Parses `SetAuraBuiltin` in to packet data
+///
+/// Byte structure:
 ///
 /// ```
-/// | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12| 13|
+/// | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12|
 /// |---|---|---|---|---|---|---|---|---|---|---|---|---|
-/// |5d |b3 |03 |00 |ff |00 |00 |00 |00 |00 |00 |ff |00 |
+/// |5d |b3 |00 |03 |ff |00 |00 |00 |00 |00 |00 |ff |00 |
 /// ```
 ///
-/// Bytes 1 and 2 should always be 5d, b3
+/// Bytes 0 and 1 should always be 5d, b3
 ///
 /// Byte 3 sets the mode type:
 /// - 00 = static
@@ -211,7 +245,7 @@ pub struct SingleColourSpeed {
 /// - 06 = pressed keys light up and fade
 /// - 07 = pressed key emits laser
 /// - 08 = pressed key emits water ripple
-/// - 09 = off
+/// - 09 = no effect/not used
 /// - 0a fast pulse (no speed setting)
 /// - 0b vertical line racing to right (no speed setting)
 /// - 0c wider vertical line racing to right (no speed setting)
@@ -245,6 +279,9 @@ impl From<SetAuraBuiltin> for ModeMessage {
             SetAuraBuiltin::Cycle(_) => {
                 msg[3] = 0x02;
             }
+            SetAuraBuiltin::Rainbow(_) => {
+                msg[3] = 0x03;
+            }
             SetAuraBuiltin::Rain(_) => {
                 msg[3] = 0x04;
             }
@@ -272,6 +309,10 @@ impl From<SetAuraBuiltin> for ModeMessage {
             _ => {}
         }
         match mode {
+            SetAuraBuiltin::Rainbow(settings) => {
+                msg[8] = settings.direction as u8;
+                return ModeMessage(msg);
+            }
             SetAuraBuiltin::Breathe(settings) => {
                 msg[3] = 0x01;
                 msg[4] = settings.colour1.r;
@@ -301,9 +342,9 @@ impl From<SetAuraBuiltin> for ModeMessage {
             | SetAuraBuiltin::Pulse(settings)
             | SetAuraBuiltin::LineRace(settings)
             | SetAuraBuiltin::WideLineRace(settings) => {
-                msg[4] = settings.r;
-                msg[5] = settings.g;
-                msg[6] = settings.b;
+                msg[4] = settings.colour.r;
+                msg[5] = settings.colour.g;
+                msg[6] = settings.colour.b;
                 return ModeMessage(msg);
             }
         }

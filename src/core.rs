@@ -116,8 +116,9 @@ impl RogCore {
             println!("{:x?}", &message);
             write(message)?;
             write(&LED_SET)?;
-            //write(&LED_APPLY)?;
         }
+        // Changes won't persist unless apply is set
+        write(&LED_APPLY)?;
 
         self.handle.release_interface(self.led_interface_num)?;
         Ok(())
