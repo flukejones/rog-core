@@ -38,25 +38,11 @@ impl Error for AuraError {
     }
 }
 
-#[derive(Debug, PartialEq, Options)]
-pub struct Colour {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(help = "red: eg, 255")]
-    r: u8,
-    #[options(help = "green: eg, 123")]
-    g: u8,
-    #[options(help = "blue: eg, 166")]
-    b: u8,
-}
+#[derive(Debug, PartialEq)]
+pub struct Colour(u8, u8, u8);
 impl Default for Colour {
     fn default() -> Self {
-        Colour {
-            r: 255,
-            g: 0,
-            b: 0,
-            help: false,
-        }
+        Colour(255, 0, 0)
     }
 }
 impl FromStr for Colour {
@@ -69,12 +55,7 @@ impl FromStr for Colour {
         let r = u8::from_str_radix(&s[0..2], 16).or(Err(AuraError::ParseColour))?;
         let g = u8::from_str_radix(&s[2..4], 16).or(Err(AuraError::ParseColour))?;
         let b = u8::from_str_radix(&s[4..6], 16).or(Err(AuraError::ParseColour))?;
-        Ok(Colour {
-            help: false,
-            r,
-            g,
-            b,
-        })
+        Ok(Colour(r, g, b))
     }
 }
 
@@ -137,11 +118,14 @@ impl FromStr for Direction {
 pub struct Breathe {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "set the first colour, must be hex string e.g, ff00ff")]
-    colour1: Colour,
-    #[options(help = "set the second colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, help = "set the first colour, must be hex string e.g, ff00ff")]
+    colour: Colour,
+    #[options(
+        no_long,
+        help = "set the second colour, must be hex string e.g, ff00ff"
+    )]
     colour2: Colour,
-    #[options(help = "set the speed")]
+    #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
 }
 
@@ -149,7 +133,7 @@ pub struct Breathe {
 pub struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "set the speed")]
+    #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
 }
 
@@ -157,25 +141,27 @@ pub struct SingleSpeed {
 pub struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "set the colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
     colour: Colour,
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct SingleDirection {
+pub struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "set the direction: up, down, left, right")]
+    #[options(no_long, help = "set the direction: up, down, left, right")]
     direction: Direction,
+    #[options(no_long, help = "set the speed: low, med, high")]
+    speed: Speed,
 }
 
 #[derive(Debug, PartialEq, Options)]
 pub struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "set the colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
     colour: Colour,
-    #[options(help = "set the speed")]
+    #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
 }
 
@@ -190,8 +176,9 @@ pub enum SetAuraBuiltin {
     Breathe(Breathe),
     #[options(help = "cycle through all colours")]
     Cycle(SingleSpeed),
-    Rainbow(SingleDirection),
-    #[options(help = "random pattern mimicing raindrops")]
+    #[options(help = "rainbow cycling in one of four directions")]
+    Rainbow(SingleSpeedDirection),
+    #[options(help = "random pattern mimicking raindrops")]
     Rain(SingleColourSpeed),
     #[options(help = "random pattern of three preset colours")]
     Random(SingleSpeed),
@@ -203,22 +190,17 @@ pub enum SetAuraBuiltin {
     Ripple(SingleColourSpeed),
     #[options(help = "set a rapid pulse")]
     Pulse(SingleColour),
-    #[options(help = "set a vertical line racing from left")]
-    LineRace(SingleColour),
-    #[options(help = "set a wide vertical line racing from left")]
-    WideLineRace(SingleColour),
+    #[options(help = "set a vertical line zooming from left")]
+    ThinZoomy(SingleColour),
+    #[options(help = "set a wide vertical line zooming from left")]
+    WideZoomy(SingleColour),
 }
 
 impl Default for SetAuraBuiltin {
     fn default() -> Self {
         SetAuraBuiltin::Stable(SingleColour {
             help: false,
-            colour: Colour {
-                r: 255,
-                g: 0,
-                b: 0,
-                help: false,
-            },
+            colour: Colour(255, 0, 0),
         })
     }
 }
@@ -300,53 +282,50 @@ impl From<SetAuraBuiltin> for ModeMessage {
             SetAuraBuiltin::Pulse(_) => {
                 msg[3] = 0x0a;
             }
-            SetAuraBuiltin::LineRace(_) => {
+            SetAuraBuiltin::ThinZoomy(_) => {
                 msg[3] = 0x0b;
             }
-            SetAuraBuiltin::WideLineRace(_) => {
+            SetAuraBuiltin::WideZoomy(_) => {
                 msg[3] = 0x0c;
             }
             _ => {}
         }
         match mode {
             SetAuraBuiltin::Rainbow(settings) => {
+                msg[7] = settings.speed as u8;
                 msg[8] = settings.direction as u8;
-                return ModeMessage(msg);
             }
             SetAuraBuiltin::Breathe(settings) => {
                 msg[3] = 0x01;
-                msg[4] = settings.colour1.r;
-                msg[5] = settings.colour1.g;
-                msg[6] = settings.colour1.b;
+                msg[4] = settings.colour.0;
+                msg[5] = settings.colour.1;
+                msg[6] = settings.colour.2;
                 msg[7] = settings.speed as u8;
-                msg[10] = settings.colour2.r;
-                msg[11] = settings.colour2.g;
-                msg[12] = settings.colour2.b;
-                return ModeMessage(msg);
+                msg[10] = settings.colour2.0;
+                msg[11] = settings.colour2.1;
+                msg[12] = settings.colour2.2;
             }
             SetAuraBuiltin::Cycle(settings) | SetAuraBuiltin::Random(settings) => {
                 msg[7] = settings.speed as u8;
-                return ModeMessage(msg);
             }
             SetAuraBuiltin::Rain(settings)
             | SetAuraBuiltin::Highlight(settings)
             | SetAuraBuiltin::Laser(settings)
             | SetAuraBuiltin::Ripple(settings) => {
-                msg[4] = settings.colour.r;
-                msg[5] = settings.colour.g;
-                msg[6] = settings.colour.b;
+                msg[4] = settings.colour.0;
+                msg[5] = settings.colour.1;
+                msg[6] = settings.colour.2;
                 msg[7] = settings.speed as u8;
-                return ModeMessage(msg);
             }
             SetAuraBuiltin::Stable(settings)
             | SetAuraBuiltin::Pulse(settings)
-            | SetAuraBuiltin::LineRace(settings)
-            | SetAuraBuiltin::WideLineRace(settings) => {
-                msg[4] = settings.colour.r;
-                msg[5] = settings.colour.g;
-                msg[6] = settings.colour.b;
-                return ModeMessage(msg);
+            | SetAuraBuiltin::ThinZoomy(settings)
+            | SetAuraBuiltin::WideZoomy(settings) => {
+                msg[4] = settings.colour.0;
+                msg[5] = settings.colour.1;
+                msg[6] = settings.colour.2;
             }
         }
+        ModeMessage(msg)
     }
 }

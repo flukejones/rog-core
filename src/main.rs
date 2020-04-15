@@ -1,3 +1,4 @@
+// TODO: use /sys/class/dmi/id/board_name to detect model
 mod aura;
 mod core;
 
@@ -9,7 +10,7 @@ use gumdrop::Options;
 struct CLIStart {
     #[options(help = "print help message")]
     help: bool,
-    #[options(help = "<off,low,med,high>")]
+    #[options(help = "<off, low, med, high>")]
     bright: Option<LedBrightness>,
     #[options(command)]
     command: Option<Command>,
