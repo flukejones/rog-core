@@ -6,33 +6,16 @@ use std::str::FromStr;
 use std::time::Duration;
 
 pub const LED_MSG_LEN: usize = 17;
-pub static LED_SPEED_BYTES: [u8; 3] = [0xe1, 0xeb, 0xf5]; // maps to 1, 2, 3
-static LED_BRIGHT_BYTES: [u8; 5] = [0x5a, 0xba, 0xc5, 0xc4, 0]; // Index 4 = set brightness
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
 static LED_INIT2: &'static str = "]ASUS Tech.Inc."; // ] == 0x5d
 static LED_INIT3: [u8; 6] = [0x5d, 0x05, 0x20, 0x31, 0, 0x08];
 static LED_INIT4: &'static str = "^ASUS Tech.Inc."; // ^ == 0x5e
 static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
 
-static LED_BUILTIN: [u8; 13] = [
-    0x5d, 0xb3, 0x03, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00,
-];
-
 // Only these two packets must be 17 bytes
 static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-// bytes 0,1 set mode
-// bytes 3,4,5 set to on,
-// byte 6 increments (starts at 0x00, continues 0x10 to 0xA0) 0-10 << 4
-// byte 7 resets (stays on 10 until byte6 == 0xA0 then flips to 08 in same packet as 0xA0)
-// bytes 8-57 are bitfield for keys
-static LED_SPECIAL: [u8; 64] = [
-    0x5d, 0xbc, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
 #[derive(Debug, Options)]
 pub struct LedBrightness {
     pub level: u8,
@@ -49,7 +32,7 @@ impl FromStr for LedBrightness {
             "high" => Ok(LedBrightness { level: 0x03 }),
             _ => {
                 println!("Missing required argument, must be one of:\noff,low,med,high\n");
-                Err(AuraError::ParseSpeed)
+                Err(AuraError::ParseBrightness)
             }
         }
     }
@@ -94,15 +77,6 @@ impl RogCore {
 
         handle.set_auto_detach_kernel_driver(true).unwrap();
         handle.set_auto_detach_kernel_driver(true).unwrap();
-
-        // let iface_out = config
-        //     .interfaces()
-        //     .nth(keys_interface_num as usize)
-        //     .unwrap();
-        // let iface_led = config.interfaces().nth(led_interface_num as usize).unwrap();
-
-        //handle.claim_interface(iface_out.number()).unwrap();
-        //handle.claim_interface(iface_led.number()).unwrap();
 
         Ok(RogCore {
             handle,

@@ -11,6 +11,7 @@ pub enum AuraError {
     ParseColour,
     ParseSpeed,
     ParseDirection,
+    ParseBrightness,
 }
 
 impl Debug for AuraError {
@@ -34,6 +35,7 @@ impl Error for AuraError {
             AuraError::ParseColour => "could not parse colour",
             AuraError::ParseSpeed => "could not parse speed",
             AuraError::ParseDirection => "could not parse direction",
+            AuraError::ParseBrightness => "could not parse brightness",
         }
     }
 }
@@ -43,11 +45,11 @@ pub struct Colour {
     #[options(help = "print help message")]
     help: bool,
     #[options(help = "red: eg, 255")]
-    red: u8,
+    r: u8,
     #[options(help = "green: eg, 123")]
-    green: u8,
+    g: u8,
     #[options(help = "blue: eg, 166")]
-    blue: u8,
+    b: u8,
 }
 
 impl FromStr for Colour {
@@ -62,9 +64,9 @@ impl FromStr for Colour {
         let b = u8::from_str_radix(&s[4..6], 16).or(Err(AuraError::ParseColour))?;
         Ok(Colour {
             help: false,
-            red: r,
-            green: g,
-            blue: b,
+            r,
+            g,
+            b,
         })
     }
 }
@@ -216,20 +218,20 @@ impl From<SetAuraBuiltin> for ModeMessage {
         match mode {
             SetAuraBuiltin::Stable(settings) => {
                 msg[3] = 0x00;
-                msg[4] = settings.red;
-                msg[5] = settings.green;
-                msg[6] = settings.blue;
+                msg[4] = settings.r;
+                msg[5] = settings.g;
+                msg[6] = settings.b;
                 return ModeMessage(msg);
             }
             SetAuraBuiltin::Breathe(settings) => {
                 msg[3] = 0x01;
-                msg[4] = settings.colour1.red;
-                msg[5] = settings.colour1.green;
-                msg[6] = settings.colour1.blue;
+                msg[4] = settings.colour1.r;
+                msg[5] = settings.colour1.g;
+                msg[6] = settings.colour1.b;
                 msg[7] = settings.speed as u8;
-                msg[10] = settings.colour2.red;
-                msg[11] = settings.colour2.green;
-                msg[12] = settings.colour2.blue;
+                msg[10] = settings.colour2.r;
+                msg[11] = settings.colour2.g;
+                msg[12] = settings.colour2.b;
                 return ModeMessage(msg);
             }
             _ => {}
