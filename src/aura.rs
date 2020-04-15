@@ -38,8 +38,17 @@ impl Error for AuraError {
     }
 }
 
-#[derive(Default, Debug, PartialEq)]
-pub struct Colour(u8, u8, u8);
+#[derive(Default, Debug, PartialEq, Options)]
+pub struct Colour {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(help = "red: eg, 255")]
+    red: u8,
+    #[options(help = "green: eg, 123")]
+    green: u8,
+    #[options(help = "blue: eg, 166")]
+    blue: u8,
+}
 
 impl FromStr for Colour {
     type Err = AuraError;
@@ -51,7 +60,12 @@ impl FromStr for Colour {
         let r = u8::from_str_radix(&s[0..2], 16).or(Err(AuraError::ParseColour))?;
         let g = u8::from_str_radix(&s[2..4], 16).or(Err(AuraError::ParseColour))?;
         let b = u8::from_str_radix(&s[4..6], 16).or(Err(AuraError::ParseColour))?;
-        Ok(Colour(r, g, b))
+        Ok(Colour {
+            help: false,
+            red: r,
+            green: g,
+            blue: b,
+        })
     }
 }
 
@@ -72,9 +86,9 @@ impl FromStr for Speed {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.to_lowercase();
         match s.as_str() {
-            "slow" => Ok(Speed::Slow),
-            "medium" => Ok(Speed::Medium),
-            "fast" => Ok(Speed::Fast),
+            "low" => Ok(Speed::Slow),
+            "med" => Ok(Speed::Medium),
+            "high" => Ok(Speed::Fast),
             _ => Err(AuraError::ParseSpeed),
         }
     }
@@ -113,74 +127,43 @@ impl FromStr for Direction {
 /// Byte value for setting the built-in mode.
 ///
 /// Enum corresponds to the required integer value
-#[derive(Debug, PartialEq)]
-pub enum ModeByte {
-    Stable,       // colour1
-    Breathe,      // colour1, colour2, speed
-    Cycle,        // speed
-    Rainbow,      // speed, direction
-    Rain,         // colour1, speed
-    Random,       // speed
-    Highlight,    // colour1, speed
-    Laser,        // colour1, speed
-    Ripple,       // colour1, speed
-    Off,          // none
-    Pulse,        // colour1
-    LineRace,     // colour1
-    WideLineRace, // colour1
+#[derive(Debug, Options)]
+pub enum SetAuraBuiltin {
+    #[options(help = "set a single static colour")]
+    Stable(Colour), // colour1
+    Breathe(Breathe), // colour1, colour2, speed
+    // Cycle,        // speed
+    // Rainbow,      // speed, direction
+    // Rain,         // colour1, speed
+    // Random,       // speed
+    // Highlight,    // colour1, speed
+    // Laser,        // colour1, speed
+    // Ripple,       // colour1, speed
+    // Off,          // none
+    #[options(help = "set a rapid pulse")]
+    Pulse(Colour), // colour1
+    #[options(help = "set a vertical line racing from left")]
+    LineRace(Colour), // colour1
+    #[options(help = "set a wide vertical line racing from left")]
+    WideLineRace(Colour), // colour1
 }
-impl Default for ModeByte {
-    fn default() -> Self {
-        ModeByte::Stable
-    }
-}
-impl FromStr for ModeByte {
-    type Err = AuraError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "stable" => Ok(ModeByte::Stable),
-            "breathe" => Ok(ModeByte::Breathe),
-            "cycle" => Ok(ModeByte::Cycle),
-            "rainbow" => Ok(ModeByte::Rainbow),
-            "rain" => Ok(ModeByte::Rain),
-            "random" => Ok(ModeByte::Random),
-            "highlight" => Ok(ModeByte::Highlight),
-            "laser" => Ok(ModeByte::Laser),
-            "ripple" => Ok(ModeByte::Ripple),
-            "off" => Ok(ModeByte::Off),
-            "pulse" => Ok(ModeByte::Pulse),
-            "linerace" => Ok(ModeByte::LineRace),
-            "widelinerace" => Ok(ModeByte::WideLineRace),
-            _ => Err(AuraError::ParseMode),
-        }
+impl Default for SetAuraBuiltin {
+    fn default() -> Self {
+        SetAuraBuiltin::Stable(Colour::default())
     }
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct BuiltInMode {
-    #[options(help = "selects from the built-in keyboard modes")]
-    mode: ModeByte,
-    #[options(help = "set the first colour if a mode uses it, must be in hex: ffffff")]
+pub struct Breathe {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(help = "set the first colour, must be hex string e.g, ff00ff")]
     colour1: Colour,
-    #[options(help = "set the second colour if a mode uses it, must be in hex: ffffff")]
+    #[options(help = "set the second colour, must be hex string e.g, ff00ff")]
     colour2: Colour,
-    #[options(help = "set the speed of an effect if a mode uses it")]
+    #[options(help = "set the speed")]
     speed: Speed,
-    #[options(help = "set the direction of an effect if a mode uses it")]
-    direction: Direction,
-}
-
-impl Default for BuiltInMode {
-    fn default() -> BuiltInMode {
-        BuiltInMode {
-            mode: ModeByte::Stable,
-            colour1: Colour(0xff, 0x00, 0x00),
-            colour2: Colour(0x00, 0x00, 0x00),
-            speed: Speed::Slow,
-            direction: Direction::Right,
-        }
-    }
 }
 
 /// Packet Data:
@@ -225,20 +208,41 @@ impl Default for BuiltInMode {
 /// Bytes 10, 11, 12 are Red, Green, Blue for second colour if mode supports it
 pub struct ModeMessage(pub [u8; LED_MSG_LEN]);
 
-impl From<BuiltInMode> for ModeMessage {
-    fn from(mode: BuiltInMode) -> Self {
+impl From<SetAuraBuiltin> for ModeMessage {
+    fn from(mode: SetAuraBuiltin) -> Self {
         let mut msg = [0u8; LED_MSG_LEN];
         msg[0] = 0x5d;
         msg[1] = 0xb3;
-        msg[3] = mode.mode as u8;
-        msg[4] = mode.colour1.0;
-        msg[5] = mode.colour1.1;
-        msg[6] = mode.colour1.2;
-        msg[7] = mode.speed as u8;
-        msg[8] = mode.direction as u8;
-        msg[10] = mode.colour2.0;
-        msg[11] = mode.colour2.1;
-        msg[12] = mode.colour2.2;
+        match mode {
+            SetAuraBuiltin::Stable(settings) => {
+                msg[3] = 0x00;
+                msg[4] = settings.red;
+                msg[5] = settings.green;
+                msg[6] = settings.blue;
+                return ModeMessage(msg);
+            }
+            SetAuraBuiltin::Breathe(settings) => {
+                msg[3] = 0x01;
+                msg[4] = settings.colour1.red;
+                msg[5] = settings.colour1.green;
+                msg[6] = settings.colour1.blue;
+                msg[7] = settings.speed as u8;
+                msg[10] = settings.colour2.red;
+                msg[11] = settings.colour2.green;
+                msg[12] = settings.colour2.blue;
+                return ModeMessage(msg);
+            }
+            _ => {}
+        }
+        // msg[3] = mode.mode as u8;
+        // msg[4] = mode.colour1.0;
+        // msg[5] = mode.colour1.1;
+        // msg[6] = mode.colour1.2;
+        // msg[7] = mode.speed as u8;
+        // msg[8] = mode.direction as u8;
+        // msg[10] = mode.colour2.0;
+        // msg[11] = mode.colour2.1;
+        // msg[12] = mode.colour2.2;
 
         ModeMessage(msg)
     }

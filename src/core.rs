@@ -1,5 +1,8 @@
+use crate::aura::AuraError;
 use crate::aura::ModeMessage;
+use gumdrop::Options;
 use rusb::{DeviceHandle, Error};
+use std::str::FromStr;
 use std::time::Duration;
 
 pub const LED_MSG_LEN: usize = 17;
@@ -30,6 +33,27 @@ static LED_SPECIAL: [u8; 64] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
+#[derive(Debug, Options)]
+pub struct LedBrightness {
+    pub level: u8,
+}
+impl FromStr for LedBrightness {
+    type Err = AuraError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_lowercase();
+        match s.as_str() {
+            "off" => Ok(LedBrightness { level: 0x00 }),
+            "low" => Ok(LedBrightness { level: 0x01 }),
+            "med" => Ok(LedBrightness { level: 0x02 }),
+            "high" => Ok(LedBrightness { level: 0x03 }),
+            _ => {
+                println!("Missing required argument, must be one of:\noff,low,med,high\n");
+                Err(AuraError::ParseSpeed)
+            }
+        }
+    }
+}
 
 /// ROG device controller
 ///

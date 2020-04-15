@@ -1,54 +1,53 @@
 mod aura;
 mod core;
 
-use crate::aura::{BuiltInMode, ModeMessage};
-use crate::core::RogCore;
-use gumdrop::{Options, ParsingStyle};
-use std::env;
+use crate::aura::*;
+use crate::core::{LedBrightness, RogCore};
+use gumdrop::Options;
 
 #[derive(Debug, Options)]
 struct CLIStart {
-    #[options(command, required)]
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(help = "<off,low,med,high>")]
+    bright: Option<LedBrightness>,
+    #[options(command)]
     command: Option<Command>,
 }
 
 #[derive(Debug, Options)]
 enum Command {
-    #[options(help = "show help for a command (eg: help aura)")]
-    Help(FreeOptions),
     #[options(help = "Set the keyboard lighting from built-in modes")]
-    LedMode(BuiltInMode),
+    LedMode(LedModeCommand),
 }
 
 #[derive(Debug, Options)]
-struct FreeOptions {
-    #[options(free)]
-    free: Vec<String>,
+struct LedModeCommand {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(command, required)]
+    command: Option<SetAuraBuiltin>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    match CLIStart::parse_args(&args[1..], ParsingStyle::AllOptions) {
-        Ok(okk) => {
-            dbg!(&okk);
-            match okk.command {
-                Some(Command::Help(help)) => {
-                    if help.free.contains(&"aura".to_string()) {
-                        println!("\n{}", BuiltInMode::usage())
-                    }
-                }
-                Some(Command::LedMode(aura)) => {
-                    let mut core = RogCore::new()?;
-                    let mode = ModeMessage::from(aura);
-                    core.aura_set_mode(mode)?;
-                }
-                None => {}
+    let parsed = CLIStart::parse_args_default_or_exit();
+    match parsed.command {
+        Some(Command::LedMode(okk)) => match okk.command {
+            Some(command) => {
+                let mut core = RogCore::new()?;
+                let mode = ModeMessage::from(command);
+                core.aura_set_mode(mode)?;
             }
+            _ => {}
+        },
+        _ => {}
+    }
+    match parsed.bright {
+        Some(brightness) => {
+            let mut core = RogCore::new()?;
+            core.aura_set_brightness(brightness.level as u8)?;
         }
-        Err(err) => {
-            println!("\n{}", err);
-            println!("\nUsage:\n{}", Command::usage());
-        }
+        _ => {}
     }
 
     //core.aura_set_brightness(3)?;
