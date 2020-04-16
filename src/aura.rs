@@ -81,15 +81,12 @@ impl FromStr for Direction {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct Breathe {
+pub(crate) struct TwoColourSpeed {
     #[options(help = "print help message")]
     help: bool,
-    #[options(no_long, help = "set the first colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, meta = "HEX", help = "set the first RGB value e.g, ff00ff")]
     colour: Colour,
-    #[options(
-        no_long,
-        help = "set the second colour, must be hex string e.g, ff00ff"
-    )]
+    #[options(no_long, meta = "HEX", help = "set the second RGB value e.g, ff00ff")]
     colour2: Colour,
     #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
@@ -99,7 +96,7 @@ pub(crate) struct Breathe {
 pub(crate) struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
-    #[options(no_long, help = "set the speed: low, med, high")]
+    #[options(no_long, meta = "WORD", help = "set the speed: low, med, high")]
     speed: Speed,
 }
 
@@ -107,7 +104,7 @@ pub(crate) struct SingleSpeed {
 pub(crate) struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
-    #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
     colour: Colour,
 }
 
@@ -115,7 +112,11 @@ pub(crate) struct SingleColour {
 pub(crate) struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
-    #[options(no_long, help = "set the direction: up, down, left, right")]
+    #[options(
+        no_long,
+        meta = "DIR",
+        help = "set the direction: up, down, left, right"
+    )]
     direction: Direction,
     #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
@@ -125,7 +126,7 @@ pub(crate) struct SingleSpeedDirection {
 pub(crate) struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
-    #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
+    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
     colour: Colour,
     #[options(no_long, help = "set the speed: low, med, high")]
     speed: Speed,
@@ -139,7 +140,7 @@ pub(crate) enum SetAuraBuiltin {
     #[options(help = "set a single static colour")]
     Stable(SingleColour),
     #[options(help = "pulse between one or two colours")]
-    Breathe(Breathe),
+    Breathe(TwoColourSpeed),
     #[options(help = "cycle through all colours")]
     Cycle(SingleSpeed),
     #[options(help = "rainbow cycling in one of four directions")]

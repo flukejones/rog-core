@@ -21,7 +21,7 @@ struct CLIStart {
     daemon: bool,
     #[options(help = "client mode")]
     client: bool,
-    #[options(help = "<off, low, med, high>")]
+    #[options(meta = "VAL", help = "<off, low, med, high>")]
     bright: Option<LedBrightness>,
     #[options(command)]
     command: Option<Command>,

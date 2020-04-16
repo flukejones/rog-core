@@ -163,7 +163,7 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 
 [[package]]
 name = "rog-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dbus",
  "gumdrop",
