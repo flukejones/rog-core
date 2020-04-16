@@ -43,15 +43,20 @@ Some commands may have subcommands:
 rog-core <command> <subcommand> --help
 ```
 
+## Daemon mode
+
+Currently the last used brightness and builtin mode will be saved when set, and loaded when the daemon is started. The effect here is the last settings used are the ones loaded on boot.
+
 ## Implemented
 
 - [X] Setting/modifying built-in LED modes
 - [ ] Per-key LED setting
 - [ ] Fancy LED modes (custom programs)
 - [X] Daemon mode (functionally done)
-- [ ] Saving settings for reload (CLI and daemon mode)
+- [X] Saving settings for reload (needs further work)
 - [ ] System control
 - [ ] Capture and use hotkeys, e.g, Aura controls to control LEDs
+- [ ] Logging - required for journalctl
 
 ## Wireshark captures
 

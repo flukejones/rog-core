@@ -1,6 +1,6 @@
 [package]
 name = "rog-core"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Luke <luke@ljones.dev>"]
 edition = "2018"
 
@@ -8,3 +8,6 @@ edition = "2018"
 rusb = "0.5"
 gumdrop = "0.8"
 dbus = "0.7.1"
+serde = "1.0"
+serde_derive = "1.0"
+toml = "0.5"

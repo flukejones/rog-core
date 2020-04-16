@@ -127,6 +127,7 @@ impl RogCore {
     }
 
     pub fn aura_brightness_bytes(brightness: u8) -> Result<[u8; 17], Error> {
+        // TODO: check brightness range
         let mut bright = [0u8; LED_MSG_LEN];
         bright[0] = 0x5a;
         bright[1] = 0xba;
