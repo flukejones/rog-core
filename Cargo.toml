@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 rusb = "0.5"
 gumdrop = "0.8"
+dbus = "0.7.1"

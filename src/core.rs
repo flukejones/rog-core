@@ -1,5 +1,7 @@
-use crate::aura::AuraError;
-use crate::aura::ModeMessage;
+use crate::error::AuraError;
+use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use dbus::Error as DbusError;
+use dbus::{ffidisp::Connection, Message};
 use gumdrop::Options;
 use rusb::{DeviceHandle, Error};
 use std::str::FromStr;
@@ -17,7 +19,7 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 #[derive(Debug, Options)]
-pub struct LedBrightness {
+pub(crate) struct LedBrightness {
     pub level: u8,
 }
 impl FromStr for LedBrightness {
@@ -47,7 +49,7 @@ impl FromStr for LedBrightness {
 /// - `LED_INIT4`
 /// - `LED_INIT2`
 /// - `LED_INIT4`
-pub struct RogCore {
+pub(crate) struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_interface_num: u8,
@@ -96,7 +98,7 @@ impl RogCore {
         Err(Error::NoDevice)
     }
 
-    fn aura_write_messages(&mut self, messages: &[[u8; LED_MSG_LEN]]) -> Result<(), Error> {
+    fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), Error> {
         self.handle.claim_interface(self.led_interface_num)?;
         // Declared as a zoomy so that it is hidden
         let write = |message: &[u8]| {
@@ -114,7 +116,7 @@ impl RogCore {
 
         for message in messages {
             println!("{:x?}", &message);
-            write(message)?;
+            write(*message)?;
             write(&LED_SET)?;
         }
         // Changes won't persist unless apply is set
@@ -124,19 +126,31 @@ impl RogCore {
         Ok(())
     }
 
-    pub fn aura_set_brightness(&mut self, brightness: u8) -> Result<(), Error> {
+    pub fn aura_brightness_bytes(brightness: u8) -> Result<[u8; 17], Error> {
         let mut bright = [0u8; LED_MSG_LEN];
         bright[0] = 0x5a;
         bright[1] = 0xba;
         bright[2] = 0xc5;
         bright[3] = 0xc4;
         bright[4] = brightness;
-        let messages = [bright];
-        self.aura_write_messages(&messages)
+        Ok(bright)
     }
 
-    pub fn aura_set_mode(&mut self, mode: ModeMessage) -> Result<(), Error> {
-        let messages = [mode.0];
+    pub fn aura_set_mode(&mut self, mode: &[u8]) -> Result<(), Error> {
+        let messages = [mode];
         self.aura_write_messages(&messages)
     }
+}
+
+pub(super) fn dbus_led_builtin_write(bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    let bus = Connection::new_system()?;
+    //let proxy = bus.with_proxy(DBUS_IFACE, "/", Duration::from_millis(5000));
+    let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledmessage")?
+        .append1(bytes.to_vec());
+    let r = bus.send_with_reply_and_block(msg, 5000)?;
+    if let Some(reply) = r.get1::<&str>() {
+        println!("Daemon sez: {}", reply);
+        return Ok(());
+    }
+    Err(Box::new(DbusError::new_custom("name", "message")))
 }

@@ -1,45 +1,11 @@
 use crate::core::LED_MSG_LEN;
+use crate::error::AuraError;
 use gumdrop::Options;
-use std::error::Error;
-use std::fmt;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::str::FromStr;
 
-#[derive(PartialEq)]
-pub enum AuraError {
-    ParseColour,
-    ParseSpeed,
-    ParseDirection,
-    ParseBrightness,
-}
-
-impl Debug for AuraError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(self.description(), f)
-    }
-}
-
-impl Display for AuraError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(self.description(), f)
-    }
-}
-
-impl Error for AuraError {
-    fn description(&self) -> &str {
-        match self {
-            AuraError::ParseColour => "could not parse colour",
-            AuraError::ParseSpeed => "could not parse speed",
-            AuraError::ParseDirection => "could not parse direction",
-            AuraError::ParseBrightness => "could not parse brightness",
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
-pub struct Colour(u8, u8, u8);
+pub(crate) struct Colour(u8, u8, u8);
 impl Default for Colour {
     fn default() -> Self {
         Colour(255, 0, 0)
@@ -60,7 +26,7 @@ impl FromStr for Colour {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Speed {
+pub(crate) enum Speed {
     Low = 0xe1,
     Med = 0xeb,
     High = 0xf5,
@@ -88,7 +54,7 @@ impl FromStr for Speed {
 ///
 /// Enum corresponds to the required integer value
 #[derive(Debug, PartialEq)]
-pub enum Direction {
+pub(crate) enum Direction {
     Right,
     Left,
     Up,
@@ -115,7 +81,7 @@ impl FromStr for Direction {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct Breathe {
+pub(crate) struct Breathe {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, help = "set the first colour, must be hex string e.g, ff00ff")]
@@ -130,7 +96,7 @@ pub struct Breathe {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct SingleSpeed {
+pub(crate) struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, help = "set the speed: low, med, high")]
@@ -138,7 +104,7 @@ pub struct SingleSpeed {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct SingleColour {
+pub(crate) struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
@@ -146,7 +112,7 @@ pub struct SingleColour {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct SingleSpeedDirection {
+pub(crate) struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, help = "set the direction: up, down, left, right")]
@@ -156,7 +122,7 @@ pub struct SingleSpeedDirection {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub struct SingleColourSpeed {
+pub(crate) struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, help = "set the colour, must be hex string e.g, ff00ff")]
@@ -169,7 +135,7 @@ pub struct SingleColourSpeed {
 ///
 /// Enum corresponds to the required integer value
 #[derive(Debug, Options)]
-pub enum SetAuraBuiltin {
+pub(crate) enum SetAuraBuiltin {
     #[options(help = "set a single static colour")]
     Stable(SingleColour),
     #[options(help = "pulse between one or two colours")]
@@ -247,7 +213,7 @@ impl Default for SetAuraBuiltin {
 /// - 0x03 = downwards
 ///
 /// Bytes 10, 11, 12 are Red, Green, Blue for second colour if mode supports it
-pub struct ModeMessage(pub [u8; LED_MSG_LEN]);
+pub(crate) struct ModeMessage(pub [u8; LED_MSG_LEN]);
 
 impl From<SetAuraBuiltin> for ModeMessage {
     fn from(mode: SetAuraBuiltin) -> Self {

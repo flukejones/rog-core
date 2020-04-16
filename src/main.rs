@@ -1,15 +1,26 @@
 // TODO: use /sys/class/dmi/id/board_name to detect model
 mod aura;
 mod core;
+mod daemon;
+mod error;
 
 use crate::aura::*;
-use crate::core::{LedBrightness, RogCore};
+use crate::core::{dbus_led_builtin_write, LedBrightness, RogCore};
+use crate::daemon::*;
 use gumdrop::Options;
+
+pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
+pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
+pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
 
 #[derive(Debug, Options)]
 struct CLIStart {
     #[options(help = "print help message")]
     help: bool,
+    #[options(help = "start daemon")]
+    daemon: bool,
+    #[options(help = "client mode")]
+    client: bool,
     #[options(help = "<off, low, med, high>")]
     bright: Option<LedBrightness>,
     #[options(command)]
@@ -32,12 +43,20 @@ struct LedModeCommand {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let parsed = CLIStart::parse_args_default_or_exit();
+    if parsed.daemon {
+        start_daemon()?;
+    }
+
     match parsed.command {
         Some(Command::LedMode(okk)) => match okk.command {
             Some(command) => {
-                let mut core = RogCore::new()?;
                 let mode = ModeMessage::from(command);
-                core.aura_set_mode(mode)?;
+                if parsed.client {
+                    dbus_led_builtin_write(&mode.0)?;
+                } else {
+                    let mut core = RogCore::new()?;
+                    core.aura_set_mode(&mode.0)?;
+                }
             }
             _ => {}
         },
@@ -45,8 +64,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     match parsed.bright {
         Some(brightness) => {
-            let mut core = RogCore::new()?;
-            core.aura_set_brightness(brightness.level as u8)?;
+            let bytes = RogCore::aura_brightness_bytes(brightness.level as u8)?;
+            if parsed.client {
+                dbus_led_builtin_write(&bytes)?;
+            } else {
+                let mut core = RogCore::new()?;
+                core.aura_set_mode(&bytes)?;
+            }
         }
         _ => {}
     }
