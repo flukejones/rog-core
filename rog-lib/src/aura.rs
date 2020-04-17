@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Colour(u8, u8, u8);
+pub struct Colour(u8, u8, u8);
 impl Default for Colour {
     fn default() -> Self {
         Colour(255, 0, 0)
@@ -26,7 +26,7 @@ impl FromStr for Colour {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Speed {
+pub enum Speed {
     Low = 0xe1,
     Med = 0xeb,
     High = 0xf5,
@@ -54,7 +54,7 @@ impl FromStr for Speed {
 ///
 /// Enum corresponds to the required integer value
 #[derive(Debug, PartialEq)]
-pub(crate) enum Direction {
+pub enum Direction {
     Right,
     Left,
     Up,
@@ -81,7 +81,7 @@ impl FromStr for Direction {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct TwoColourSpeed {
+pub struct TwoColourSpeed {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, meta = "HEX", help = "set the first RGB value e.g, ff00ff")]
@@ -93,7 +93,7 @@ pub(crate) struct TwoColourSpeed {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct SingleSpeed {
+pub struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, meta = "WORD", help = "set the speed: low, med, high")]
@@ -101,7 +101,7 @@ pub(crate) struct SingleSpeed {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct SingleColour {
+pub struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
@@ -109,7 +109,7 @@ pub(crate) struct SingleColour {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct SingleSpeedDirection {
+pub struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
     #[options(
@@ -123,7 +123,7 @@ pub(crate) struct SingleSpeedDirection {
 }
 
 #[derive(Debug, PartialEq, Options)]
-pub(crate) struct SingleColourSpeed {
+pub struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
     #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
@@ -136,7 +136,7 @@ pub(crate) struct SingleColourSpeed {
 ///
 /// Enum corresponds to the required integer value
 #[derive(Debug, Options)]
-pub(crate) enum SetAuraBuiltin {
+pub enum SetAuraBuiltin {
     #[options(help = "set a single static colour")]
     Stable(SingleColour),
     #[options(help = "pulse between one or two colours")]
@@ -214,9 +214,7 @@ impl Default for SetAuraBuiltin {
 /// - 0x03 = downwards
 ///
 /// Bytes 10, 11, 12 are Red, Green, Blue for second colour if mode supports it
-pub(crate) struct ModeMessage(pub [u8; LED_MSG_LEN]);
-
-impl From<SetAuraBuiltin> for ModeMessage {
+impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
     fn from(mode: SetAuraBuiltin) -> Self {
         let mut msg = [0u8; LED_MSG_LEN];
         msg[0] = 0x5d;
@@ -293,6 +291,6 @@ impl From<SetAuraBuiltin> for ModeMessage {
                 msg[6] = settings.colour.2;
             }
         }
-        ModeMessage(msg)
+        msg
     }
 }

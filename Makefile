@@ -7,7 +7,7 @@ includedir = $(prefix)/include
 datarootdir = $(prefix)/share
 datadir = $(datarootdir)
 
-SRC = Cargo.toml Cargo.lock Makefile $(shell find src -type f -wholename '*src/*.rs')
+SRC = Cargo.toml Cargo.lock Makefile $(shell find src -type f -wholename '*/*src/*.rs')
 
 .PHONY: all clean distclean install uninstall update
 

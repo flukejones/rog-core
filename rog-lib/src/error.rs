@@ -3,11 +3,12 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 
 #[derive(PartialEq)]
-pub(crate) enum AuraError {
+pub enum AuraError {
     ParseColour,
     ParseSpeed,
     ParseDirection,
     ParseBrightness,
+    PollKeyboard,
 }
 
 impl Debug for AuraError {
@@ -31,6 +32,7 @@ impl Error for AuraError {
             AuraError::ParseSpeed => "could not parse speed",
             AuraError::ParseDirection => "could not parse direction",
             AuraError::ParseBrightness => "could not parse brightness",
+            AuraError::PollKeyboard => "failed to poll keyboard",
         }
     }
 }

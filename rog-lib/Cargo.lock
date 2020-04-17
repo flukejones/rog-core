@@ -86,9 +86,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.69"
+version = "0.2.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
+checksum = "dea0c0405123bba743ee3f91f49b1c7cfb684eef0da0a50110f758ccf24cdff0"
 
 [[package]]
 name = "libdbus-sys"
@@ -167,20 +167,10 @@ version = "0.3.1"
 dependencies = [
  "dbus",
  "gumdrop",
- "rog-lib",
- "serde",
- "serde_derive",
- "toml",
-]
-
-[[package]]
-name = "rog-lib"
-version = "0.3.1"
-dependencies = [
- "gumdrop",
  "rusb",
  "serde",
  "serde_derive",
+ "toml",
 ]
 
 [[package]]

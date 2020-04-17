@@ -1,7 +1,4 @@
 use crate::error::AuraError;
-use crate::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
-use dbus::Error as DbusError;
-use dbus::{ffidisp::Connection, Message};
 use gumdrop::Options;
 use rusb::{DeviceHandle, Error};
 use std::str::FromStr;
@@ -19,8 +16,13 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 #[derive(Debug, Options)]
-pub(crate) struct LedBrightness {
-    pub level: u8,
+pub struct LedBrightness {
+    level: u8,
+}
+impl LedBrightness {
+    pub fn level(&self) -> u8 {
+        self.level
+    }
 }
 impl FromStr for LedBrightness {
     type Err = AuraError;
@@ -49,7 +51,7 @@ impl FromStr for LedBrightness {
 /// - `LED_INIT4`
 /// - `LED_INIT2`
 /// - `LED_INIT4`
-pub(crate) struct RogCore {
+pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_interface_num: u8,
@@ -141,17 +143,23 @@ impl RogCore {
         let messages = [mode];
         self.aura_write_messages(&messages)
     }
-}
 
-pub(super) fn dbus_led_builtin_write(bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let bus = Connection::new_system()?;
-    //let proxy = bus.with_proxy(DBUS_IFACE, "/", Duration::from_millis(5000));
-    let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledmessage")?
-        .append1(bytes.to_vec());
-    let r = bus.send_with_reply_and_block(msg, 5000)?;
-    if let Some(reply) = r.get1::<&str>() {
-        println!("Daemon sez: {}", reply);
-        return Ok(());
+    pub fn poll_keyboard(&mut self) -> Result<[u8; 32], Error> {
+        self.handle.claim_interface(self.keys_interface_num)?;
+
+        let mut buf = [0; 32];
+        match self
+            .handle
+            .read_interrupt(0x83, &mut buf, Duration::from_micros(10))
+        {
+            Ok(_) => {
+                self.handle.release_interface(self.keys_interface_num)?;
+                Ok(buf)
+            }
+            Err(err) => match err {
+                //Error::Timeout => {}
+                _ => return Err(err),
+            },
+        }
     }
-    Err(Box::new(DbusError::new_custom("name", "message")))
 }

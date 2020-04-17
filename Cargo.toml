@@ -1,13 +1,20 @@
-[package]
-name = "rog-core"
-version = "0.3.1"
-authors = ["Luke <luke@ljones.dev>"]
-edition = "2018"
+[workspace]
+members = ["rog-core", "rog-lib"]
 
-[dependencies]
-rusb = "0.5"
-gumdrop = "0.8"
-dbus = "0.7.1"
-serde = "1.0"
-serde_derive = "1.0"
-toml = "0.5"
+[profile.release]
+lto = true
+debug = false
+opt-level = 3
+#panic = "abort"
+
+[profile.dev]
+lto = true
+debug = true
+opt-level = 2
+#panic = "abort"
+
+[profile.bench]
+lto = true
+debug = false
+opt-level = 3
+

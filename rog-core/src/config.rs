@@ -1,7 +1,5 @@
-use crate::{
-    aura::{ModeMessage, SetAuraBuiltin},
-    CONFIG_PATH,
-};
+use crate::CONFIG_PATH;
+use rog_lib::{aura::SetAuraBuiltin, core::LED_MSG_LEN};
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -27,7 +25,7 @@ impl Config {
                 let d = SetAuraBuiltin::default();
                 let c = Config {
                     brightness: 1u8,
-                    builtin: ModeMessage::from(d).0.to_vec(),
+                    builtin: (<[u8; LED_MSG_LEN]>::from(d)).to_vec(),
                 };
                 let toml = toml::to_string(&c).unwrap();
                 file.write_all(toml.as_bytes())
