@@ -4,21 +4,18 @@ use dbus::{
     tree::{Factory, MethodErr},
 };
 use rog_lib::core::RogCore;
-use rog_lib::hotkeys::*;
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Daemon {
     rogcore: RogCore,
-    hotkeys: Box<dyn Laptop>,
 }
 
 impl Daemon {
     pub fn new() -> Self {
         Daemon {
             rogcore: RogCore::new().expect("Could not start RogCore"),
-            hotkeys: Box::new(LaptopGX502GW::new()),
         }
     }
 
@@ -46,10 +43,8 @@ impl Daemon {
                                     let bytes: Vec<u8> = m.msg.read1()?;
                                     let s = format!("Wrote {:x?}", bytes);
 
-                                    let supported =
-                                        unsafe { (*daemon.as_ptr()).hotkeys.supported_modes() };
-                                    let mut daemon = daemon.borrow_mut();
-                                    match daemon.rogcore.aura_set_and_save(&bytes[..], supported) {
+                                    match daemon.borrow_mut().rogcore.aura_set_and_save(&bytes[..])
+                                    {
                                         Ok(_) => {
                                             let mret = m.msg.method_return().append1(s);
                                             Ok(vec![mret])
@@ -73,14 +68,17 @@ impl Daemon {
             connection.process(Duration::from_millis(1))?;
             // READ KEYBOARD
             // TODO: this needs to move to a thread, but there is unsafety
-            match daemon.borrow_mut().rogcore.poll_keyboard(&mut key_buf) {
+            let borrowed_daemon = daemon.borrow();
+            match borrowed_daemon.rogcore.poll_keyboard(&mut key_buf) {
                 Ok(read) => {
-                    let hotkeys = unsafe { &mut (*daemon.as_ptr()).hotkeys };
+                    // Doing this because the Laptop trait takes RogCore, but RogCore contains laptop
+                    // and this makes the borrow checker unhappy, but it's safe for this
                     let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
+                    let laptop = borrowed_daemon.rogcore.laptop();
 
                     if let Some(_count) = read {
-                        if key_buf[0] == hotkeys.hotkey_group_byte() {
-                            hotkeys.do_hotkey_action(&mut rogcore, key_buf[1]);
+                        if key_buf[0] == laptop.hotkey_group_byte() {
+                            laptop.do_hotkey_action(&mut rogcore, key_buf[1]);
                         }
                     }
                 }

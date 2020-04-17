@@ -4,4 +4,4 @@ pub mod cli_options;
 pub mod config;
 pub mod core;
 mod error;
-pub mod hotkeys;
+pub mod laptops;

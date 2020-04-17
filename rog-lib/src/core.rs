@@ -1,8 +1,7 @@
-use crate::aura::BuiltInModeByte;
-use crate::config::Config;
-use crate::error::AuraError;
+use crate::{aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*};
 use gumdrop::Options;
 use rusb::{DeviceHandle, Error};
+use std::cell::{Ref, RefCell};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -57,19 +56,22 @@ pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_interface_num: u8,
-    pub config: Config,
+    config: Config,
+    laptop: RefCell<Box<dyn Laptop>>,
 }
 
 impl RogCore {
     pub fn new() -> Result<RogCore, Error> {
-        // TODO: make this more configurable
-        let mut handle = RogCore::get_device(0x0B05, 0x1866)?;
-        handle.set_active_configuration(0).unwrap_or(());
+        // TODO: use /sys/class/dmi/id/board_name to detect model
+        let laptop = LaptopGX502GW::new();
 
-        let config = handle.device().config_descriptor(0).unwrap();
+        let mut dev_handle = RogCore::get_device(laptop.usb_vendor(), laptop.usb_product())?;
+        dev_handle.set_active_configuration(0).unwrap_or(());
+
+        let dev_config = dev_handle.device().config_descriptor(0).unwrap();
         // Interface with outputs
         let mut led_interface_num = 0;
-        for iface in config.interfaces() {
+        for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
                     if endpoint.address() == 0x81 {
@@ -80,14 +82,27 @@ impl RogCore {
             }
         }
 
-        handle.set_auto_detach_kernel_driver(true).unwrap();
+        dev_handle.set_auto_detach_kernel_driver(true).unwrap();
 
         Ok(RogCore {
-            handle,
+            handle: dev_handle,
             initialised: false,
             led_interface_num,
             config: Config::default().read(),
+            laptop: RefCell::new(Box::new(laptop)),
         })
+    }
+
+    pub fn laptop(&self) -> Ref<Box<dyn Laptop>> {
+        self.laptop.borrow()
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    pub fn config_mut(&mut self) -> &mut Config {
+        &mut self.config
     }
 
     fn get_device(vendor: u16, product: u16) -> Result<DeviceHandle<rusb::GlobalContext>, Error> {
@@ -138,13 +153,9 @@ impl RogCore {
         Ok(bright)
     }
 
-    pub fn aura_set_and_save(
-        &mut self,
-        bytes: &[u8],
-        supported: &[BuiltInModeByte],
-    ) -> Result<(), Error> {
+    pub fn aura_set_and_save(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let mode = BuiltInModeByte::from(bytes[3]);
-        if supported.contains(&mode) || bytes[1] == 0xba {
+        if self.laptop().supported_modes().contains(&mode) || bytes[1] == 0xba {
             let messages = [bytes];
             self.aura_write_messages(&messages)?;
             self.config.set_field_from(bytes);
@@ -163,7 +174,7 @@ impl RogCore {
     //     Ok(())
     // }
 
-    pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, Error> {
+    pub fn poll_keyboard(&self, buf: &mut [u8; 32]) -> Result<Option<usize>, Error> {
         match self
             .handle
             .read_interrupt(0x83, buf, Duration::from_micros(10))

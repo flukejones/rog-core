@@ -1,4 +1,3 @@
-// TODO: use /sys/class/dmi/id/board_name to detect model
 mod daemon;
 
 use crate::daemon::*;
