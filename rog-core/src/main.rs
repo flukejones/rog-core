@@ -1,5 +1,4 @@
 // TODO: use /sys/class/dmi/id/board_name to detect model
-mod config;
 mod daemon;
 
 use crate::daemon::*;
@@ -12,7 +11,6 @@ use rog_lib::core::{LedBrightness, RogCore, LED_MSG_LEN};
 pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
 pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
 pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
-pub static CONFIG_PATH: &'static str = "/etc/rogcore.conf";
 
 #[derive(Debug, Options)]
 struct CLIStart {

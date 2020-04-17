@@ -1,11 +1,12 @@
-use crate::CONFIG_PATH;
-use rog_lib::{aura::SetAuraBuiltin, core::LED_MSG_LEN};
+use crate::{aura::SetAuraBuiltin, core::LED_MSG_LEN};
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 
+pub static CONFIG_PATH: &'static str = "/etc/rogcore.conf";
+
 #[derive(Default, Deserialize, Serialize)]
-pub(crate) struct Config {
+pub struct Config {
     pub brightness: u8,
     pub builtin: Vec<u8>,
 }

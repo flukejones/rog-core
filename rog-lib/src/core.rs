@@ -55,38 +55,34 @@ pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_interface_num: u8,
-    keys_interface_num: u8,
 }
 
 impl RogCore {
     pub fn new() -> Result<RogCore, Error> {
+        // TODO: make this more configurable
         let mut handle = RogCore::get_device(0x0B05, 0x1866)?;
         handle.set_active_configuration(0).unwrap_or(());
 
         let config = handle.device().config_descriptor(0).unwrap();
         // Interface with outputs
-        let mut keys_interface_num = 0;
         let mut led_interface_num = 0;
         for iface in config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == 0x83 {
-                        keys_interface_num = desc.interface_number();
-                    } else if endpoint.address() == 0x81 {
+                    if endpoint.address() == 0x81 {
                         led_interface_num = desc.interface_number();
+                        break;
                     }
                 }
             }
         }
 
         handle.set_auto_detach_kernel_driver(true).unwrap();
-        handle.set_auto_detach_kernel_driver(true).unwrap();
 
         Ok(RogCore {
             handle,
             initialised: false,
             led_interface_num,
-            keys_interface_num,
         })
     }
 
@@ -144,22 +140,21 @@ impl RogCore {
         self.aura_write_messages(&messages)
     }
 
-    pub fn poll_keyboard(&mut self) -> Result<[u8; 32], Error> {
-        self.handle.claim_interface(self.keys_interface_num)?;
-
-        let mut buf = [0; 32];
+    pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, Error> {
         match self
             .handle
-            .read_interrupt(0x83, &mut buf, Duration::from_micros(10))
+            .read_interrupt(0x83, buf, Duration::from_micros(10))
         {
-            Ok(_) => {
-                self.handle.release_interface(self.keys_interface_num)?;
-                Ok(buf)
+            Ok(o) => {
+                if buf[0] == 0x5a {
+                    return Ok(Some(o));
+                }
             }
             Err(err) => match err {
                 //Error::Timeout => {}
                 _ => return Err(err),
             },
         }
+        Ok(None)
     }
 }

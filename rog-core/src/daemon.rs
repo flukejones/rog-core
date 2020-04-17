@@ -1,15 +1,17 @@
-use crate::{config::Config, DBUS_IFACE, DBUS_PATH};
+use crate::{DBUS_IFACE, DBUS_PATH};
 use dbus::{
     blocking::Connection,
     tree::{Factory, MethodErr},
 };
-use rog_lib::core::RogCore;
+use rog_lib::hotkeys::*;
+use rog_lib::{config::Config, core::RogCore};
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct Daemon {
     rogcore: RogCore,
+    hotkeys: Box<dyn Laptop>,
     config: Config,
 }
 
@@ -17,6 +19,7 @@ impl Daemon {
     pub fn new() -> Self {
         Daemon {
             rogcore: RogCore::new().expect("Could not start RogCore"),
+            hotkeys: Box::new(LaptopGX502GW::new()),
             config: Config::default().read(),
         }
     }
@@ -83,17 +86,14 @@ impl Daemon {
         // We add the tree to the connection so that incoming method calls will be handled.
         tree.start_receive(&connection);
 
+        let mut key_buf = [0u8; 32];
         loop {
-            connection.process(Duration::from_millis(5))?;
+            connection.process(Duration::from_millis(1))?;
             // READ KEYBOARD
-            // TODO: this needs to move to a thread
-            match daemon.borrow_mut().rogcore.poll_keyboard() {
-                Ok(buf) => {
-                    // [5d, 1, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] up
-                    // [5d, 1, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] down
-                    // [5d, 1, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] left
-                    // [5d, 1, 0, 0, 4f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] right
+            // TODO: this needs to move to a thread, but there is unsafety
 
+            match daemon.borrow_mut().rogcore.poll_keyboard(&mut key_buf) {
+                Ok(read) => {
                     // [5a, c4, ; 32 bytes long] fn+up
                     // [5a, c5, ; 32 bytes long] fn+down
                     // [5a, b2, ; 32 bytes long] fn+left
@@ -103,7 +103,15 @@ impl Daemon {
                     // read config + inc/dec brightness byte
                     // write to aura
                     // write config
-                    println!("{:x?}", buf);
+                    let hotkeys = unsafe { &mut (*daemon.as_ptr()).hotkeys };
+                    let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
+                    let mut config = unsafe { &mut (*daemon.as_ptr()).config };
+
+                    if let Some(_count) = read {
+                        if key_buf[0] == hotkeys.hotkey_group_byte() {
+                            hotkeys.do_hotkey_action(&mut rogcore, &mut config, key_buf[1]);
+                        }
+                    }
                 }
                 Err(err) => println!("{:?}", err),
             }
