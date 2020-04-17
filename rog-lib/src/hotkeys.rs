@@ -1,8 +1,7 @@
-use crate::config::Config;
 use crate::core::RogCore;
 
 pub trait Laptop {
-    fn do_hotkey_action(&self, core: &mut RogCore, config: &mut Config, key_byte: u8);
+    fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8);
     fn hotkey_group_byte(&self) -> u8;
 }
 pub struct LaptopGX502GW {
@@ -20,30 +19,58 @@ impl LaptopGX502GW {
     }
 }
 impl Laptop for LaptopGX502GW {
-    fn do_hotkey_action(&self, core: &mut RogCore, config: &mut Config, key_byte: u8) {
+    fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) {
         match GX502GWKeys::from(key_byte) {
             GX502GWKeys::Rog => {
                 println!("ROG!");
             }
             GX502GWKeys::LedBrightUp => {
-                let mut bright = config.brightness;
+                let mut bright = rogcore.config.brightness;
                 if bright < self.max_bright {
                     bright += 1;
-                    config.brightness = bright;
+                    rogcore.config.brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                core.aura_set_mode(&bytes).unwrap();
-                config.write();
+                rogcore.aura_set_and_save(&bytes).unwrap();
+                rogcore.config.write();
             }
             GX502GWKeys::LedBrightDown => {
-                let mut bright = config.brightness;
+                let mut bright = rogcore.config.brightness;
                 if bright > self.min_bright {
                     bright -= 1;
-                    config.brightness = bright;
+                    rogcore.config.brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                core.aura_set_mode(&bytes).unwrap();
-                config.write();
+                rogcore.aura_set_and_save(&bytes).unwrap();
+                rogcore.config.write();
+            }
+            GX502GWKeys::AuraNext => {
+                let mut mode = rogcore.config.current_mode[3] + 1;
+                if mode > 0x0c {
+                    mode = 0x00
+                } else if mode == 0x09 {
+                    mode = 0x0a
+                }
+                rogcore.config.current_mode[3] = mode;
+                if let Some(bytes) = rogcore.config.get_current() {
+                    rogcore.aura_set_and_save(&bytes).unwrap();
+                    rogcore.config.write();
+                }
+            }
+            GX502GWKeys::AuraPrevious => {
+                let mut mode = rogcore.config.current_mode[3];
+                if mode == 0x00 {
+                    mode = 0x0c
+                } else if mode - 1 == 0x09 {
+                    mode = 0x08
+                } else {
+                    mode -= 1;
+                }
+                rogcore.config.current_mode[3] = mode;
+                if let Some(bytes) = rogcore.config.get_current() {
+                    rogcore.aura_set_and_save(&bytes).unwrap();
+                    rogcore.config.write();
+                }
             }
             _ => println!("{:X?}", key_byte),
         }

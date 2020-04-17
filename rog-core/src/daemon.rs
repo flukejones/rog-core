@@ -3,8 +3,8 @@ use dbus::{
     blocking::Connection,
     tree::{Factory, MethodErr},
 };
+use rog_lib::core::RogCore;
 use rog_lib::hotkeys::*;
-use rog_lib::{config::Config, core::RogCore};
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
@@ -12,7 +12,6 @@ use std::{cell::RefCell, rc::Rc};
 pub struct Daemon {
     rogcore: RogCore,
     hotkeys: Box<dyn Laptop>,
-    config: Config,
 }
 
 impl Daemon {
@@ -20,25 +19,7 @@ impl Daemon {
         Daemon {
             rogcore: RogCore::new().expect("Could not start RogCore"),
             hotkeys: Box::new(LaptopGX502GW::new()),
-            config: Config::default().read(),
         }
-    }
-
-    pub fn load_config(mut self) -> Result<Self, Box<dyn Error>> {
-        self.rogcore.aura_set_mode(&self.config.builtin)?;
-        let bright = RogCore::aura_brightness_bytes(self.config.brightness)?;
-        self.rogcore.aura_set_mode(&bright)?;
-        Ok(self)
-    }
-
-    pub fn write_config(&mut self, bytes: &[u8]) {
-        // TODO: create statics out of header bytes
-        if bytes[0] == 0x5a && bytes[1] == 0xba {
-            self.config.brightness = bytes[4];
-        } else if bytes[0] == 0x5d && bytes[1] == 0xb3 {
-            self.config.builtin = bytes.to_vec();
-        }
-        self.config.write();
     }
 
     pub fn start() -> Result<(), Box<dyn Error>> {
@@ -46,7 +27,7 @@ impl Daemon {
         connection.request_name(DBUS_IFACE, false, true, false)?;
         let factory = Factory::new_fnmut::<()>();
 
-        let daemon = Self::new().load_config()?;
+        let daemon = Self::new();
         let daemon = Rc::new(RefCell::new(daemon));
 
         // We create a tree with one object path inside and make that path introspectable.
@@ -66,9 +47,8 @@ impl Daemon {
                                     let s = format!("Wrote {:x?}", bytes);
 
                                     let mut daemon = daemon.borrow_mut();
-                                    match daemon.rogcore.aura_set_mode(&bytes[..]) {
+                                    match daemon.rogcore.aura_set_and_save(&bytes[..]) {
                                         Ok(_) => {
-                                            daemon.write_config(&bytes);
                                             let mret = m.msg.method_return().append1(s);
                                             Ok(vec![mret])
                                         }
@@ -105,11 +85,10 @@ impl Daemon {
                     // write config
                     let hotkeys = unsafe { &mut (*daemon.as_ptr()).hotkeys };
                     let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
-                    let mut config = unsafe { &mut (*daemon.as_ptr()).config };
 
                     if let Some(_count) = read {
                         if key_buf[0] == hotkeys.hotkey_group_byte() {
-                            hotkeys.do_hotkey_action(&mut rogcore, &mut config, key_buf[1]);
+                            hotkeys.do_hotkey_action(&mut rogcore, key_buf[1]);
                         }
                     }
                 }

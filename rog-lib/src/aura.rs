@@ -1,10 +1,11 @@
 use crate::core::LED_MSG_LEN;
 use crate::error::AuraError;
 use gumdrop::Options;
+use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Colour(u8, u8, u8);
 impl Default for Colour {
     fn default() -> Self {
@@ -25,7 +26,7 @@ impl FromStr for Colour {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Speed {
     Low = 0xe1,
     Med = 0xeb,
@@ -53,7 +54,7 @@ impl FromStr for Speed {
 /// Used for Rainbow mode.
 ///
 /// Enum corresponds to the required integer value
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Direction {
     Right,
     Left,
@@ -80,7 +81,7 @@ impl FromStr for Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Options)]
+#[derive(Debug, Default, Options)]
 pub struct TwoColourSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -92,7 +93,7 @@ pub struct TwoColourSpeed {
     speed: Speed,
 }
 
-#[derive(Debug, PartialEq, Options)]
+#[derive(Debug, Default, Options)]
 pub struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -100,7 +101,7 @@ pub struct SingleSpeed {
     speed: Speed,
 }
 
-#[derive(Debug, PartialEq, Options)]
+#[derive(Debug, Default, Options)]
 pub struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
@@ -108,7 +109,7 @@ pub struct SingleColour {
     colour: Colour,
 }
 
-#[derive(Debug, PartialEq, Options)]
+#[derive(Debug, Default, Options)]
 pub struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
@@ -122,7 +123,7 @@ pub struct SingleSpeedDirection {
     speed: Speed,
 }
 
-#[derive(Debug, PartialEq, Options)]
+#[derive(Debug, Default, Options)]
 pub struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -223,6 +224,9 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             SetAuraBuiltin::Stable(_) => {
                 msg[3] = 0x00;
             }
+            SetAuraBuiltin::Breathe(_) => {
+                msg[3] = 0x01;
+            }
             SetAuraBuiltin::Cycle(_) => {
                 msg[3] = 0x02;
             }
@@ -253,7 +257,6 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             SetAuraBuiltin::WideZoomy(_) => {
                 msg[3] = 0x0c;
             }
-            _ => {}
         }
         match mode {
             SetAuraBuiltin::Rainbow(settings) => {
@@ -292,5 +295,26 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             }
         }
         msg
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub enum BuiltInModeByte {
+    Stable = 0x00,
+    Breathe = 0x01,
+    Cycle = 0x02,
+    Rainbow = 0x03,
+    Rain = 0x04,
+    Random = 0x05,
+    Highlight = 0x06,
+    Laser = 0x07,
+    Ripple = 0x08,
+    Pulse = 0x0a,
+    Thinzoomy = 0x0b,
+    Widezoomy = 0x0c,
+}
+impl Default for BuiltInModeByte {
+    fn default() -> Self {
+        BuiltInModeByte::Stable
     }
 }
