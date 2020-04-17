@@ -46,8 +46,10 @@ impl Daemon {
                                     let bytes: Vec<u8> = m.msg.read1()?;
                                     let s = format!("Wrote {:x?}", bytes);
 
+                                    let supported =
+                                        unsafe { (*daemon.as_ptr()).hotkeys.supported_modes() };
                                     let mut daemon = daemon.borrow_mut();
-                                    match daemon.rogcore.aura_set_and_save(&bytes[..]) {
+                                    match daemon.rogcore.aura_set_and_save(&bytes[..], supported) {
                                         Ok(_) => {
                                             let mret = m.msg.method_return().append1(s);
                                             Ok(vec![mret])
@@ -71,18 +73,8 @@ impl Daemon {
             connection.process(Duration::from_millis(1))?;
             // READ KEYBOARD
             // TODO: this needs to move to a thread, but there is unsafety
-
             match daemon.borrow_mut().rogcore.poll_keyboard(&mut key_buf) {
                 Ok(read) => {
-                    // [5a, c4, ; 32 bytes long] fn+up
-                    // [5a, c5, ; 32 bytes long] fn+down
-                    // [5a, b2, ; 32 bytes long] fn+left
-                    // [5a, b3, ; 32 bytes long] fn+right
-
-                    // To handle keys for aura:
-                    // read config + inc/dec brightness byte
-                    // write to aura
-                    // write config
                     let hotkeys = unsafe { &mut (*daemon.as_ptr()).hotkeys };
                     let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
 

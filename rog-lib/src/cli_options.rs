@@ -1,0 +1,172 @@
+use crate::error::AuraError;
+use gumdrop::Options;
+use std::fmt::Debug;
+use std::str::FromStr;
+
+#[derive(Debug)]
+pub struct Colour(pub u8, pub u8, pub u8);
+impl Default for Colour {
+    fn default() -> Self {
+        Colour(255, 0, 0)
+    }
+}
+impl FromStr for Colour {
+    type Err = AuraError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() < 6 {
+            return Err(AuraError::ParseColour);
+        }
+        let r = u8::from_str_radix(&s[0..2], 16).or(Err(AuraError::ParseColour))?;
+        let g = u8::from_str_radix(&s[2..4], 16).or(Err(AuraError::ParseColour))?;
+        let b = u8::from_str_radix(&s[4..6], 16).or(Err(AuraError::ParseColour))?;
+        Ok(Colour(r, g, b))
+    }
+}
+
+#[derive(Debug)]
+pub enum Speed {
+    Low = 0xe1,
+    Med = 0xeb,
+    High = 0xf5,
+}
+impl Default for Speed {
+    fn default() -> Self {
+        Speed::Med
+    }
+}
+impl FromStr for Speed {
+    type Err = AuraError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_lowercase();
+        match s.as_str() {
+            "low" => Ok(Speed::Low),
+            "med" => Ok(Speed::Med),
+            "high" => Ok(Speed::High),
+            _ => Err(AuraError::ParseSpeed),
+        }
+    }
+}
+
+/// Used for Rainbow mode.
+///
+/// Enum corresponds to the required integer value
+#[derive(Debug)]
+pub enum Direction {
+    Right,
+    Left,
+    Up,
+    Down,
+}
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::Right
+    }
+}
+impl FromStr for Direction {
+    type Err = AuraError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_lowercase();
+        match s.as_str() {
+            "right" => Ok(Direction::Right),
+            "up" => Ok(Direction::Up),
+            "down" => Ok(Direction::Down),
+            "left" => Ok(Direction::Left),
+            _ => Err(AuraError::ParseDirection),
+        }
+    }
+}
+
+#[derive(Debug, Default, Options)]
+pub struct TwoColourSpeed {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(no_long, meta = "HEX", help = "set the first RGB value e.g, ff00ff")]
+    pub colour: Colour,
+    #[options(no_long, meta = "HEX", help = "set the second RGB value e.g, ff00ff")]
+    pub colour2: Colour,
+    #[options(no_long, help = "set the speed: low, med, high")]
+    pub speed: Speed,
+}
+
+#[derive(Debug, Default, Options)]
+pub struct SingleSpeed {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(no_long, meta = "WORD", help = "set the speed: low, med, high")]
+    pub speed: Speed,
+}
+
+#[derive(Debug, Default, Options)]
+pub struct SingleColour {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour: Colour,
+}
+
+#[derive(Debug, Default, Options)]
+pub struct SingleSpeedDirection {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(
+        no_long,
+        meta = "DIR",
+        help = "set the direction: up, down, left, right"
+    )]
+    pub direction: Direction,
+    #[options(no_long, help = "set the speed: low, med, high")]
+    pub speed: Speed,
+}
+
+#[derive(Debug, Default, Options)]
+pub struct SingleColourSpeed {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour: Colour,
+    #[options(no_long, help = "set the speed: low, med, high")]
+    pub speed: Speed,
+}
+
+/// Byte value for setting the built-in mode.
+///
+/// Enum corresponds to the required integer value
+#[derive(Debug, Options)]
+pub enum SetAuraBuiltin {
+    #[options(help = "set a single static colour")]
+    Stable(SingleColour),
+    #[options(help = "pulse between one or two colours")]
+    Breathe(TwoColourSpeed),
+    #[options(help = "cycle through all colours")]
+    Cycle(SingleSpeed),
+    #[options(help = "rainbow cycling in one of four directions")]
+    Rainbow(SingleSpeedDirection),
+    #[options(help = "random pattern mimicking raindrops")]
+    Rain(SingleColourSpeed),
+    #[options(help = "random pattern of three preset colours")]
+    Random(SingleSpeed),
+    #[options(help = "pressed keys are highlighted to fade")]
+    Highlight(SingleColourSpeed),
+    #[options(help = "pressed keys generate horizontal laser")]
+    Laser(SingleColourSpeed),
+    #[options(help = "pressed keys ripple outwards like a splash")]
+    Ripple(SingleColourSpeed),
+    #[options(help = "set a rapid pulse")]
+    Pulse(SingleColour),
+    #[options(help = "set a vertical line zooming from left")]
+    ThinZoomy(SingleColour),
+    #[options(help = "set a wide vertical line zooming from left")]
+    WideZoomy(SingleColour),
+}
+
+impl Default for SetAuraBuiltin {
+    fn default() -> Self {
+        SetAuraBuiltin::Stable(SingleColour {
+            help: false,
+            colour: Colour(255, 0, 0),
+        })
+    }
+}

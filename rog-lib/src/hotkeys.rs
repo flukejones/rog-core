@@ -1,13 +1,16 @@
+use crate::aura::BuiltInModeByte;
 use crate::core::RogCore;
 
 pub trait Laptop {
     fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8);
     fn hotkey_group_byte(&self) -> u8;
+    fn supported_modes(&self) -> &[BuiltInModeByte];
 }
 pub struct LaptopGX502GW {
     hotkey_group_byte: u8,
     min_bright: u8,
     max_bright: u8,
+    supported_modes: Vec<BuiltInModeByte>,
 }
 impl LaptopGX502GW {
     pub fn new() -> Self {
@@ -15,6 +18,20 @@ impl LaptopGX502GW {
             hotkey_group_byte: 0x5a,
             min_bright: 0x00,
             max_bright: 0x03,
+            supported_modes: vec![
+                BuiltInModeByte::Stable,
+                BuiltInModeByte::Breathe,
+                BuiltInModeByte::Cycle,
+                BuiltInModeByte::Rainbow,
+                BuiltInModeByte::Rain,
+                BuiltInModeByte::Random,
+                BuiltInModeByte::Highlight,
+                BuiltInModeByte::Laser,
+                BuiltInModeByte::Ripple,
+                BuiltInModeByte::Pulse,
+                BuiltInModeByte::ThinZoomy,
+                BuiltInModeByte::WideZoomy,
+            ],
         }
     }
 }
@@ -31,8 +48,9 @@ impl Laptop for LaptopGX502GW {
                     rogcore.config.brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                rogcore.aura_set_and_save(&bytes).unwrap();
-                rogcore.config.write();
+                rogcore
+                    .aura_set_and_save(&bytes, &self.supported_modes)
+                    .unwrap();
             }
             GX502GWKeys::LedBrightDown => {
                 let mut bright = rogcore.config.brightness;
@@ -41,8 +59,9 @@ impl Laptop for LaptopGX502GW {
                     rogcore.config.brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                rogcore.aura_set_and_save(&bytes).unwrap();
-                rogcore.config.write();
+                rogcore
+                    .aura_set_and_save(&bytes, &self.supported_modes)
+                    .unwrap();
             }
             GX502GWKeys::AuraNext => {
                 let mut mode = rogcore.config.current_mode[3] + 1;
@@ -53,8 +72,9 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config.current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config.get_current() {
-                    rogcore.aura_set_and_save(&bytes).unwrap();
-                    rogcore.config.write();
+                    rogcore
+                        .aura_set_and_save(&bytes, &self.supported_modes)
+                        .unwrap();
                 }
             }
             GX502GWKeys::AuraPrevious => {
@@ -68,15 +88,21 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config.current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config.get_current() {
-                    rogcore.aura_set_and_save(&bytes).unwrap();
+                    rogcore
+                        .aura_set_and_save(&bytes, &self.supported_modes)
+                        .unwrap();
                     rogcore.config.write();
                 }
             }
-            _ => println!("{:X?}", key_byte),
+            _ => {}
         }
     }
     fn hotkey_group_byte(&self) -> u8 {
         self.hotkey_group_byte
+    }
+
+    fn supported_modes(&self) -> &[BuiltInModeByte] {
+        &self.supported_modes
     }
 }
 

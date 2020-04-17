@@ -1,177 +1,6 @@
+use crate::cli_options::*;
 use crate::core::LED_MSG_LEN;
-use crate::error::AuraError;
-use gumdrop::Options;
 use serde_derive::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::str::FromStr;
-
-#[derive(Debug)]
-pub struct Colour(u8, u8, u8);
-impl Default for Colour {
-    fn default() -> Self {
-        Colour(255, 0, 0)
-    }
-}
-impl FromStr for Colour {
-    type Err = AuraError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() < 6 {
-            return Err(AuraError::ParseColour);
-        }
-        let r = u8::from_str_radix(&s[0..2], 16).or(Err(AuraError::ParseColour))?;
-        let g = u8::from_str_radix(&s[2..4], 16).or(Err(AuraError::ParseColour))?;
-        let b = u8::from_str_radix(&s[4..6], 16).or(Err(AuraError::ParseColour))?;
-        Ok(Colour(r, g, b))
-    }
-}
-
-#[derive(Debug)]
-pub enum Speed {
-    Low = 0xe1,
-    Med = 0xeb,
-    High = 0xf5,
-}
-impl Default for Speed {
-    fn default() -> Self {
-        Speed::Med
-    }
-}
-impl FromStr for Speed {
-    type Err = AuraError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.to_lowercase();
-        match s.as_str() {
-            "low" => Ok(Speed::Low),
-            "med" => Ok(Speed::Med),
-            "high" => Ok(Speed::High),
-            _ => Err(AuraError::ParseSpeed),
-        }
-    }
-}
-
-/// Used for Rainbow mode.
-///
-/// Enum corresponds to the required integer value
-#[derive(Debug)]
-pub enum Direction {
-    Right,
-    Left,
-    Up,
-    Down,
-}
-impl Default for Direction {
-    fn default() -> Self {
-        Direction::Right
-    }
-}
-impl FromStr for Direction {
-    type Err = AuraError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.to_lowercase();
-        match s.as_str() {
-            "right" => Ok(Direction::Right),
-            "up" => Ok(Direction::Up),
-            "down" => Ok(Direction::Down),
-            "left" => Ok(Direction::Left),
-            _ => Err(AuraError::ParseDirection),
-        }
-    }
-}
-
-#[derive(Debug, Default, Options)]
-pub struct TwoColourSpeed {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(no_long, meta = "HEX", help = "set the first RGB value e.g, ff00ff")]
-    colour: Colour,
-    #[options(no_long, meta = "HEX", help = "set the second RGB value e.g, ff00ff")]
-    colour2: Colour,
-    #[options(no_long, help = "set the speed: low, med, high")]
-    speed: Speed,
-}
-
-#[derive(Debug, Default, Options)]
-pub struct SingleSpeed {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(no_long, meta = "WORD", help = "set the speed: low, med, high")]
-    speed: Speed,
-}
-
-#[derive(Debug, Default, Options)]
-pub struct SingleColour {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
-    colour: Colour,
-}
-
-#[derive(Debug, Default, Options)]
-pub struct SingleSpeedDirection {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(
-        no_long,
-        meta = "DIR",
-        help = "set the direction: up, down, left, right"
-    )]
-    direction: Direction,
-    #[options(no_long, help = "set the speed: low, med, high")]
-    speed: Speed,
-}
-
-#[derive(Debug, Default, Options)]
-pub struct SingleColourSpeed {
-    #[options(help = "print help message")]
-    help: bool,
-    #[options(no_long, meta = "HEX", help = "set the RGB value e.g, ff00ff")]
-    colour: Colour,
-    #[options(no_long, help = "set the speed: low, med, high")]
-    speed: Speed,
-}
-
-/// Byte value for setting the built-in mode.
-///
-/// Enum corresponds to the required integer value
-#[derive(Debug, Options)]
-pub enum SetAuraBuiltin {
-    #[options(help = "set a single static colour")]
-    Stable(SingleColour),
-    #[options(help = "pulse between one or two colours")]
-    Breathe(TwoColourSpeed),
-    #[options(help = "cycle through all colours")]
-    Cycle(SingleSpeed),
-    #[options(help = "rainbow cycling in one of four directions")]
-    Rainbow(SingleSpeedDirection),
-    #[options(help = "random pattern mimicking raindrops")]
-    Rain(SingleColourSpeed),
-    #[options(help = "random pattern of three preset colours")]
-    Random(SingleSpeed),
-    #[options(help = "pressed keys are highlighted to fade")]
-    Highlight(SingleColourSpeed),
-    #[options(help = "pressed keys generate horizontal laser")]
-    Laser(SingleColourSpeed),
-    #[options(help = "pressed keys ripple outwards like a splash")]
-    Ripple(SingleColourSpeed),
-    #[options(help = "set a rapid pulse")]
-    Pulse(SingleColour),
-    #[options(help = "set a vertical line zooming from left")]
-    ThinZoomy(SingleColour),
-    #[options(help = "set a wide vertical line zooming from left")]
-    WideZoomy(SingleColour),
-}
-
-impl Default for SetAuraBuiltin {
-    fn default() -> Self {
-        SetAuraBuiltin::Stable(SingleColour {
-            help: false,
-            colour: Colour(255, 0, 0),
-        })
-    }
-}
 
 /// Parses `SetAuraBuiltin` in to packet data
 ///
@@ -221,43 +50,20 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
         msg[0] = 0x5d;
         msg[1] = 0xb3;
         match mode {
-            SetAuraBuiltin::Stable(_) => {
-                msg[3] = 0x00;
-            }
-            SetAuraBuiltin::Breathe(_) => {
-                msg[3] = 0x01;
-            }
-            SetAuraBuiltin::Cycle(_) => {
-                msg[3] = 0x02;
-            }
-            SetAuraBuiltin::Rainbow(_) => {
-                msg[3] = 0x03;
-            }
-            SetAuraBuiltin::Rain(_) => {
-                msg[3] = 0x04;
-            }
-            SetAuraBuiltin::Random(_) => {
-                msg[3] = 0x05;
-            }
-            SetAuraBuiltin::Highlight(_) => {
-                msg[3] = 0x06;
-            }
-            SetAuraBuiltin::Laser(_) => {
-                msg[3] = 0x07;
-            }
-            SetAuraBuiltin::Ripple(_) => {
-                msg[3] = 0x08;
-            }
-            SetAuraBuiltin::Pulse(_) => {
-                msg[3] = 0x0a;
-            }
-            SetAuraBuiltin::ThinZoomy(_) => {
-                msg[3] = 0x0b;
-            }
-            SetAuraBuiltin::WideZoomy(_) => {
-                msg[3] = 0x0c;
-            }
+            SetAuraBuiltin::Stable(_) => msg[3] = 0x00,
+            SetAuraBuiltin::Breathe(_) => msg[3] = 0x01,
+            SetAuraBuiltin::Cycle(_) => msg[3] = 0x02,
+            SetAuraBuiltin::Rainbow(_) => msg[3] = 0x03,
+            SetAuraBuiltin::Rain(_) => msg[3] = 0x04,
+            SetAuraBuiltin::Random(_) => msg[3] = 0x05,
+            SetAuraBuiltin::Highlight(_) => msg[3] = 0x06,
+            SetAuraBuiltin::Laser(_) => msg[3] = 0x07,
+            SetAuraBuiltin::Ripple(_) => msg[3] = 0x08,
+            SetAuraBuiltin::Pulse(_) => msg[3] = 0x0a,
+            SetAuraBuiltin::ThinZoomy(_) => msg[3] = 0x0b,
+            SetAuraBuiltin::WideZoomy(_) => msg[3] = 0x0c,
         }
+
         match mode {
             SetAuraBuiltin::Rainbow(settings) => {
                 msg[7] = settings.speed as u8;
@@ -298,7 +104,92 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
     }
 }
 
+/// Container for the byte strings used in modes. Generally useful for settings
+/// and other usecases.
 #[derive(Deserialize, Serialize)]
+pub struct BuiltInModeBytes {
+    pub stable: [u8; LED_MSG_LEN],
+    pub breathe: [u8; LED_MSG_LEN],
+    pub cycle: [u8; LED_MSG_LEN],
+    pub rainbow: [u8; LED_MSG_LEN],
+    pub rain: [u8; LED_MSG_LEN],
+    pub random: [u8; LED_MSG_LEN],
+    pub highlight: [u8; LED_MSG_LEN],
+    pub laser: [u8; LED_MSG_LEN],
+    pub ripple: [u8; LED_MSG_LEN],
+    pub pulse: [u8; LED_MSG_LEN],
+    pub thinzoomy: [u8; LED_MSG_LEN],
+    pub widezoomy: [u8; LED_MSG_LEN],
+}
+impl BuiltInModeBytes {
+    pub fn set_field_from(&mut self, bytes: &[u8]) {
+        if bytes[0] == 0x5d && bytes[1] == 0xb3 {
+            let b = BuiltInModeByte::from(bytes[3]);
+            match b {
+                BuiltInModeByte::Stable => self.stable.copy_from_slice(bytes),
+                BuiltInModeByte::Breathe => self.breathe.copy_from_slice(bytes),
+                BuiltInModeByte::Cycle => self.cycle.copy_from_slice(bytes),
+                BuiltInModeByte::Rainbow => self.rainbow.copy_from_slice(bytes),
+                BuiltInModeByte::Rain => self.rain.copy_from_slice(bytes),
+                BuiltInModeByte::Random => self.random.copy_from_slice(bytes),
+                BuiltInModeByte::Highlight => self.highlight.copy_from_slice(bytes),
+                BuiltInModeByte::Laser => self.laser.copy_from_slice(bytes),
+                BuiltInModeByte::Ripple => self.ripple.copy_from_slice(bytes),
+                BuiltInModeByte::Pulse => self.pulse.copy_from_slice(bytes),
+                BuiltInModeByte::ThinZoomy => self.thinzoomy.copy_from_slice(bytes),
+                BuiltInModeByte::WideZoomy => self.widezoomy.copy_from_slice(bytes),
+                _ => {}
+            }
+        }
+    }
+
+    pub fn get_field_from(&mut self, byte: u8) -> Option<&[u8]> {
+        let bytes = match BuiltInModeByte::from(byte) {
+            BuiltInModeByte::Stable => &self.stable,
+            BuiltInModeByte::Breathe => &self.breathe,
+            BuiltInModeByte::Cycle => &self.cycle,
+            BuiltInModeByte::Rainbow => &self.rainbow,
+            BuiltInModeByte::Rain => &self.rain,
+            BuiltInModeByte::Random => &self.random,
+            BuiltInModeByte::Highlight => &self.highlight,
+            BuiltInModeByte::Laser => &self.laser,
+            BuiltInModeByte::Ripple => &self.ripple,
+            BuiltInModeByte::Pulse => &self.pulse,
+            BuiltInModeByte::ThinZoomy => &self.thinzoomy,
+            BuiltInModeByte::WideZoomy => &self.widezoomy,
+            _ => return None,
+        };
+        return Some(bytes);
+    }
+}
+impl Default for BuiltInModeBytes {
+    fn default() -> Self {
+        BuiltInModeBytes {
+            stable: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Stable(SingleColour::default())),
+            breathe: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Breathe(TwoColourSpeed::default())),
+            cycle: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Cycle(SingleSpeed::default())),
+            rainbow: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rainbow(
+                SingleSpeedDirection::default(),
+            )),
+            rain: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rain(SingleColourSpeed::default())),
+            random: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Random(SingleSpeed::default())),
+            highlight: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Highlight(
+                SingleColourSpeed::default(),
+            )),
+            laser: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Laser(SingleColourSpeed::default())),
+            ripple: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Ripple(SingleColourSpeed::default())),
+            pulse: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Pulse(SingleColour::default())),
+            thinzoomy: <[u8; LED_MSG_LEN]>::from(
+                SetAuraBuiltin::ThinZoomy(SingleColour::default()),
+            ),
+            widezoomy: <[u8; LED_MSG_LEN]>::from(
+                SetAuraBuiltin::WideZoomy(SingleColour::default()),
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize, Serialize)]
 pub enum BuiltInModeByte {
     Stable = 0x00,
     Breathe = 0x01,
@@ -310,11 +201,31 @@ pub enum BuiltInModeByte {
     Laser = 0x07,
     Ripple = 0x08,
     Pulse = 0x0a,
-    Thinzoomy = 0x0b,
-    Widezoomy = 0x0c,
+    ThinZoomy = 0x0b,
+    WideZoomy = 0x0c,
+    None,
 }
 impl Default for BuiltInModeByte {
     fn default() -> Self {
         BuiltInModeByte::Stable
+    }
+}
+impl From<u8> for BuiltInModeByte {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0x00 => Self::Stable,
+            0x01 => Self::Breathe,
+            0x02 => Self::Cycle,
+            0x03 => Self::Rainbow,
+            0x04 => Self::Rain,
+            0x05 => Self::Random,
+            0x06 => Self::Highlight,
+            0x07 => Self::Laser,
+            0x08 => Self::Ripple,
+            0x0a => Self::Pulse,
+            0x0b => Self::ThinZoomy,
+            0x0c => Self::WideZoomy,
+            _ => Self::None,
+        }
     }
 }

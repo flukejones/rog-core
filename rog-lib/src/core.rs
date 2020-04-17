@@ -1,3 +1,4 @@
+use crate::aura::BuiltInModeByte;
 use crate::config::Config;
 use crate::error::AuraError;
 use gumdrop::Options;
@@ -116,7 +117,6 @@ impl RogCore {
         }
 
         for message in messages {
-            println!("{:x?}", &message);
             write(*message)?;
             write(&LED_SET)?;
         }
@@ -138,22 +138,30 @@ impl RogCore {
         Ok(bright)
     }
 
-    pub fn aura_set_and_save(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        let messages = [bytes];
-        self.aura_write_messages(&messages)?;
-        self.config.set_field_from(bytes);
-        self.config.write();
-        Ok(())
+    pub fn aura_set_and_save(
+        &mut self,
+        bytes: &[u8],
+        supported: &[BuiltInModeByte],
+    ) -> Result<(), Error> {
+        let mode = BuiltInModeByte::from(bytes[3]);
+        if supported.contains(&mode) || bytes[1] == 0xba {
+            let messages = [bytes];
+            self.aura_write_messages(&messages)?;
+            self.config.set_field_from(bytes);
+            self.config.write();
+            return Ok(());
+        }
+        Err(Error::NotSupported)
     }
 
-    pub fn load_config(&mut self) -> Result<(), Error> {
-        if let Some(current) = self.config.get_current() {
-            self.aura_set_and_save(&current)?;
-        }
-        let bright = RogCore::aura_brightness_bytes(self.config.brightness)?;
-        self.aura_set_and_save(&bright)?;
-        Ok(())
-    }
+    // pub fn load_config(&mut self) -> Result<(), Error> {
+    //     if let Some(current) = self.config.get_current() {
+    //         self.aura_set_and_save(&current)?;
+    //     }
+    //     let bright = RogCore::aura_brightness_bytes(self.config.brightness)?;
+    //     self.aura_set_and_save(&bright)?;
+    //     Ok(())
+    // }
 
     pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, Error> {
         match self

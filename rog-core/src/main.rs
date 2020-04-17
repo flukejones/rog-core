@@ -5,8 +5,10 @@ use crate::daemon::*;
 use dbus::Error as DbusError;
 use dbus::{ffidisp::Connection, Message};
 use gumdrop::Options;
-use rog_lib::aura::*;
-use rog_lib::core::{LedBrightness, RogCore, LED_MSG_LEN};
+use rog_lib::{
+    cli_options::SetAuraBuiltin,
+    core::{LedBrightness, RogCore, LED_MSG_LEN},
+};
 
 pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
 pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
