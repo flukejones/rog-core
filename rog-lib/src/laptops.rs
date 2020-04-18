@@ -115,10 +115,10 @@ impl Laptop for LaptopGX502GW {
                 self.backlight.step_down();
             }
             GX502GWKeys::Sleep => {
-                std::process::Command::new("systemctl")
-                    .arg("suspend")
-                    .spawn()
-                    .expect("failed to suspend");
+                rogcore.suspend();
+            }
+            GX502GWKeys::AirplaneMode => {
+                rogcore.toggle_airplane_mode();
             }
             _ => {
                 if key_byte != 0 {

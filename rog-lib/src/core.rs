@@ -1,7 +1,9 @@
 use crate::{aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*};
+use aho_corasick::AhoCorasick;
 use gumdrop::Options;
 use rusb::{DeviceHandle, Error};
 use std::cell::{Ref, RefCell};
+use std::process::Command;
 use std::str::FromStr;
 use std::time::Duration;
 use sysfs_class::Brightness;
@@ -183,6 +185,27 @@ impl RogCore {
             },
         }
         Ok(None)
+    }
+
+    pub fn suspend(&self) {
+        std::process::Command::new("systemctl")
+            .arg("suspend")
+            .spawn()
+            .expect("failed to suspend");
+    }
+
+    pub fn toggle_airplane_mode(&self) {
+        if let Ok(output) = Command::new("rfkill").arg("list").output() {
+            if output.status.success() {
+                let patterns = &["yes"];
+                let ac = AhoCorasick::new(patterns);
+                if ac.earliest_find(output.stdout).is_some() {
+                    Command::new("rfkill").arg("unblock").arg("all").spawn();
+                } else {
+                    Command::new("rfkill").arg("block").arg("all").spawn();
+                }
+            }
+        }
     }
 }
 
