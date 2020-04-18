@@ -1,6 +1,9 @@
+// Return show-stopping errors, otherwise map error to a log level
+
 use crate::{aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*};
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
+use log::{debug, warn};
 use rusb::DeviceHandle;
 use std::cell::{Ref, RefCell};
 use std::process::Command;
@@ -143,8 +146,10 @@ impl RogCore {
             self.aura_write_messages(&messages)?;
             self.config.set_field_from(bytes);
             self.config.write();
+            debug!("Wrote: {:X?}", bytes);
             return Ok(());
         }
+        warn!("{:?} not supported", BuiltInModeByte::from(mode));
         Err(AuraError::NotSupported)
     }
 
@@ -173,25 +178,41 @@ impl RogCore {
         std::process::Command::new("systemctl")
             .arg("suspend")
             .spawn()
-            .expect("failed to suspend");
+            .map_or_else(|err| warn!("Failed to suspend: {}", err), |_| {});
     }
 
-    pub fn toggle_airplane_mode(&self) -> Result<(), AuraError> {
+    pub fn toggle_airplane_mode(&self) {
         match Command::new("rfkill").arg("list").output() {
             Ok(output) => {
                 if output.status.success() {
                     let patterns = &["yes"];
                     let ac = AhoCorasick::new(patterns);
                     if ac.earliest_find(output.stdout).is_some() {
-                        Command::new("rfkill").arg("unblock").arg("all").spawn()?;
+                        Command::new("rfkill")
+                            .arg("unblock")
+                            .arg("all")
+                            .spawn()
+                            .map_or_else(
+                                |err| warn!("Could not unblock rf devices: {}", err),
+                                |_| {},
+                            );
                     } else {
-                        Command::new("rfkill").arg("block").arg("all").spawn()?;
+                        let _ = Command::new("rfkill")
+                            .arg("block")
+                            .arg("all")
+                            .spawn()
+                            .map_or_else(
+                                |err| warn!("Could not block rf devices: {}", err),
+                                |_| {},
+                            );
                     }
-                    return Ok(());
+                } else {
+                    warn!("Could not list rf devices");
                 }
-                return Err(AuraError::CommandFailed);
             }
-            Err(err) => Err(AuraError::from(err)),
+            Err(err) => {
+                warn!("Could not list rf devices: {}", err);
+            }
         }
     }
 }
@@ -219,19 +240,33 @@ impl Backlight {
         panic!("Backlight not found")
     }
     pub fn step_up(&self) {
-        let brightness = self.backlight.brightness().unwrap();
+        let brightness = self
+            .backlight
+            .brightness()
+            .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
+            .unwrap();
         if brightness + self.step <= self.max {
             self.backlight
                 .set_brightness(brightness + self.step)
-                .unwrap();
+                .map_or_else(
+                    |err| warn!("Failed to increment backlight level: {}", err),
+                    |_| {},
+                );
         }
     }
     pub fn step_down(&self) {
-        let brightness = self.backlight.brightness().unwrap();
+        let brightness = self
+            .backlight
+            .brightness()
+            .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
+            .unwrap();
         if brightness > self.step {
             self.backlight
                 .set_brightness(brightness - self.step)
-                .unwrap();
+                .map_or_else(
+                    |err| warn!("Failed to increment backlight level: {}", err),
+                    |_| {},
+                );
         }
     }
 }

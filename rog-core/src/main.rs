@@ -42,8 +42,9 @@ struct LedModeCommand {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut builder = Builder::from_default_env();
+    let mut builder = Builder::from_env("ROGCORE_LOG");
     builder.target(Target::Stdout);
+    builder.format_timestamp(None);
     builder.filter(None, LevelFilter::Info).init();
 
     let parsed = CLIStart::parse_args_default_or_exit();

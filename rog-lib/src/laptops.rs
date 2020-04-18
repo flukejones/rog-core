@@ -1,6 +1,7 @@
 use crate::aura::BuiltInModeByte;
 use crate::core::{Backlight, RogCore};
 use crate::error::AuraError;
+use log::info;
 
 pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
     let dmi = sysfs_class::DmiId::default();
@@ -136,11 +137,11 @@ impl Laptop for LaptopGX502GW {
                 rogcore.suspend();
             }
             GX502GWKeys::AirplaneMode => {
-                rogcore.toggle_airplane_mode()?;
+                rogcore.toggle_airplane_mode();
             }
             _ => {
                 if key_byte != 0 {
-                    dbg!(&key_byte);
+                    info!("Unmapped key: {}", &key_byte);
                 }
             }
         }

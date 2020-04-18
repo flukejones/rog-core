@@ -2,7 +2,7 @@
 Description=ROG Core Daemon
 
 [Service]
-Environment="RUST_LOG=info"
+Environment="ROGCORE_LOG=info"
 ExecStart=/usr/bin/rog-core -d
 Restart=on-failure
 
