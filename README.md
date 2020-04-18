@@ -21,8 +21,7 @@ $ sudo systemctl enable rog-core.service
 
 ## Use
 
-Running the program in standard mode (not daemon or client) will require sudo.
-Otherwise if running in daemon mode (option `-d`) then you will need to add option `-c` before all commands to send the command to the daemon - this will change to default to sending to the daemon in future.
+Running the program as a daemon manually will require root. Standard (non-daemon) mode expects to be communicating with the daemon mode over dbus.
 
 Commands are given by:
 
@@ -57,12 +56,48 @@ Currently if no options are supplied for the CLI mode selection then a default i
 - [X] Daemon mode
 - [X] Saving settings for reload
 - [ ] System control
+  + [X] Sleep
+  + [X] Airplane mode
+  + [X] Screen brightness up/down
+  + [ ] ROG key custom mapping
+  + [ ] Fan/Performance mode
+  + [ ] Screen off??
+  + [ ] Touchpad toggle
+  + [X] Aura control by Aura keys
 - [X] Capture and use hotkeys **Partially completed: aura keys work**
-- [ ] Logging - required for journalctl
+- [X] Logging - required for journalctl
 
 ## Wireshark captures
 
 TODO: see `./wireshark_data/` for some captures.
+
+## Supporting more laptops
+
+At a minimum it probably needs to be a Zephyrus laptop. If there is enough interest I will remove the restriction on board names so that anyone can try the app.
+
+From there I'll need wireshark captures from Windows using Armoury Crate if possible:
+
+- *No* USB devices plugged in
+- One action per capture, 2 or 3 times
+- An action may be switching a mode or pressing a button
+
+The real ticket items are:
+
+- Captures from installing Armoury Crate. To do this you need to uninstall almost all ASUS junkware and such
+- Byte sequence captures from hotkeys pressed in linux (which I need to make a tool for)
+- lsusb output
+
+lsusb:
+
+First do `lsusb |grep 0b05` and check the part after `0b05:`, output looks like:
+
+```asm
+Bus 001 Device 005: ID 0b05:1866 ASUSTek Computer, Inc. N-KEY Device
+```
+
+Then do `lsusb -vd 0b05:1866 > ~/laptop_info` and give that to me.
+
+`cat /sys/class/dmi/id/product_name` is the other I'm interested in for the sake of information.
 
 ## License
 
