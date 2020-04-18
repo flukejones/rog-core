@@ -55,7 +55,7 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             SetAuraBuiltin::Cycle(_) => msg[3] = 0x02,
             SetAuraBuiltin::Rainbow(_) => msg[3] = 0x03,
             SetAuraBuiltin::Rain(_) => msg[3] = 0x04,
-            SetAuraBuiltin::Random(_) => msg[3] = 0x05,
+            SetAuraBuiltin::Disco(_) => msg[3] = 0x05,
             SetAuraBuiltin::Highlight(_) => msg[3] = 0x06,
             SetAuraBuiltin::Laser(_) => msg[3] = 0x07,
             SetAuraBuiltin::Ripple(_) => msg[3] = 0x08,
@@ -79,7 +79,7 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[11] = settings.colour2.1;
                 msg[12] = settings.colour2.2;
             }
-            SetAuraBuiltin::Cycle(settings) | SetAuraBuiltin::Random(settings) => {
+            SetAuraBuiltin::Cycle(settings) | SetAuraBuiltin::Disco(settings) => {
                 msg[7] = settings.speed as u8;
             }
             SetAuraBuiltin::Rain(settings)
@@ -172,7 +172,7 @@ impl Default for BuiltInModeBytes {
                 SingleSpeedDirection::default(),
             )),
             rain: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rain(SingleColourSpeed::default())),
-            random: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Random(SingleSpeed::default())),
+            random: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Disco(SingleSpeed::default())),
             highlight: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Highlight(
                 SingleColourSpeed::default(),
             )),

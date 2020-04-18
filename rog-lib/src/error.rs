@@ -1,38 +1,24 @@
-use std::error::Error;
-use std::fmt;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use thiserror::Error;
 
-#[derive(PartialEq)]
+#[derive(Error, Debug)]
 pub enum AuraError {
+    #[error("unable to parse string to colour")]
     ParseColour,
+    #[error("unable to parse string to speed")]
     ParseSpeed,
+    #[error("unable to parse string to direction")]
     ParseDirection,
+    #[error("unable to parse string to brightness")]
     ParseBrightness,
+    #[error("could not poll the keyboard for input")]
     PollKeyboard,
-}
-
-impl Debug for AuraError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(self.description(), f)
-    }
-}
-
-impl Display for AuraError {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(self.description(), f)
-    }
-}
-
-impl Error for AuraError {
-    fn description(&self) -> &str {
-        match self {
-            AuraError::ParseColour => "could not parse colour",
-            AuraError::ParseSpeed => "could not parse speed",
-            AuraError::ParseDirection => "could not parse direction",
-            AuraError::ParseBrightness => "could not parse brightness",
-            AuraError::PollKeyboard => "failed to poll keyboard",
-        }
-    }
+    #[error("mode not supported")]
+    NotSupported,
+    #[error("USB error")]
+    UsbError(#[from] rusb::Error),
+    #[error("IO error")]
+    IOError(#[from] std::io::Error),
+    #[error("external command failed")]
+    CommandFailed,
 }

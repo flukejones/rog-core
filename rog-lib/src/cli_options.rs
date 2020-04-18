@@ -147,7 +147,7 @@ pub enum SetAuraBuiltin {
     #[options(help = "random pattern mimicking raindrops")]
     Rain(SingleColourSpeed),
     #[options(help = "random pattern of three preset colours")]
-    Random(SingleSpeed),
+    Disco(SingleSpeed),
     #[options(help = "pressed keys are highlighted to fade")]
     Highlight(SingleColourSpeed),
     #[options(help = "pressed keys generate horizontal laser")]

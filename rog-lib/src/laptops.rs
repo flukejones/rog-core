@@ -1,14 +1,30 @@
 use crate::aura::BuiltInModeByte;
 use crate::core::{Backlight, RogCore};
+use crate::error::AuraError;
 
-// ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="gdbus call
-// --session --dest org.gnome.SettingsDaemon.Power
-// --object-path /org/gnome/SettingsDaemon/Power
-// --method org.freedesktop.DBus.Properties.Set org.gnome.SettingsDaemon.Power.Screen Brightness '<int32 65>'"
+pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
+    let dmi = sysfs_class::DmiId::default();
+    let board_name = dmi.board_name()?;
+    match board_name.as_str() {
+        // The hell does it have a \n for anyway?
+        "GX502GW\n" => Ok(Box::new(LaptopGX502GW::new())),
+        _ => {
+            panic!("could not match laptop");
+        }
+    }
+}
 
+/// All laptop models should implement this trait
+///
+/// `do_hotkey_action` is passed the byte that a hotkey emits, and is expected to
+/// perform whichever action matches that. For now the only key bytes passed in are
+/// the ones which match `byte[0] == hotkey_group_byte`. On the GX502GW the keyboard
+/// has 3 explicit groups: main, vol+media, and the ones that the Linux kernel doesn't
+/// map.
 pub trait Laptop {
-    fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8);
+    fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8) -> Result<(), AuraError>;
     fn hotkey_group_byte(&self) -> u8;
+    fn led_iface_num(&self) -> u8;
     fn supported_modes(&self) -> &[BuiltInModeByte];
     fn usb_vendor(&self) -> u16;
     fn usb_product(&self) -> u16;
@@ -22,9 +38,10 @@ pub struct LaptopGX502GW {
     board_name: &'static str,
     prod_family: &'static str,
     hotkey_group_byte: u8,
-    min_bright: u8,
-    max_bright: u8,
-    supported_modes: Vec<BuiltInModeByte>,
+    min_led_bright: u8,
+    max_led_bright: u8,
+    led_iface_num: u8,
+    supported_modes: [BuiltInModeByte; 12],
     backlight: Backlight,
 }
 
@@ -37,9 +54,10 @@ impl LaptopGX502GW {
             board_name: "GX502GW",
             prod_family: "Zephyrus S",
             hotkey_group_byte: 0x5a,
-            min_bright: 0x00,
-            max_bright: 0x03,
-            supported_modes: vec![
+            min_led_bright: 0x00,
+            max_led_bright: 0x03,
+            led_iface_num: 0x81,
+            supported_modes: [
                 BuiltInModeByte::Stable,
                 BuiltInModeByte::Breathe,
                 BuiltInModeByte::Cycle,
@@ -58,28 +76,28 @@ impl LaptopGX502GW {
     }
 }
 impl Laptop for LaptopGX502GW {
-    fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) {
+    fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) -> Result<(), AuraError> {
         match GX502GWKeys::from(key_byte) {
             GX502GWKeys::Rog => {
                 println!("ROG!");
             }
             GX502GWKeys::LedBrightUp => {
                 let mut bright = rogcore.config().brightness;
-                if bright < self.max_bright {
+                if bright < self.max_led_bright {
                     bright += 1;
                     rogcore.config_mut().brightness = bright;
                 }
-                let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                rogcore.aura_set_and_save(&bytes).unwrap();
+                let bytes = RogCore::aura_brightness_bytes(bright)?;
+                rogcore.aura_set_and_save(&bytes)?;
             }
             GX502GWKeys::LedBrightDown => {
                 let mut bright = rogcore.config().brightness;
-                if bright > self.min_bright {
+                if bright > self.min_led_bright {
                     bright -= 1;
                     rogcore.config_mut().brightness = bright;
                 }
-                let bytes = RogCore::aura_brightness_bytes(bright).unwrap();
-                rogcore.aura_set_and_save(&bytes).unwrap();
+                let bytes = RogCore::aura_brightness_bytes(bright)?;
+                rogcore.aura_set_and_save(&bytes)?;
             }
             GX502GWKeys::AuraNext => {
                 let mut mode = rogcore.config().current_mode[3] + 1;
@@ -90,7 +108,7 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config_mut().current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config_mut().get_current() {
-                    rogcore.aura_set_and_save(&bytes).unwrap();
+                    rogcore.aura_set_and_save(&bytes)?;
                 }
             }
             GX502GWKeys::AuraPrevious => {
@@ -104,7 +122,7 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config_mut().current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config_mut().get_current() {
-                    rogcore.aura_set_and_save(&bytes).unwrap();
+                    rogcore.aura_set_and_save(&bytes)?;
                     rogcore.config().write();
                 }
             }
@@ -118,7 +136,7 @@ impl Laptop for LaptopGX502GW {
                 rogcore.suspend();
             }
             GX502GWKeys::AirplaneMode => {
-                rogcore.toggle_airplane_mode();
+                rogcore.toggle_airplane_mode()?;
             }
             _ => {
                 if key_byte != 0 {
@@ -126,6 +144,7 @@ impl Laptop for LaptopGX502GW {
                 }
             }
         }
+        Ok(())
     }
     fn hotkey_group_byte(&self) -> u8 {
         self.hotkey_group_byte
@@ -146,6 +165,10 @@ impl Laptop for LaptopGX502GW {
 
     fn prod_family(&self) -> &str {
         &self.prod_family
+    }
+
+    fn led_iface_num(&self) -> u8 {
+        self.led_iface_num
     }
 }
 

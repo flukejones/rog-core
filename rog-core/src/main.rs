@@ -3,7 +3,9 @@ mod daemon;
 use crate::daemon::*;
 use dbus::Error as DbusError;
 use dbus::{ffidisp::Connection, Message};
+use env_logger::{Builder, Target};
 use gumdrop::Options;
+use log::LevelFilter;
 use rog_lib::{
     cli_options::SetAuraBuiltin,
     core::{LedBrightness, RogCore, LED_MSG_LEN},
@@ -40,6 +42,10 @@ struct LedModeCommand {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut builder = Builder::from_default_env();
+    builder.target(Target::Stdout);
+    builder.filter(None, LevelFilter::Info).init();
+
     let parsed = CLIStart::parse_args_default_or_exit();
     if parsed.daemon {
         Daemon::start()?;

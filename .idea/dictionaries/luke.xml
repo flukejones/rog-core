@@ -2,7 +2,9 @@
   <dictionary name="luke">
     <words>
       <w>backlight</w>
+      <w>dbus</w>
       <w>hotkey</w>
+      <w>rogcore</w>
     </words>
   </dictionary>
 </component>
