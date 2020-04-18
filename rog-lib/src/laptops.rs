@@ -114,6 +114,12 @@ impl Laptop for LaptopGX502GW {
             GX502GWKeys::ScreenBrightDown => {
                 self.backlight.step_down();
             }
+            GX502GWKeys::Sleep => {
+                std::process::Command::new("systemctl")
+                    .arg("suspend")
+                    .spawn()
+                    .expect("failed to suspend");
+            }
             _ => {
                 if key_byte != 0 {
                     dbg!(&key_byte);
