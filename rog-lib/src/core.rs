@@ -32,6 +32,7 @@ pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_interface_num: u8,
+    keys_interface_num: u8,
     config: Config,
     laptop: RefCell<Box<dyn Laptop>>,
 }
@@ -46,10 +47,13 @@ impl RogCore {
         let dev_config = dev_handle.device().config_descriptor(0).unwrap();
         // Interface with outputs
         let mut led_interface_num = 0;
+        let mut keys_interface_num = 0;
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == laptop.led_iface_num() {
+                    if endpoint.address() == 0x83 {
+                        keys_interface_num = desc.interface_number();
+                    } else if endpoint.address() == laptop.led_iface_num() {
                         led_interface_num = desc.interface_number();
                         break;
                     }
@@ -63,6 +67,7 @@ impl RogCore {
             handle: dev_handle,
             initialised: false,
             led_interface_num,
+            keys_interface_num,
             config: Config::default().read(),
             laptop: RefCell::new(laptop),
         })
@@ -143,20 +148,24 @@ impl RogCore {
         Err(AuraError::NotSupported)
     }
 
-    pub fn poll_keyboard(&self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
+    pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
+        self.handle.claim_interface(self.keys_interface_num)?;
         match self
             .handle
             .read_interrupt(0x83, buf, Duration::from_micros(10))
         {
             Ok(o) => {
                 if buf[0] == self.laptop.borrow().hotkey_group_byte() {
+                    self.handle.release_interface(self.keys_interface_num)?;
                     return Ok(Some(o));
                 }
             }
             Err(err) => {
+                self.handle.release_interface(self.keys_interface_num)?;
                 return Err(AuraError::from(err));
             }
         }
+        self.handle.release_interface(self.keys_interface_num)?;
         Ok(None)
     }
 

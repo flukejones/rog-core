@@ -95,7 +95,7 @@ impl Daemon {
                 });
             // READ KEYBOARD
             // TODO: this needs to move to a thread, but there is unsafety
-            let borrowed_daemon = daemon.borrow();
+            let mut borrowed_daemon = daemon.borrow_mut();
             match borrowed_daemon.rogcore.poll_keyboard(&mut key_buf) {
                 Ok(read) => {
                     // Doing this because the Laptop trait takes RogCore, but RogCore contains laptop
