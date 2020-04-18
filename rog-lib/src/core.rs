@@ -4,6 +4,8 @@ use rusb::{DeviceHandle, Error};
 use std::cell::{Ref, RefCell};
 use std::str::FromStr;
 use std::time::Duration;
+use sysfs_class::Brightness;
+use sysfs_class::SysClass;
 
 pub const LED_MSG_LEN: usize = 17;
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
@@ -165,15 +167,6 @@ impl RogCore {
         Err(Error::NotSupported)
     }
 
-    // pub fn load_config(&mut self) -> Result<(), Error> {
-    //     if let Some(current) = self.config.get_current() {
-    //         self.aura_set_and_save(&current)?;
-    //     }
-    //     let bright = RogCore::aura_brightness_bytes(self.config.brightness)?;
-    //     self.aura_set_and_save(&bright)?;
-    //     Ok(())
-    // }
-
     pub fn poll_keyboard(&self, buf: &mut [u8; 32]) -> Result<Option<usize>, Error> {
         match self
             .handle
@@ -190,5 +183,45 @@ impl RogCore {
             },
         }
         Ok(None)
+    }
+}
+
+pub struct Backlight {
+    backlight: sysfs_class::Backlight,
+    step: u64,
+    max: u64,
+}
+
+impl Backlight {
+    pub fn new(id: &str) -> Result<Backlight, std::io::Error> {
+        for bl in sysfs_class::Backlight::iter() {
+            let bl = bl?;
+            if bl.id() == id {
+                let max = bl.max_brightness()?;
+                let step = max / 50;
+                return Ok(Backlight {
+                    backlight: bl,
+                    step,
+                    max,
+                });
+            }
+        }
+        panic!("Backlight not found")
+    }
+    pub fn step_up(&self) {
+        let brightness = self.backlight.brightness().unwrap();
+        if brightness + self.step <= self.max {
+            self.backlight
+                .set_brightness(brightness + self.step)
+                .unwrap();
+        }
+    }
+    pub fn step_down(&self) {
+        let brightness = self.backlight.brightness().unwrap();
+        if brightness > self.step {
+            self.backlight
+                .set_brightness(brightness - self.step)
+                .unwrap();
+        }
     }
 }

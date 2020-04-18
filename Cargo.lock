@@ -126,6 +126,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "numtoa"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e521b6adefa0b2c1fa5d2abdf9a5216288686fe6146249215d884c0e5ab320b0"
+
+[[package]]
 name = "pkg-config"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,6 +186,7 @@ dependencies = [
  "rusb",
  "serde",
  "serde_derive",
+ "sysfs-class",
  "toml",
 ]
 
@@ -220,6 +227,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "sysfs-class"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "718e4a5d0e144ff01e05bb8618a4997d8901cdec74cf25826bca2535ef406f3e"
+dependencies = [
+ "numtoa",
 ]
 
 [[package]]

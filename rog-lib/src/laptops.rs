@@ -1,14 +1,10 @@
 use crate::aura::BuiltInModeByte;
-use crate::core::RogCore;
+use crate::core::{Backlight, RogCore};
 
 // ENV{POWER_SUPPLY_ONLINE}=="0", RUN+="gdbus call
 // --session --dest org.gnome.SettingsDaemon.Power
 // --object-path /org/gnome/SettingsDaemon/Power
 // --method org.freedesktop.DBus.Properties.Set org.gnome.SettingsDaemon.Power.Screen Brightness '<int32 65>'"
-
-const POWER_BUS_NAME: &'static str = "org.gnome.SettingsDaemon.Power";
-const POWER_IFACE_NAME: &'static str = "org.gnome.SettingsDaemon.Power.Screen";
-const POWER_PATH: &'static str = "/org/gnome/SettingsDaemon/Power";
 
 pub trait Laptop {
     fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8);
@@ -19,6 +15,7 @@ pub trait Laptop {
     fn board_name(&self) -> &str;
     fn prod_family(&self) -> &str;
 }
+
 pub struct LaptopGX502GW {
     usb_vendor: u16,
     usb_product: u16,
@@ -28,9 +25,12 @@ pub struct LaptopGX502GW {
     min_bright: u8,
     max_bright: u8,
     supported_modes: Vec<BuiltInModeByte>,
+    backlight: Backlight,
 }
+
 impl LaptopGX502GW {
     pub fn new() -> Self {
+        // Find backlight
         LaptopGX502GW {
             usb_vendor: 0x0B05,
             usb_product: 0x1866,
@@ -53,6 +53,7 @@ impl LaptopGX502GW {
                 BuiltInModeByte::ThinZoomy,
                 BuiltInModeByte::WideZoomy,
             ],
+            backlight: Backlight::new("intel_backlight").unwrap(),
         }
     }
 }
@@ -107,7 +108,12 @@ impl Laptop for LaptopGX502GW {
                     rogcore.config().write();
                 }
             }
-            GX502GWKeys::ScreenBrightUp => {}
+            GX502GWKeys::ScreenBrightUp => {
+                self.backlight.step_up();
+            }
+            GX502GWKeys::ScreenBrightDown => {
+                self.backlight.step_down();
+            }
             _ => {
                 if key_byte != 0 {
                     dbg!(&key_byte);
