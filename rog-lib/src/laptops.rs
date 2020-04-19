@@ -141,10 +141,11 @@ impl Laptop for LaptopGX502GW {
             }
             _ => {
                 if key_byte != 0 {
-                    info!("Unmapped key: {:X?}", &key_byte);
+                    info!("Unmapped key: {:?}, {:X?}", &key_byte, &key_byte);
                 }
             }
         }
+        info!("Pressed: {:?}, {:X?}", &key_byte, &key_byte);
         Ok(())
     }
     fn hotkey_group_bytes(&self) -> &[u8] {

@@ -4,6 +4,8 @@ rog-core is a utility for Linux to control many aspects (eventually) of the ASUS
 
 The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark captures from others with different ROG laptops then I should be able to add something like laptop and feature detection.
 
+This is not the optimal solution as I'm using libusb to capture the interface that contains the unread keys (kernel doesn't read them), which removes the volume+media control keys also. I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
+
 ## Requirements
 
 - `rustc`, `cargo`

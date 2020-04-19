@@ -67,6 +67,9 @@ impl RogCore {
         }
 
         dev_handle.set_auto_detach_kernel_driver(true).unwrap();
+        dev_handle
+            .claim_interface(keys_interface_num)
+            .map_err(|err| AuraError::UsbError(err))?;
 
         Ok(RogCore {
             handle: dev_handle,
@@ -164,9 +167,6 @@ impl RogCore {
     }
 
     pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
-        self.handle
-            .claim_interface(self.keys_interface_num)
-            .map_err(|err| AuraError::UsbError(err))?;
         let res =
             match self
                 .handle
@@ -174,6 +174,7 @@ impl RogCore {
             {
                 Ok(o) => {
                     if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
+                        println!("{:?}", buf);
                         Ok(Some(o))
                     } else {
                         Ok(None)
@@ -181,9 +182,6 @@ impl RogCore {
                 }
                 Err(err) => Err(AuraError::UsbError(err)),
             };
-        self.handle
-            .release_interface(self.keys_interface_num)
-            .map_err(|err| AuraError::UsbError(err))?;
         res
     }
 
