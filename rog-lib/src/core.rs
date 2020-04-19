@@ -36,6 +36,7 @@ pub struct RogCore {
     initialised: bool,
     led_interface_num: u8,
     keys_interface_num: u8,
+    keys_endpoint: u8,
     config: Config,
     laptop: RefCell<Box<dyn Laptop>>,
 }
@@ -51,10 +52,11 @@ impl RogCore {
         // Interface with outputs
         let mut led_interface_num = 0;
         let mut keys_interface_num = 0;
+        let keys_endpoint = 0x83;
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == 0x83 {
+                    if endpoint.address() == keys_endpoint {
                         keys_interface_num = desc.interface_number();
                     } else if endpoint.address() == laptop.led_iface_num() {
                         led_interface_num = desc.interface_number();
@@ -71,6 +73,7 @@ impl RogCore {
             initialised: false,
             led_interface_num,
             keys_interface_num,
+            keys_endpoint,
             config: Config::default().read(),
             laptop: RefCell::new(laptop),
         })
@@ -95,36 +98,43 @@ impl RogCore {
         for device in rusb::devices().unwrap().iter() {
             let device_desc = device.device_descriptor().unwrap();
             if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return device.open().map_err(|err| AuraError::from(err));
+                return device.open().map_err(|err| AuraError::UsbError(err));
             }
         }
-        Err(AuraError::from(rusb::Error::NoDevice))
+        Err(AuraError::UsbError(rusb::Error::NoDevice))
+    }
+
+    fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+        self.handle
+            .write_control(0x21, 0x09, 0x035D, 0, message, Duration::new(0, 5))
+            .map_err(|err| AuraError::UsbError(err))?;
+        Ok(())
     }
 
     fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
-        self.handle.claim_interface(self.led_interface_num)?;
-        // Declared as a zoomy so that it is hidden
-        let write = |message: &[u8]| {
-            self.handle
-                .write_control(0x21, 0x09, 0x035D, 0, message, Duration::new(0, 5))
-        };
+        self.handle
+            .claim_interface(self.led_interface_num)
+            .map_err(|err| AuraError::UsbError(err))?;
 
         if !self.initialised {
-            write(&LED_INIT1)?;
-            write(LED_INIT2.as_bytes())?;
-            write(&LED_INIT3)?;
-            write(LED_INIT4.as_bytes())?;
-            write(&LED_INIT5)?;
+            self.aura_write(&LED_INIT1)?;
+            self.aura_write(LED_INIT2.as_bytes())?;
+            self.aura_write(&LED_INIT3)?;
+            self.aura_write(LED_INIT4.as_bytes())?;
+            self.aura_write(&LED_INIT5)?;
+            self.initialised = true;
         }
 
         for message in messages {
-            write(*message)?;
-            write(&LED_SET)?;
+            self.aura_write(*message)?;
+            self.aura_write(&LED_SET)?;
         }
         // Changes won't persist unless apply is set
-        write(&LED_APPLY)?;
+        self.aura_write(&LED_APPLY)?;
 
-        self.handle.release_interface(self.led_interface_num)?;
+        self.handle
+            .release_interface(self.led_interface_num)
+            .map_err(|err| AuraError::UsbError(err))?;
         Ok(())
     }
 
@@ -154,24 +164,27 @@ impl RogCore {
     }
 
     pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
-        self.handle.claim_interface(self.keys_interface_num)?;
-        match self
-            .handle
-            .read_interrupt(0x83, buf, Duration::from_micros(10))
-        {
-            Ok(o) => {
-                if buf[0] == self.laptop.borrow().hotkey_group_byte() {
-                    self.handle.release_interface(self.keys_interface_num)?;
-                    return Ok(Some(o));
+        self.handle
+            .claim_interface(self.keys_interface_num)
+            .map_err(|err| AuraError::UsbError(err))?;
+        let res =
+            match self
+                .handle
+                .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(10))
+            {
+                Ok(o) => {
+                    if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
+                        Ok(Some(o))
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
-            Err(err) => {
-                self.handle.release_interface(self.keys_interface_num)?;
-                return Err(AuraError::from(err));
-            }
-        }
-        self.handle.release_interface(self.keys_interface_num)?;
-        Ok(None)
+                Err(err) => Err(AuraError::UsbError(err)),
+            };
+        self.handle
+            .release_interface(self.keys_interface_num)
+            .map_err(|err| AuraError::UsbError(err))?;
+        res
     }
 
     pub fn suspend(&self) {

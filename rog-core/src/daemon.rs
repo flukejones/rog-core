@@ -32,8 +32,8 @@ impl Daemon {
     pub fn start() -> Result<(), Box<dyn Error>> {
         let mut connection = Connection::new_system().map_or_else(
             |err| {
-                error!("{}", err);
-                panic!("{}", err);
+                error!("{:?}", err);
+                panic!("{:?}", err);
             },
             |dbus| {
                 info!("DBus connected");
@@ -69,7 +69,7 @@ impl Daemon {
                                             Ok(vec![mret])
                                         }
                                         Err(err) => {
-                                            warn!("{}", err);
+                                            warn!("{:?}", err);
                                             Err(MethodErr::failed(&err))
                                         }
                                     }
@@ -90,7 +90,7 @@ impl Daemon {
             connection
                 .process(Duration::from_millis(10))
                 .unwrap_or_else(|err| {
-                    error!("{}", err);
+                    error!("{:?}", err);
                     false
                 });
             // READ KEYBOARD
@@ -104,16 +104,14 @@ impl Daemon {
                     let laptop = borrowed_daemon.rogcore.laptop();
 
                     if let Some(_count) = read {
-                        if key_buf[0] == laptop.hotkey_group_byte() {
-                            laptop
-                                .do_hotkey_action(&mut rogcore, key_buf[1])
-                                .unwrap_or_else(|err| {
-                                    warn!("{}", err);
-                                });
-                        }
+                        laptop
+                            .do_hotkey_action(&mut rogcore, key_buf[1])
+                            .unwrap_or_else(|err| {
+                                warn!("{:?}", err);
+                            });
                     }
                 }
-                Err(err) => error!("{}", err),
+                Err(err) => error!("{:?}", err),
             }
         }
     }

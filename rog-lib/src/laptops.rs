@@ -24,7 +24,7 @@ pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
 /// map.
 pub trait Laptop {
     fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8) -> Result<(), AuraError>;
-    fn hotkey_group_byte(&self) -> u8;
+    fn hotkey_group_bytes(&self) -> &[u8];
     fn led_iface_num(&self) -> u8;
     fn supported_modes(&self) -> &[BuiltInModeByte];
     fn usb_vendor(&self) -> u16;
@@ -38,7 +38,7 @@ pub struct LaptopGX502GW {
     usb_product: u16,
     board_name: &'static str,
     prod_family: &'static str,
-    hotkey_group_byte: u8,
+    hotkey_group_bytes: [u8; 2],
     min_led_bright: u8,
     max_led_bright: u8,
     led_iface_num: u8,
@@ -54,7 +54,7 @@ impl LaptopGX502GW {
             usb_product: 0x1866,
             board_name: "GX502GW",
             prod_family: "Zephyrus S",
-            hotkey_group_byte: 0x5a,
+            hotkey_group_bytes: [0x5a, 0x02],
             min_led_bright: 0x00,
             max_led_bright: 0x03,
             led_iface_num: 0x81,
@@ -141,14 +141,14 @@ impl Laptop for LaptopGX502GW {
             }
             _ => {
                 if key_byte != 0 {
-                    info!("Unmapped key: {}", &key_byte);
+                    info!("Unmapped key: {:X?}", &key_byte);
                 }
             }
         }
         Ok(())
     }
-    fn hotkey_group_byte(&self) -> u8 {
-        self.hotkey_group_byte
+    fn hotkey_group_bytes(&self) -> &[u8] {
+        &self.hotkey_group_bytes
     }
     fn supported_modes(&self) -> &[BuiltInModeByte] {
         &self.supported_modes
