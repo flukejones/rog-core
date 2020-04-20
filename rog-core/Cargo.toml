@@ -12,6 +12,5 @@ serde_derive = "1.0"
 log = "0.4"
 env_logger = "0.7"
 rog-lib = { path = "../rog-lib" }
-tokio-linux-uhid = "0.3"
-tokio-core = "0.1.17"
-tokio-io = "0.1.13"
+uhid-fs = "0.0.1"
+arrayvec = "0.5.1"

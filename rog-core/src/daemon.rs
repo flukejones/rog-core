@@ -1,4 +1,5 @@
 use crate::{DBUS_IFACE, DBUS_PATH};
+use arrayvec::*;
 use dbus::{
     blocking::Connection,
     tree::{Factory, MethodErr},
@@ -8,7 +9,7 @@ use rog_lib::core::*;
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
-use tokio_linux_uhid::{Bus, CreateParams, UHIDDevice};
+use uhid_fs::{Bus, CreateParams, UHIDDevice};
 
 pub struct Daemon {
     rogcore: RogCore,
@@ -86,25 +87,21 @@ impl Daemon {
         // We add the tree to the connection so that incoming method calls will be handled.
         tree.start_receive(&connection);
 
-        let core = tokio_core::reactor::Core::new().unwrap();
-        let handle = core.handle();
+        let mut rd_data = ArrayVec::new();
+        CONSUMER.iter().for_each(|x| rd_data.try_push(*x).unwrap());
 
         let virt = Rc::new(RefCell::new(VirtKeys {
-            device: UHIDDevice::create(
-                &handle,
-                CreateParams {
-                    name: String::from("Virtual ROG buttons"),
-                    phys: String::from(""),
-                    uniq: String::from(""),
-                    bus: Bus::USB,
-                    vendor: 0x0b05,
-                    product: 0x1866,
-                    version: 0,
-                    country: 0,
-                    data: CONSUMER.to_vec(),
-                },
-                None,
-            )
+            device: UHIDDevice::try_new(CreateParams {
+                name: ArrayString::from("Virtual ROG buttons").unwrap(),
+                phys: ArrayString::from("").unwrap(),
+                uniq: ArrayString::from("").unwrap(),
+                bus: Bus::USB,
+                vendor: 0x0b05,
+                product: 0x1866,
+                version: 0,
+                country: 0,
+                rd_data,
+            })
             .unwrap(),
         }));
 
@@ -145,11 +142,11 @@ impl Daemon {
     }
 }
 
-pub struct VirtKeys<T: std::io::Write + tokio_io::AsyncRead> {
+pub struct VirtKeys<T: std::io::Write + std::io::Read> {
     pub device: UHIDDevice<T>,
 }
 
-impl<T: std::io::Write + tokio_io::AsyncRead> VirtKeys<T> {
+impl<T: std::io::Write + std::io::Read> VirtKeys<T> {
     pub fn press(&mut self, key: u8) {
         let mut bytes = [0u8; 8];
         bytes[0] = 0x02;
@@ -157,9 +154,12 @@ impl<T: std::io::Write + tokio_io::AsyncRead> VirtKeys<T> {
         // email button
         // bytes[1] = 0x8a;
         // bytes[2] = 0x01;
-        self.device.send_input(&bytes).unwrap();
-        bytes[1] = 0;
-        self.device.send_input(&bytes).unwrap();
+        let mut datavec = arrayvec::ArrayVec::new();
+        bytes.iter().for_each(|x| datavec.try_push(*x).unwrap());
+
+        self.device.send_input(datavec.clone()).unwrap();
+        datavec[1] = 0;
+        self.device.send_input(datavec).unwrap();
     }
 }
 
