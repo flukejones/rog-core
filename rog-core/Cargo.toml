@@ -12,5 +12,3 @@ serde_derive = "1.0"
 log = "0.4"
 env_logger = "0.7"
 rog-lib = { path = "../rog-lib" }
-uhid-fs = "0.0.1"
-arrayvec = "0.5.1"

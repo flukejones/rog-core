@@ -14,3 +14,4 @@ sysfs-class = "0.1.2"
 aho-corasick = "0.7"
 thiserror = "1.0.15"
 log = "0.4"
+uhid-virt = { path = "../../uhid-fs" }

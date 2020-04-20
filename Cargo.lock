@@ -34,12 +34,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arrayvec"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
-
-[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -452,7 +446,6 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 name = "rog-core"
 version = "0.3.2"
 dependencies = [
- "arrayvec",
  "dbus",
  "env_logger 0.7.1",
  "gumdrop",
@@ -460,7 +453,6 @@ dependencies = [
  "rog-lib",
  "serde",
  "serde_derive",
- "uhid-fs",
 ]
 
 [[package]]
@@ -476,6 +468,7 @@ dependencies = [
  "sysfs-class",
  "thiserror",
  "toml",
+ "uhid-virt",
 ]
 
 [[package]]
@@ -622,24 +615,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c85f514e095d348c279b1e5cd76795082cf15bd59b93207832abe0b1d8fed236"
 
 [[package]]
-name = "uhid-fs"
-version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5b307e0c404eb578300a18cd59a928445b1fa37d23b84332f9cc556f6ef3138"
-dependencies = [
- "arrayvec",
- "enumflags2",
- "libc",
- "uhid-sys",
-]
-
-[[package]]
 name = "uhid-sys"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f4aed8167c39250d6661cd6e80f05d0a549cf57e1a34c5ad66fff658a525706"
 dependencies = [
  "bindgen",
+]
+
+[[package]]
+name = "uhid-virt"
+version = "0.0.2"
+dependencies = [
+ "enumflags2",
+ "libc",
+ "uhid-sys",
 ]
 
 [[package]]
