@@ -1,14 +1,14 @@
 use crate::aura::BuiltInModeByte;
-use crate::core::{Backlight, RogCore};
+use crate::core::{Backlight, ConsumerKeys, RogCore};
 use crate::error::AuraError;
 use log::info;
 
-pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
+pub fn match_laptop() -> Box<dyn Laptop> {
     let dmi = sysfs_class::DmiId::default();
-    let board_name = dmi.board_name()?;
+    let board_name = dmi.board_name().unwrap();
     match board_name.as_str() {
         // The hell does it have a \n for anyway?
-        "GX502GW\n" => Ok(Box::new(LaptopGX502GW::new())),
+        "GX502GW\n" => Box::new(LaptopGX502GW::new()),
         _ => {
             panic!("could not match laptop");
         }
@@ -77,6 +77,7 @@ impl LaptopGX502GW {
     }
 }
 impl Laptop for LaptopGX502GW {
+    // TODO: This really needs to match against u16 in future
     fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) -> Result<(), AuraError> {
         match GX502GWKeys::from(key_byte) {
             GX502GWKeys::LedBrightUp => {
@@ -86,7 +87,7 @@ impl Laptop for LaptopGX502GW {
                     rogcore.config_mut().brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright)?;
-                rogcore.aura_set_and_save(&bytes)?;
+                rogcore.aura_set_and_save(&self.supported_modes, &bytes)?;
             }
             GX502GWKeys::LedBrightDown => {
                 let mut bright = rogcore.config().brightness;
@@ -95,7 +96,7 @@ impl Laptop for LaptopGX502GW {
                     rogcore.config_mut().brightness = bright;
                 }
                 let bytes = RogCore::aura_brightness_bytes(bright)?;
-                rogcore.aura_set_and_save(&bytes)?;
+                rogcore.aura_set_and_save(&self.supported_modes, &bytes)?;
             }
             GX502GWKeys::AuraNext => {
                 let mut mode = rogcore.config().current_mode[3] + 1;
@@ -106,7 +107,7 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config_mut().current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config_mut().get_current() {
-                    rogcore.aura_set_and_save(&bytes)?;
+                    rogcore.aura_set_and_save(&self.supported_modes, &bytes)?;
                 }
             }
             GX502GWKeys::AuraPrevious => {
@@ -120,7 +121,7 @@ impl Laptop for LaptopGX502GW {
                 }
                 rogcore.config_mut().current_mode[3] = mode;
                 if let Some(bytes) = rogcore.config_mut().get_current() {
-                    rogcore.aura_set_and_save(&bytes)?;
+                    rogcore.aura_set_and_save(&self.supported_modes, &bytes)?;
                     rogcore.config().write();
                 }
             }
@@ -139,7 +140,9 @@ impl Laptop for LaptopGX502GW {
 
             GX502GWKeys::MicToggle => {}
             GX502GWKeys::Fan => {}
-            GX502GWKeys::ScreenToggle => {}
+            GX502GWKeys::ScreenToggle => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
+            }
             GX502GWKeys::TouchPadToggle => {}
             GX502GWKeys::Rog => {}
 
@@ -149,7 +152,7 @@ impl Laptop for LaptopGX502GW {
                         "Unmapped key, attempt to pass to virtual device: {:?}, {:X?}",
                         &key_byte, &key_byte
                     );
-                    rogcore.virt_keys().press(key_byte);
+                    rogcore.virt_keys().press([key_byte, 0]);
                 }
             }
         }

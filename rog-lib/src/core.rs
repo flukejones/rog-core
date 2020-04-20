@@ -5,7 +5,6 @@ use aho_corasick::AhoCorasick;
 use gumdrop::Options;
 use log::{debug, warn};
 use rusb::DeviceHandle;
-use std::cell::{Ref, RefCell};
 use std::process::Command;
 use std::str::FromStr;
 use std::time::Duration;
@@ -35,18 +34,14 @@ static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
-    led_interface_num: u8,
-    keys_interface_num: u8,
+    led_iface_num: u8,
     keys_endpoint: u8,
     config: Config,
-    laptop: RefCell<Box<dyn Laptop>>,
     virt_keys: VirtKeys,
 }
 
 impl RogCore {
-    pub fn new() -> Result<RogCore, AuraError> {
-        let laptop = match_laptop()?;
-
+    pub fn new(laptop: &dyn Laptop) -> Result<RogCore, AuraError> {
         let mut dev_handle = RogCore::get_device(laptop.usb_vendor(), laptop.usb_product())?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
@@ -76,21 +71,15 @@ impl RogCore {
         Ok(RogCore {
             handle: dev_handle,
             initialised: false,
-            led_interface_num,
-            keys_interface_num,
+            led_iface_num: led_interface_num,
             keys_endpoint,
             config: Config::default().read(),
-            laptop: RefCell::new(laptop),
             virt_keys: VirtKeys::new(),
         })
     }
 
     pub fn virt_keys(&mut self) -> &mut VirtKeys {
         &mut self.virt_keys
-    }
-
-    pub fn laptop(&self) -> Ref<Box<dyn Laptop>> {
-        self.laptop.borrow()
     }
 
     pub fn config(&self) -> &Config {
@@ -123,7 +112,7 @@ impl RogCore {
 
     fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
         self.handle
-            .claim_interface(self.led_interface_num)
+            .claim_interface(self.led_iface_num)
             .map_err(|err| AuraError::UsbError(err))?;
 
         if !self.initialised {
@@ -143,7 +132,7 @@ impl RogCore {
         self.aura_write(&LED_APPLY)?;
 
         self.handle
-            .release_interface(self.led_interface_num)
+            .release_interface(self.led_iface_num)
             .map_err(|err| AuraError::UsbError(err))?;
         Ok(())
     }
@@ -159,28 +148,35 @@ impl RogCore {
         Ok(bright)
     }
 
-    pub fn aura_set_and_save(&mut self, bytes: &[u8]) -> Result<(), AuraError> {
+    pub fn aura_set_and_save(
+        &mut self,
+        supported_modes: &[BuiltInModeByte],
+        bytes: &[u8],
+    ) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
-        if self.laptop().supported_modes().contains(&mode) || bytes[1] == 0xba {
+        if supported_modes.contains(&mode) || bytes[1] == 0xba {
             let messages = [bytes];
             self.aura_write_messages(&messages)?;
             self.config.set_field_from(bytes);
             self.config.write();
-            debug!("Wrote: {:X?}", bytes);
             return Ok(());
         }
         warn!("{:?} not supported", BuiltInModeByte::from(mode));
         Err(AuraError::NotSupported)
     }
 
-    pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
+    pub fn poll_keyboard(
+        &mut self,
+        hotkey_group_bytes: &[u8],
+        buf: &mut [u8; 32],
+    ) -> Result<Option<usize>, AuraError> {
         let res =
             match self
                 .handle
                 .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(1))
             {
                 Ok(o) => {
-                    if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
+                    if hotkey_group_bytes.contains(&buf[0]) {
                         Ok(Some(o))
                     } else {
                         Ok(None)
@@ -337,15 +333,14 @@ impl VirtKeys {
         }
     }
 
-    pub fn press(&mut self, key: u8) {
+    pub fn press(&mut self, input: [u8; 2]) {
         let mut bytes = [0u8; 8];
         bytes[0] = 0x02;
-        bytes[1] = key;
-        // email button
-        // bytes[1] = 0x8a;
-        // bytes[2] = 0x01;
+        bytes[1] = input[0];
+        bytes[2] = input[1];
         self.device.write(&bytes).unwrap();
         bytes[1] = 0;
+        bytes[2] = 0;
         self.device.write(&bytes).unwrap();
     }
 }
@@ -369,18 +364,29 @@ pub const CONSUMER: [u8; 25] = [
 // Needs another Usage (80) for system control
 // B5 for toggle int/ext display
 // b2 for external
+#[derive(Copy, Clone)]
 pub enum ConsumerKeys {
-    VolUp = 0xe9,     // USAGE (Volume up)
-    VolDown = 0xea,   // USAGE (Volume down)
-    VolMute = 0xe2,   // USAGE (Volume mute)
-    TrackNext = 0xb6, // USAGE (Track next)
-    PlayToggl = 0xcd, // USAGE (Play/Pause)
-    TrackPrev = 0xb5, // USAGE (Track prev)
-    TrackStop = 0xb7,
-    Power = 0x30,
-    Reset = 0x31,
-    Sleep = 0x32,        // USAGE (Sleep)
-    BacklightInc = 0x6f, // USAGE (Backlight Inc)
-    BacklightDec = 0x70, // USAGE (Backlight Dec)
-    BacklightTog = 0x72, // USAGE (Backlight toggle? display toggle?)
+    VolUp = 0x0e9,     // USAGE (Volume up)
+    VolDown = 0x0ea,   // USAGE (Volume down)
+    VolMute = 0x0e2,   // USAGE (Volume mute)
+    TrackNext = 0x0b6, // USAGE (Track next)
+    PlayToggl = 0x0cd, // USAGE (Play/Pause)
+    TrackPrev = 0x0b5, // USAGE (Track prev)
+    TrackStop = 0x0b7,
+    Power = 0x030,
+    Reset = 0x031,
+    Sleep = 0x032,        // USAGE (Sleep)
+    BacklightInc = 0x06f, // USAGE (Backlight Inc)
+    BacklightDec = 0x070, // USAGE (Backlight Dec)
+    BacklightTog = 0x072, // USAGE (Backlight toggle? display toggle?)
+    Present = 0x188,
+}
+
+impl From<ConsumerKeys> for [u8; 2] {
+    fn from(key: ConsumerKeys) -> Self {
+        let mut bytes = [0u8; 2];
+        bytes[0] = key as u8;
+        bytes[1] = (key as u16 >> 8) as u8;
+        bytes
+    }
 }

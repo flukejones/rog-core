@@ -626,6 +626,8 @@ dependencies = [
 [[package]]
 name = "uhid-virt"
 version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c6ade685b787ea3b980b5a47bdc54ef3943adbd41a72ea5352a12a0dc9d821"
 dependencies = [
  "enumflags2",
  "libc",
