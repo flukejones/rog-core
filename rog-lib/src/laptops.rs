@@ -25,12 +25,14 @@ pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
 pub trait Laptop {
     fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8) -> Result<(), AuraError>;
     fn hotkey_group_bytes(&self) -> &[u8];
-    fn led_iface_num(&self) -> u8;
     fn supported_modes(&self) -> &[BuiltInModeByte];
     fn usb_vendor(&self) -> u16;
     fn usb_product(&self) -> u16;
     fn board_name(&self) -> &str;
     fn prod_family(&self) -> &str;
+    fn path_to_leds(&self) -> &str;
+    fn path_to_cons(&self) -> &str;
+    fn path_to_keyb(&self) -> &str;
 }
 
 pub struct LaptopGX502GW {
@@ -41,9 +43,11 @@ pub struct LaptopGX502GW {
     hotkey_group_bytes: [u8; 2],
     min_led_bright: u8,
     max_led_bright: u8,
-    led_iface_num: u8,
     supported_modes: [BuiltInModeByte; 12],
     backlight: Backlight,
+    leds_path: &'static str,
+    cons_path: &'static str,
+    keyb_path: &'static str,
 }
 
 impl LaptopGX502GW {
@@ -57,7 +61,6 @@ impl LaptopGX502GW {
             hotkey_group_bytes: [0x5a, 0x02],
             min_led_bright: 0x00,
             max_led_bright: 0x03,
-            led_iface_num: 0x81,
             supported_modes: [
                 BuiltInModeByte::Stable,
                 BuiltInModeByte::Breathe,
@@ -73,6 +76,9 @@ impl LaptopGX502GW {
                 BuiltInModeByte::WideZoomy,
             ],
             backlight: Backlight::new("intel_backlight").unwrap(),
+            leds_path: "0001:0003:01",
+            cons_path: "0001:0003:02",
+            keyb_path: "0001:0003:00",
         }
     }
 }
@@ -140,12 +146,11 @@ impl Laptop for LaptopGX502GW {
                 rogcore.toggle_airplane_mode();
             }
             _ => {
-                if key_byte != 0 {
-                    info!("Unmapped key: {:?}, {:X?}", &key_byte, &key_byte);
-                }
+                // if key_byte != 0 {
+                //     info!("Unmapped key: {:?}, {:X?}", &key_byte, &key_byte);
+                // }
             }
         }
-        info!("Pressed: {:?}, {:X?}", &key_byte, &key_byte);
         Ok(())
     }
     fn hotkey_group_bytes(&self) -> &[u8] {
@@ -157,20 +162,23 @@ impl Laptop for LaptopGX502GW {
     fn usb_vendor(&self) -> u16 {
         self.usb_vendor
     }
-
     fn usb_product(&self) -> u16 {
         self.usb_product
     }
     fn board_name(&self) -> &str {
         &self.board_name
     }
-
     fn prod_family(&self) -> &str {
         &self.prod_family
     }
-
-    fn led_iface_num(&self) -> u8 {
-        self.led_iface_num
+    fn path_to_leds(&self) -> &str {
+        &self.leds_path
+    }
+    fn path_to_cons(&self) -> &str {
+        &self.cons_path
+    }
+    fn path_to_keyb(&self) -> &str {
+        &self.keyb_path
     }
 }
 

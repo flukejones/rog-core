@@ -16,7 +16,7 @@ pub enum AuraError {
     #[error("mode not supported")]
     NotSupported,
     #[error("USB error")]
-    UsbError(rusb::Error),
+    UsbError(hidapi::HidError),
     #[error("IO error")]
     IOError(#[from] std::io::Error),
     #[error("external command failed")]

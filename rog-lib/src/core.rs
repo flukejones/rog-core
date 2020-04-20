@@ -3,8 +3,8 @@
 use crate::{aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*};
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
-use log::{debug, warn};
-use rusb::DeviceHandle;
+use hidapi::HidApi;
+use log::{debug, error, info, warn};
 use std::cell::{Ref, RefCell};
 use std::process::Command;
 use std::str::FromStr;
@@ -32,11 +32,12 @@ static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /// - `LED_INIT2`
 /// - `LED_INIT4`
 pub struct RogCore {
-    handle: DeviceHandle<rusb::GlobalContext>,
+    /// a handle to the HID device which controls LEDS
+    dev_leds: Option<hidapi::HidDevice>,
+    /// a handle to the HID device that the consumer + vendor specified
+    /// keyboard buttons live on
+    dev_cons: Option<hidapi::HidDevice>,
     initialised: bool,
-    led_interface_num: u8,
-    keys_interface_num: u8,
-    keys_endpoint: u8,
     config: Config,
     laptop: RefCell<Box<dyn Laptop>>,
 }
@@ -45,38 +46,35 @@ impl RogCore {
     pub fn new() -> Result<RogCore, AuraError> {
         let laptop = match_laptop()?;
 
-        let mut dev_handle = RogCore::get_device(laptop.usb_vendor(), laptop.usb_product())?;
-        dev_handle.set_active_configuration(0).unwrap_or(());
-
-        let dev_config = dev_handle.device().config_descriptor(0).unwrap();
-        // Interface with outputs
-        let mut led_interface_num = 0;
-        let mut keys_interface_num = 0;
-        let keys_endpoint = 0x83;
-        for iface in dev_config.interfaces() {
-            for desc in iface.descriptors() {
-                for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == keys_endpoint {
-                        keys_interface_num = desc.interface_number();
-                    } else if endpoint.address() == laptop.led_iface_num() {
-                        led_interface_num = desc.interface_number();
-                        break;
+        let mut dev_leds = None;
+        let mut dev_cons = None;
+        match HidApi::new() {
+            Ok(api) => {
+                for device in api.device_list() {
+                    debug!("Checking: {:?}", device.path());
+                    if device.vendor_id() == laptop.usb_vendor()
+                        && device.product_id() == laptop.usb_product()
+                    {
+                        if device.path().to_string_lossy() == laptop.path_to_leds() {
+                            dev_leds = Some(device.open_device(&api).unwrap());
+                            info!("Found ROG LEDS");
+                        }
+                        if device.path().to_string_lossy() == laptop.path_to_cons() {
+                            dev_cons = Some(device.open_device(&api).unwrap());
+                            info!("Found ROG Consumer devices");
+                        }
                     }
                 }
             }
+            Err(e) => {
+                error!("Error: {}", e);
+            }
         }
 
-        dev_handle.set_auto_detach_kernel_driver(true).unwrap();
-        dev_handle
-            .claim_interface(keys_interface_num)
-            .map_err(|err| AuraError::UsbError(err))?;
-
         Ok(RogCore {
-            handle: dev_handle,
+            dev_leds,
+            dev_cons,
             initialised: false,
-            led_interface_num,
-            keys_interface_num,
-            keys_endpoint,
             config: Config::default().read(),
             laptop: RefCell::new(laptop),
         })
@@ -94,31 +92,28 @@ impl RogCore {
         &mut self.config
     }
 
-    fn get_device(
-        vendor: u16,
-        product: u16,
-    ) -> Result<DeviceHandle<rusb::GlobalContext>, AuraError> {
-        for device in rusb::devices().unwrap().iter() {
-            let device_desc = device.device_descriptor().unwrap();
-            if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return device.open().map_err(|err| AuraError::UsbError(err));
-            }
-        }
-        Err(AuraError::UsbError(rusb::Error::NoDevice))
-    }
+    // fn get_device(
+    //     vendor: u16,
+    //     product: u16,
+    // ) -> Result<DeviceHandle<rusb::GlobalContext>, AuraError> {
+    //     for device in rusb::devices().unwrap().iter() {
+    //         let device_desc = device.device_descriptor().unwrap();
+    //         if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
+    //             return device.open().map_err(|err| AuraError::UsbError(err));
+    //         }
+    //     }
+    //     Err(AuraError::UsbError(rusb::Error::NoDevice))
+    // }
 
     fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
-        self.handle
-            .write_control(0x21, 0x09, 0x035D, 0, message, Duration::new(0, 5))
-            .map_err(|err| AuraError::UsbError(err))?;
+        if let Some(aura) = &self.dev_leds {
+            aura.write(message)
+                .map_err(|err| AuraError::UsbError(err))?;
+        }
         Ok(())
     }
 
     fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
-        self.handle
-            .claim_interface(self.led_interface_num)
-            .map_err(|err| AuraError::UsbError(err))?;
-
         if !self.initialised {
             self.aura_write(&LED_INIT1)?;
             self.aura_write(LED_INIT2.as_bytes())?;
@@ -135,9 +130,6 @@ impl RogCore {
         // Changes won't persist unless apply is set
         self.aura_write(&LED_APPLY)?;
 
-        self.handle
-            .release_interface(self.led_interface_num)
-            .map_err(|err| AuraError::UsbError(err))?;
         Ok(())
     }
 
@@ -167,22 +159,15 @@ impl RogCore {
     }
 
     pub fn poll_keyboard(&mut self, buf: &mut [u8; 32]) -> Result<Option<usize>, AuraError> {
-        let res =
-            match self
-                .handle
-                .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(10))
-            {
-                Ok(o) => {
-                    if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
-                        println!("{:?}", buf);
-                        Ok(Some(o))
-                    } else {
-                        Ok(None)
-                    }
-                }
-                Err(err) => Err(AuraError::UsbError(err)),
-            };
-        res
+        if let Some(rogcon) = &self.dev_cons {
+            let res = rogcon
+                .read_timeout(buf, 1)
+                .map_err(|err| AuraError::UsbError(err))?;
+            if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
+                return Ok(Some(res));
+            }
+        }
+        Ok(None)
     }
 
     pub fn suspend(&self) {
@@ -240,7 +225,7 @@ impl Backlight {
             let bl = bl?;
             if bl.id() == id {
                 let max = bl.max_brightness()?;
-                let step = max / 50;
+                let step = max / 500;
                 return Ok(Backlight {
                     backlight: bl,
                     step,

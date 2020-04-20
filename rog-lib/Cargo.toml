@@ -5,7 +5,7 @@ authors = ["Luke <luke@ljones.dev>"]
 edition = "2018"
 
 [dependencies]
-rusb = "0.5"
+hidapi = "1.2"
 gumdrop = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
