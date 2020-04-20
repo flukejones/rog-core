@@ -4,10 +4,11 @@ use dbus::{
     tree::{Factory, MethodErr},
 };
 use log::{error, info, warn};
-use rog_lib::core::RogCore;
+use rog_lib::core::*;
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
+use tokio_linux_uhid::{Bus, CreateParams, UHIDDevice};
 
 pub struct Daemon {
     rogcore: RogCore,
@@ -85,6 +86,28 @@ impl Daemon {
         // We add the tree to the connection so that incoming method calls will be handled.
         tree.start_receive(&connection);
 
+        let core = tokio_core::reactor::Core::new().unwrap();
+        let handle = core.handle();
+
+        let virt = Rc::new(RefCell::new(VirtKeys {
+            device: UHIDDevice::create(
+                &handle,
+                CreateParams {
+                    name: String::from("Virtual ROG buttons"),
+                    phys: String::from(""),
+                    uniq: String::from(""),
+                    bus: Bus::USB,
+                    vendor: 0x0b05,
+                    product: 0x1866,
+                    version: 0,
+                    country: 0,
+                    data: CONSUMER.to_vec(),
+                },
+                None,
+            )
+            .unwrap(),
+        }));
+
         let mut key_buf = [0u8; 32];
         loop {
             connection
@@ -104,8 +127,13 @@ impl Daemon {
                     let laptop = borrowed_daemon.rogcore.laptop();
 
                     if let Some(_count) = read {
+                        let virt = virt.clone();
                         laptop
-                            .do_hotkey_action(&mut rogcore, key_buf[1])
+                            .do_hotkey_action(
+                                &mut rogcore,
+                                key_buf[1],
+                                Box::new(move |input| virt.borrow_mut().press(input)),
+                            )
                             .unwrap_or_else(|err| {
                                 warn!("{:?}", err);
                             });
@@ -115,4 +143,57 @@ impl Daemon {
             }
         }
     }
+}
+
+pub struct VirtKeys<T: std::io::Write + tokio_io::AsyncRead> {
+    pub device: UHIDDevice<T>,
+}
+
+impl<T: std::io::Write + tokio_io::AsyncRead> VirtKeys<T> {
+    pub fn press(&mut self, key: u8) {
+        let mut bytes = [0u8; 8];
+        bytes[0] = 0x02;
+        bytes[1] = key;
+        // email button
+        // bytes[1] = 0x8a;
+        // bytes[2] = 0x01;
+        self.device.send_input(&bytes).unwrap();
+        bytes[1] = 0;
+        self.device.send_input(&bytes).unwrap();
+    }
+}
+
+pub const CONSUMER: [u8; 25] = [
+    0x05, 0x0C, // Usage Page (Consumer)
+    0x09, 0x01, // Usage (Consumer Control)
+    0xA1, 0x01, // Collection (Application)
+    0x85, 0x02, //   Report ID (2)
+    0x19, 0x00, //   Usage Minimum (Unassigned)
+    0x2A, 0x3C, 0x02, //   Usage Maximum (AC Format)
+    0x15, 0x00, //   Logical Minimum (0)
+    0x26, 0x3C, 0x02, //   Logical Maximum (572)
+    0x75, 0x10, //   Report Size (16)
+    0x95, 0x02, //   Report Count (2)
+    0x81, 0x00, //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0xC0,
+];
+
+// Usage 04 for microphone
+// Needs another Usage (80) for system control
+// B5 for toggle int/ext display
+// b2 for external
+pub enum ConsumerKeys {
+    VolUp = 0xe9,     // USAGE (Volume up)
+    VolDown = 0xea,   // USAGE (Volume down)
+    VolMute = 0xe2,   // USAGE (Volume mute)
+    TrackNext = 0xb6, // USAGE (Track next)
+    PlayToggl = 0xcd, // USAGE (Play/Pause)
+    TrackPrev = 0xb5, // USAGE (Track prev)
+    TrackStop = 0xb7,
+    Power = 0x30,
+    Reset = 0x31,
+    Sleep = 0x32,        // USAGE (Sleep)
+    BacklightInc = 0x6f, // USAGE (Backlight Inc)
+    BacklightDec = 0x70, // USAGE (Backlight Dec)
+    BacklightTog = 0x72, // USAGE (Backlight toggle? display toggle?)
 }

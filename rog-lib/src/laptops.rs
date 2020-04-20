@@ -23,7 +23,12 @@ pub fn match_laptop() -> Result<Box<dyn Laptop>, AuraError> {
 /// has 3 explicit groups: main, vol+media, and the ones that the Linux kernel doesn't
 /// map.
 pub trait Laptop {
-    fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8) -> Result<(), AuraError>;
+    fn do_hotkey_action(
+        &self,
+        core: &mut RogCore,
+        key_byte: u8,
+        virt: Box<dyn Fn(u8)>,
+    ) -> Result<(), AuraError>;
     fn hotkey_group_bytes(&self) -> &[u8];
     fn led_iface_num(&self) -> u8;
     fn supported_modes(&self) -> &[BuiltInModeByte];
@@ -77,11 +82,13 @@ impl LaptopGX502GW {
     }
 }
 impl Laptop for LaptopGX502GW {
-    fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) -> Result<(), AuraError> {
+    fn do_hotkey_action(
+        &self,
+        rogcore: &mut RogCore,
+        key_byte: u8,
+        virt: Box<dyn Fn(u8)>,
+    ) -> Result<(), AuraError> {
         match GX502GWKeys::from(key_byte) {
-            GX502GWKeys::Rog => {
-                println!("ROG!");
-            }
             GX502GWKeys::LedBrightUp => {
                 let mut bright = rogcore.config().brightness;
                 if bright < self.max_led_bright {
@@ -139,13 +146,24 @@ impl Laptop for LaptopGX502GW {
             GX502GWKeys::AirplaneMode => {
                 rogcore.toggle_airplane_mode();
             }
-            _ => {
+
+            GX502GWKeys::MicToggle => {}
+            GX502GWKeys::Fan => {}
+            GX502GWKeys::ScreenToggle => {}
+            GX502GWKeys::TouchPadToggle => {}
+            GX502GWKeys::Rog => {}
+
+            GX502GWKeys::None => {
                 if key_byte != 0 {
-                    info!("Unmapped key: {:?}, {:X?}", &key_byte, &key_byte);
+                    info!(
+                        "Unmapped key, attempt to pass to virtual device: {:?}, {:X?}",
+                        &key_byte, &key_byte
+                    );
+                    virt(key_byte);
                 }
             }
         }
-        info!("Pressed: {:?}, {:X?}", &key_byte, &key_byte);
+        //info!("Pressed: {:?}, {:X?}", &key_byte, &key_byte);
         Ok(())
     }
     fn hotkey_group_bytes(&self) -> &[u8] {

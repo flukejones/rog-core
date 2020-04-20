@@ -170,11 +170,10 @@ impl RogCore {
         let res =
             match self
                 .handle
-                .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(10))
+                .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(1))
             {
                 Ok(o) => {
                     if self.laptop.borrow().hotkey_group_bytes().contains(&buf[0]) {
-                        println!("{:?}", buf);
                         Ok(Some(o))
                     } else {
                         Ok(None)
