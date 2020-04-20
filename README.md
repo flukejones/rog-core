@@ -4,7 +4,7 @@ rog-core is a utility for Linux to control many aspects (eventually) of the ASUS
 
 The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark captures from others with different ROG laptops then I should be able to add something like laptop and feature detection.
 
-This is not the optimal solution as I'm using libusb to capture the interface that contains the unread keys (kernel doesn't read them), which removes the volume+media control keys also. I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
+I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
 
 ## Requirements
 
@@ -60,14 +60,18 @@ Currently if no options are supplied for the CLI mode selection then a default i
 - [ ] System control
   + [X] Sleep
   + [X] Airplane mode
+  + [X] Screen off? Now mapped to a keycode but has no effect
   + [X] Screen brightness up/down
-  + [ ] ROG key custom mapping
+  + [ ] ROG key custom mapping (Can be done)
   + [ ] Fan/Performance mode
   + [ ] Screen off??
   + [ ] Touchpad toggle
-  + [X] Aura control by Aura keys
 - [X] Capture and use hotkeys **Partially completed: aura keys work**
+  + [X] Aura control by Aura keys
+  + [X] Volume + media controls work
 - [X] Logging - required for journalctl
+
+As the daemon currently stands it should be enough for a functional system.
 
 ## Wireshark captures
 
