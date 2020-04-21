@@ -6,19 +6,19 @@ use dbus::{
 use log::{error, info, warn};
 use rog_lib::{
     core::RogCore,
-    laptops::{match_laptop, Laptop},
+    laptops::{match_laptop, LaptopRunner},
 };
 use std::error::Error;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc};
 
-pub struct Daemon {
+pub(crate) struct Daemon {
     rogcore: RogCore,
-    laptop: Box<dyn Laptop>,
+    laptop: Box<dyn LaptopRunner>,
 }
 
 impl Daemon {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let laptop = match_laptop();
 
         Daemon {
@@ -36,7 +36,7 @@ impl Daemon {
         }
     }
 
-    pub fn start() -> Result<(), Box<dyn Error>> {
+    pub(crate) fn start() -> Result<(), Box<dyn Error>> {
         let mut connection = Connection::new_system().map_or_else(
             |err| {
                 error!("{:?}", err);
@@ -96,8 +96,6 @@ impl Daemon {
         // We add the tree to the connection so that incoming method calls will be handled.
         tree.start_receive(&connection);
 
-        let mut key_buf = [0u8; 32];
-        let hotkey_group_bytes = Vec::from(daemon.borrow().laptop.hotkey_group_bytes());
         loop {
             connection
                 .process(Duration::from_millis(10))
@@ -105,29 +103,16 @@ impl Daemon {
                     error!("{:?}", err);
                     false
                 });
-            // READ KEYBOARD
-            // TODO: this needs to move to a thread, but there is unsafety
-            let mut borrowed_daemon = daemon.borrow_mut();
-            match borrowed_daemon
-                .rogcore
-                .poll_keyboard(&hotkey_group_bytes, &mut key_buf)
-            {
-                Ok(read) => {
-                    // Doing this because the Laptop trait takes RogCore, but RogCore contains laptop
-                    // and this makes the borrow checker unhappy, but it's safe for this
-                    let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
 
-                    if let Some(_count) = read {
-                        borrowed_daemon
-                            .laptop
-                            .do_hotkey_action(&mut rogcore, key_buf[1])
-                            .unwrap_or_else(|err| {
-                                warn!("{:?}", err);
-                            });
-                    }
-                }
-                Err(err) => error!("{:?}", err),
-            }
+            // TODO: this needs to move to a thread, but there is unsafety
+            let borrowed_daemon = daemon.borrow_mut();
+            let mut rogcore = unsafe { &mut (*daemon.as_ptr()).rogcore };
+            borrowed_daemon
+                .laptop
+                .run(&mut rogcore)
+                .unwrap_or_else(|err| {
+                    error!("{:?}", err);
+                });
         }
     }
 }

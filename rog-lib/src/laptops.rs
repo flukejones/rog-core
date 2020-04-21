@@ -5,7 +5,7 @@ use crate::virt_device::ConsumerKeys;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use log::info;
 
-pub fn match_laptop() -> Box<dyn Laptop> {
+pub fn match_laptop() -> Box<dyn LaptopRunner> {
     let dmi = sysfs_class::DmiId::default();
     let board_name = dmi.board_name().unwrap();
     match board_name.as_str() {
@@ -17,25 +17,31 @@ pub fn match_laptop() -> Box<dyn Laptop> {
     }
 }
 
-/// All laptop models should implement this trait
+/// All laptop models should implement this trait. The role of a `Laptop` is to
+/// "drive" the `RogCore`.
 ///
 /// `do_hotkey_action` is passed the byte that a hotkey emits, and is expected to
 /// perform whichever action matches that. For now the only key bytes passed in are
 /// the ones which match `byte[0] == hotkey_group_byte`. On the GX502GW the keyboard
 /// has 3 explicit groups: main, vol+media, and the ones that the Linux kernel doesn't
 /// map.
-pub trait Laptop {
-    fn do_hotkey_action(&self, core: &mut RogCore, key_byte: u8) -> Result<(), AuraError>;
+pub(crate) trait Laptop {
     fn hotkey_group_bytes(&self) -> &[u8];
-    fn led_iface_num(&self) -> u8;
-    fn supported_modes(&self) -> &[BuiltInModeByte];
-    fn usb_vendor(&self) -> u16;
-    fn usb_product(&self) -> u16;
     fn board_name(&self) -> &str;
     fn prod_family(&self) -> &str;
 }
 
-pub struct LaptopGX502GW {
+/// The public interface for running a laptop. Primarily used by the daemon.
+pub trait LaptopRunner {
+    fn run(&self, core: &mut RogCore) -> Result<(), AuraError>;
+    fn led_iface_num(&self) -> u8;
+    fn key_iface_num(&self) -> u8;
+    fn usb_vendor(&self) -> u16;
+    fn usb_product(&self) -> u16;
+    fn supported_modes(&self) -> &[BuiltInModeByte];
+}
+
+pub(crate) struct LaptopGX502GW {
     usb_vendor: u16,
     usb_product: u16,
     board_name: &'static str,
@@ -44,6 +50,7 @@ pub struct LaptopGX502GW {
     min_led_bright: u8,
     max_led_bright: u8,
     led_iface_num: u8,
+    key_iface_num: u8,
     supported_modes: [BuiltInModeByte; 12],
     backlight: Backlight,
 }
@@ -60,6 +67,7 @@ impl LaptopGX502GW {
             min_led_bright: 0x00,
             max_led_bright: 0x03,
             led_iface_num: 0x81,
+            key_iface_num: 0x83,
             supported_modes: [
                 BuiltInModeByte::Stable,
                 BuiltInModeByte::Breathe,
@@ -78,10 +86,14 @@ impl LaptopGX502GW {
         }
     }
 }
-impl Laptop for LaptopGX502GW {
+
+impl LaptopRunner for LaptopGX502GW {
     // TODO: This really needs to match against u16 in future
-    fn do_hotkey_action(&self, rogcore: &mut RogCore, key_byte: u8) -> Result<(), AuraError> {
-        match GX502GWKeys::from(key_byte) {
+    fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
+        let mut key_buf = [0u8; 32];
+        rogcore.poll_keyboard(&self.hotkey_group_bytes, &mut key_buf)?;
+
+        match GX502GWKeys::from(key_buf[1]) {
             GX502GWKeys::LedBrightUp => {
                 let mut bright = rogcore.config().brightness;
                 if bright < self.max_led_bright {
@@ -135,7 +147,7 @@ impl Laptop for LaptopGX502GW {
             }
             GX502GWKeys::Sleep => {
                 // Direct call to systemd
-                rogcore.suspend();
+                rogcore.suspend_with_systemd();
                 //rogcore.virt_keys().press([0x01, 0, 0, 0x82, 0, 0, 0, 0]);
                 // Power menu
                 //rogcore.virt_keys().press([0x01, 0, 0, 0x66, 0, 0, 0, 0]);
@@ -160,48 +172,52 @@ impl Laptop for LaptopGX502GW {
             }
 
             GX502GWKeys::None => {
-                if key_byte != 0 {
+                if key_buf[1] != 0 {
                     info!(
-                        "Unmapped key, attempt to pass to virtual device: {:?}, {:X?}",
-                        &key_byte, &key_byte
+                        "Unmapped key, attempt to pass to virtual device: {:X?}",
+                        &key_buf[1]
                     );
                     let mut bytes = [0u8; 8];
                     // TODO: code page
                     bytes[0] = 0x02;
-                    bytes[1] = key_byte;
+                    bytes[1] = key_buf[1];
                     rogcore.virt_keys().press(bytes);
                 }
             }
         }
         Ok(())
     }
-    fn hotkey_group_bytes(&self) -> &[u8] {
-        &self.hotkey_group_bytes
-    }
-    fn supported_modes(&self) -> &[BuiltInModeByte] {
-        &self.supported_modes
-    }
-    fn usb_vendor(&self) -> u16 {
-        self.usb_vendor
-    }
-
-    fn usb_product(&self) -> u16 {
-        self.usb_product
-    }
-    fn board_name(&self) -> &str {
-        &self.board_name
-    }
-
-    fn prod_family(&self) -> &str {
-        &self.prod_family
-    }
 
     fn led_iface_num(&self) -> u8 {
         self.led_iface_num
     }
+    fn key_iface_num(&self) -> u8 {
+        self.key_iface_num
+    }
+    fn usb_vendor(&self) -> u16 {
+        self.usb_vendor
+    }
+    fn usb_product(&self) -> u16 {
+        self.usb_product
+    }
+    fn supported_modes(&self) -> &[BuiltInModeByte] {
+        &self.supported_modes
+    }
 }
 
-pub enum GX502GWKeys {
+impl Laptop for LaptopGX502GW {
+    fn hotkey_group_bytes(&self) -> &[u8] {
+        &self.hotkey_group_bytes
+    }
+    fn board_name(&self) -> &str {
+        &self.board_name
+    }
+    fn prod_family(&self) -> &str {
+        &self.prod_family
+    }
+}
+
+pub(crate) enum GX502GWKeys {
     Rog = 0x38,
     MicToggle = 0x7C,
     Fan = 0xAE,

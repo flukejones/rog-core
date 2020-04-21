@@ -444,7 +444,7 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 
 [[package]]
 name = "rog-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "dbus",
  "env_logger 0.7.1",
@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "rog-lib"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "aho-corasick 0.7.10",
  "gumdrop",

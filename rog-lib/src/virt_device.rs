@@ -1,11 +1,11 @@
 use uhid_virt::{Bus, CreateParams, UHIDDevice};
 
-pub struct VirtKeys {
-    pub device: UHIDDevice<std::fs::File>,
+pub(crate) struct VirtKeys {
+    device: UHIDDevice<std::fs::File>,
 }
 
 impl VirtKeys {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         VirtKeys {
             device: UHIDDevice::create(CreateParams {
                 name: String::from("Virtual ROG buttons"),
@@ -71,7 +71,7 @@ impl VirtKeys {
         }
     }
 
-    pub fn press(&mut self, input: [u8; 8]) {
+    pub(crate) fn press(&mut self, input: [u8; 8]) {
         self.device.write(&input).unwrap();
         let mut reset = [0u8; 8];
         reset[0] = input[0];
@@ -79,8 +79,9 @@ impl VirtKeys {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
-pub enum ConsumerKeys {
+pub(crate) enum ConsumerKeys {
     Power = 0x30,
     Sleep = 0x32,
     Menu = 0x0040,
