@@ -62,10 +62,10 @@ Currently if no options are supplied for the CLI mode selection then a default i
   + [X] Airplane mode
   + [X] Screen off? Now mapped to a keycode but has no effect
   + [X] Screen brightness up/down
-  + [ ] ROG key custom mapping (Can be done)
+  + [ ] ROG key custom mapping (Can be done in source)
   + [ ] Fan/Performance mode
   + [ ] Screen off??
-  + [ ] Touchpad toggle
+  + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
 - [X] Capture and use hotkeys **Partially completed: aura keys work**
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work

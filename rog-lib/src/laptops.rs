@@ -1,6 +1,8 @@
 use crate::aura::BuiltInModeByte;
-use crate::core::{Backlight, ConsumerKeys, RogCore};
+use crate::core::{Backlight, RogCore};
 use crate::error::AuraError;
+use crate::virt_device::ConsumerKeys;
+//use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use log::info;
 
 pub fn match_laptop() -> Box<dyn Laptop> {
@@ -132,7 +134,11 @@ impl Laptop for LaptopGX502GW {
                 self.backlight.step_down();
             }
             GX502GWKeys::Sleep => {
+                // Direct call to systemd
                 rogcore.suspend();
+                //rogcore.virt_keys().press([0x01, 0, 0, 0x82, 0, 0, 0, 0]);
+                // Power menu
+                //rogcore.virt_keys().press([0x01, 0, 0, 0x66, 0, 0, 0, 0]);
             }
             GX502GWKeys::AirplaneMode => {
                 rogcore.toggle_airplane_mode();
@@ -143,8 +149,15 @@ impl Laptop for LaptopGX502GW {
             GX502GWKeys::ScreenToggle => {
                 rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
             }
-            GX502GWKeys::TouchPadToggle => {}
-            GX502GWKeys::Rog => {}
+            GX502GWKeys::TouchPadToggle => {
+                // F21 key, Touchpad toggle
+                rogcore.virt_keys().press([0x01, 0, 0, 0x70, 0, 0, 0, 0]);
+                // rogcore.virt_keys().press([0x01, 0, 0, 0x71, 0, 0, 0, 0]); // Touchpad on F22
+                // rogcore.virt_keys().press([0x01, 0, 0, 0x72, 0, 0, 0, 0]); // Touchpad off F23
+            }
+            GX502GWKeys::Rog => {
+                rogcore.virt_keys().press([0x01, 0, 0, 0x68, 0, 0, 0, 0]); // XF86Tools? F13
+            }
 
             GX502GWKeys::None => {
                 if key_byte != 0 {
@@ -152,11 +165,14 @@ impl Laptop for LaptopGX502GW {
                         "Unmapped key, attempt to pass to virtual device: {:?}, {:X?}",
                         &key_byte, &key_byte
                     );
-                    rogcore.virt_keys().press([key_byte, 0]);
+                    let mut bytes = [0u8; 8];
+                    // TODO: code page
+                    bytes[0] = 0x02;
+                    bytes[1] = key_byte;
+                    rogcore.virt_keys().press(bytes);
                 }
             }
         }
-        //info!("Pressed: {:?}, {:X?}", &key_byte, &key_byte);
         Ok(())
     }
     fn hotkey_group_bytes(&self) -> &[u8] {

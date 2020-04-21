@@ -1,6 +1,8 @@
 // Return show-stopping errors, otherwise map error to a log level
 
-use crate::{aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*};
+use crate::{
+    aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*, virt_device::VirtKeys,
+};
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
 use log::{debug, warn};
@@ -9,7 +11,6 @@ use std::process::Command;
 use std::str::FromStr;
 use std::time::Duration;
 use sysfs_class::{Brightness, SysClass};
-use uhid_virt::{Bus, CreateParams, UHIDDevice};
 
 pub const LED_MSG_LEN: usize = 17;
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
@@ -308,85 +309,5 @@ impl FromStr for LedBrightness {
                 Err(AuraError::ParseBrightness)
             }
         }
-    }
-}
-
-pub struct VirtKeys {
-    pub device: UHIDDevice<std::fs::File>,
-}
-
-impl VirtKeys {
-    pub fn new() -> Self {
-        VirtKeys {
-            device: UHIDDevice::create(CreateParams {
-                name: String::from("Virtual ROG buttons"),
-                phys: String::from(""),
-                uniq: String::from(""),
-                bus: Bus::USB,
-                vendor: 0x0b05,
-                product: 0x1866,
-                version: 0,
-                country: 0,
-                rd_data: CONSUMER.to_vec(),
-            })
-            .unwrap(),
-        }
-    }
-
-    pub fn press(&mut self, input: [u8; 2]) {
-        let mut bytes = [0u8; 8];
-        bytes[0] = 0x02;
-        bytes[1] = input[0];
-        bytes[2] = input[1];
-        self.device.write(&bytes).unwrap();
-        bytes[1] = 0;
-        bytes[2] = 0;
-        self.device.write(&bytes).unwrap();
-    }
-}
-
-pub const CONSUMER: [u8; 25] = [
-    0x05, 0x0C, // Usage Page (Consumer)
-    0x09, 0x01, // Usage (Consumer Control)
-    0xA1, 0x01, // Collection (Application)
-    0x85, 0x02, //   Report ID (2)
-    0x19, 0x00, //   Usage Minimum (Unassigned)
-    0x2A, 0x3C, 0x02, //   Usage Maximum (AC Format)
-    0x15, 0x00, //   Logical Minimum (0)
-    0x26, 0x3C, 0x02, //   Logical Maximum (572)
-    0x75, 0x10, //   Report Size (16)
-    0x95, 0x02, //   Report Count (2)
-    0x81, 0x00, //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
-    0xC0,
-];
-
-// Usage 04 for microphone
-// Needs another Usage (80) for system control
-// B5 for toggle int/ext display
-// b2 for external
-#[derive(Copy, Clone)]
-pub enum ConsumerKeys {
-    VolUp = 0x0e9,     // USAGE (Volume up)
-    VolDown = 0x0ea,   // USAGE (Volume down)
-    VolMute = 0x0e2,   // USAGE (Volume mute)
-    TrackNext = 0x0b6, // USAGE (Track next)
-    PlayToggl = 0x0cd, // USAGE (Play/Pause)
-    TrackPrev = 0x0b5, // USAGE (Track prev)
-    TrackStop = 0x0b7,
-    Power = 0x030,
-    Reset = 0x031,
-    Sleep = 0x032,        // USAGE (Sleep)
-    BacklightInc = 0x06f, // USAGE (Backlight Inc)
-    BacklightDec = 0x070, // USAGE (Backlight Dec)
-    BacklightTog = 0x072, // USAGE (Backlight toggle? display toggle?)
-    Present = 0x188,
-}
-
-impl From<ConsumerKeys> for [u8; 2] {
-    fn from(key: ConsumerKeys) -> Self {
-        let mut bytes = [0u8; 2];
-        bytes[0] = key as u8;
-        bytes[1] = (key as u16 >> 8) as u8;
-        bytes
     }
 }

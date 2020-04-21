@@ -5,3 +5,4 @@ pub mod config;
 pub mod core;
 mod error;
 pub mod laptops;
+mod virt_device;
