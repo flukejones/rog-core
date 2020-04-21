@@ -1,19 +1,13 @@
-mod daemon;
-
-use crate::daemon::*;
+use daemon::{
+    cli_options::SetAuraBuiltin,
+    core::{aura_brightness_bytes, LedBrightness, LED_MSG_LEN},
+    daemon::{start_daemon, DBUS_IFACE, DBUS_NAME, DBUS_PATH},
+};
 use dbus::Error as DbusError;
 use dbus::{ffidisp::Connection, Message};
 use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
-use rog_lib::{
-    cli_options::SetAuraBuiltin,
-    core::{LedBrightness, RogCore, LED_MSG_LEN},
-};
-
-pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
-pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
-pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
 
 #[derive(Debug, Options)]
 struct CLIStart {
@@ -49,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parsed = CLIStart::parse_args_default_or_exit();
     if parsed.daemon {
-        Daemon::start()?;
+        start_daemon()?;
     }
 
     match parsed.command {
@@ -63,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     match parsed.bright {
         Some(brightness) => {
-            let bytes = RogCore::aura_brightness_bytes(brightness.level())?;
+            let bytes = aura_brightness_bytes(brightness.level());
             dbus_led_builtin_write(&bytes)?;
         }
         _ => {}

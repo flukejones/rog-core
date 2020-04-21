@@ -5,7 +5,7 @@ use crate::{
 };
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
-use log::warn;
+use log::{error, warn};
 use rusb::DeviceHandle;
 use std::process::Command;
 use std::str::FromStr;
@@ -32,7 +32,7 @@ static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 /// - `LED_INIT4`
 /// - `LED_INIT2`
 /// - `LED_INIT4`
-pub struct RogCore {
+pub(crate) struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_endpoint: u8,
@@ -42,7 +42,7 @@ pub struct RogCore {
 }
 
 impl RogCore {
-    pub fn new(laptop: &dyn LaptopRunner) -> Result<RogCore, AuraError> {
+    pub(crate) fn new(laptop: &dyn Laptop) -> Result<RogCore, AuraError> {
         let mut dev_handle = RogCore::get_device(laptop.usb_vendor(), laptop.usb_product())?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
@@ -53,9 +53,9 @@ impl RogCore {
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == laptop.key_iface_num() {
+                    if endpoint.address() == laptop.key_endpoint() {
                         keys_interface_num = desc.interface_number();
-                    } else if endpoint.address() == laptop.led_iface_num() {
+                    } else if endpoint.address() == laptop.led_endpoint() {
                         led_interface_num = desc.interface_number();
                         break;
                     }
@@ -72,7 +72,7 @@ impl RogCore {
             handle: dev_handle,
             initialised: false,
             led_endpoint: led_interface_num,
-            keys_endpoint: keys_interface_num,
+            keys_endpoint: laptop.key_endpoint(),
             config: Config::default().read(),
             virt_keys: VirtKeys::new(),
         })
@@ -142,26 +142,22 @@ impl RogCore {
     ///
     /// `report_filter_bytes` is used to filter the data read from the interupt so
     /// only the relevant byte array is returned.
-    pub(crate) fn poll_keyboard(
-        &mut self,
-        report_filter_bytes: &[u8],
-        buf: &mut [u8; 32],
-    ) -> Result<Option<usize>, AuraError> {
-        let res =
-            match self
-                .handle
-                .read_interrupt(self.keys_endpoint, buf, Duration::from_micros(1))
-            {
-                Ok(o) => {
-                    if report_filter_bytes.contains(&buf[0]) {
-                        Ok(Some(o))
-                    } else {
-                        Ok(None)
-                    }
+    pub(crate) fn poll_keyboard(&mut self, report_filter_bytes: &[u8]) -> Option<[u8; 32]> {
+        let mut buf = [0u8; 32];
+        match self
+            .handle
+            .read_interrupt(self.keys_endpoint, &mut buf, Duration::from_micros(1))
+        {
+            Ok(_) => {
+                if report_filter_bytes.contains(&buf[0]) {
+                    return Some(buf);
                 }
-                Err(err) => Err(AuraError::UsbError(err)),
-            };
-        res
+            }
+            Err(err) => {
+                error!("Failed to read keyboard interrupt: {:?}", err);
+            }
+        }
+        None
     }
 
     /// A direct call to systemd to suspend the PC.
@@ -212,13 +208,6 @@ impl RogCore {
                 warn!("Could not list rf devices: {}", err);
             }
         }
-    }
-
-    pub fn aura_brightness_bytes(brightness: u8) -> Result<[u8; 17], AuraError> {
-        // TODO: check brightness range
-        Ok([
-            0x5A, 0xBA, 0xC5, 0xC4, brightness, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ])
     }
 
     pub fn aura_set_and_save(
@@ -318,4 +307,11 @@ impl FromStr for LedBrightness {
             }
         }
     }
+}
+
+pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
+    // TODO: check brightness range
+    [
+        0x5A, 0xBA, 0xC5, 0xC4, brightness, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]
 }
