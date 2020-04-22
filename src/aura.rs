@@ -456,10 +456,9 @@ impl KeyColourArray {
             Key::RFn => (8, 51),
             //
             Key::Left => (9, 54),
-
+            //
             Key::Down => (10, 9),
             Key::Right => (10, 12),
-            //_ => (0, 24),
         };
         // LOLOLOLOLOLOLOL! Look it's safe okay
         unsafe {
