@@ -1,7 +1,11 @@
 // Return show-stopping errors, otherwise map error to a log level
 
 use crate::{
-    aura::BuiltInModeByte, config::Config, error::AuraError, laptops::*, virt_device::VirtKeys,
+    aura::{aura_brightness_bytes, BuiltInModeByte},
+    config::Config,
+    error::AuraError,
+    laptops::*,
+    virt_device::VirtKeys,
 };
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
@@ -80,14 +84,6 @@ impl RogCore {
 
     pub(crate) fn virt_keys(&mut self) -> &mut VirtKeys {
         &mut self.virt_keys
-    }
-
-    pub(crate) fn config(&self) -> &Config {
-        &self.config
-    }
-
-    pub(crate) fn config_mut(&mut self) -> &mut Config {
-        &mut self.config
     }
 
     fn get_device(
@@ -210,7 +206,7 @@ impl RogCore {
         }
     }
 
-    pub fn aura_set_and_save(
+    pub(crate) fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         bytes: &[u8],
@@ -225,6 +221,82 @@ impl RogCore {
         }
         warn!("{:?} not supported", BuiltInModeByte::from(mode));
         Err(AuraError::NotSupported)
+    }
+
+    pub(crate) fn aura_bright_inc(
+        &mut self,
+        supported_modes: &[BuiltInModeByte],
+        max_bright: u8,
+    ) -> Result<(), AuraError> {
+        let mut bright = self.config.brightness;
+        if bright < max_bright {
+            bright += 1;
+            self.config.brightness = bright;
+        }
+        let bytes = aura_brightness_bytes(bright);
+        self.aura_set_and_save(supported_modes, &bytes)?;
+        Ok(())
+    }
+
+    pub(crate) fn aura_bright_dec(
+        &mut self,
+        supported_modes: &[BuiltInModeByte],
+        min_bright: u8,
+    ) -> Result<(), AuraError> {
+        let mut bright = self.config.brightness;
+        if bright > min_bright {
+            bright -= 1;
+            self.config.brightness = bright;
+        }
+        let bytes = aura_brightness_bytes(bright);
+        self.aura_set_and_save(supported_modes, &bytes)?;
+        Ok(())
+    }
+
+    /// Select next Aura effect
+    ///
+    /// If the current effect is the last one then the effect selected wraps around to the first.
+    pub(crate) fn aura_mode_next(
+        &mut self,
+        supported_modes: &[BuiltInModeByte],
+    ) -> Result<(), AuraError> {
+        let mode_curr = self.config.current_mode[3];
+        let idx = supported_modes.binary_search(&mode_curr.into()).unwrap();
+        let idx_next = if idx < supported_modes.len() - 1 {
+            idx + 1
+        } else {
+            0
+        };
+        let mode_next = self
+            .config
+            .builtin_modes
+            .get_field_from(supported_modes[idx_next].into())
+            .unwrap()
+            .to_owned();
+        self.aura_set_and_save(supported_modes, &mode_next)
+    }
+
+    /// Select previous Aura effect
+    ///
+    /// If the current effect is the first one then the effect selected wraps around to the last.
+    pub(crate) fn aura_mode_prev(
+        &mut self,
+        supported_modes: &[BuiltInModeByte],
+    ) -> Result<(), AuraError> {
+        let mode_curr = self.config.current_mode[3];
+        let idx = supported_modes.binary_search(&mode_curr.into()).unwrap();
+        let idx_next = if idx > 0 {
+            idx - 1
+        } else {
+            supported_modes.len() - 1
+        };
+        let mode_next = self
+            .config
+            .builtin_modes
+            .get_field_from(supported_modes[idx_next].into())
+            .unwrap()
+            .to_owned();
+        self.aura_set_and_save(supported_modes, &mode_next)
     }
 }
 
@@ -307,11 +379,4 @@ impl FromStr for LedBrightness {
             }
         }
     }
-}
-
-pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
-    // TODO: check brightness range
-    [
-        0x5A, 0xBA, 0xC5, 0xC4, brightness, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ]
 }

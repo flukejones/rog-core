@@ -1,4 +1,4 @@
-mod aura;
+pub mod aura;
 /// Contains mostly only what is required for parsing CLI options
 pub mod cli_options;
 mod config;

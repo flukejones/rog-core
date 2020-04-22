@@ -9,7 +9,7 @@ pub static CONFIG_PATH: &'static str = "/etc/rogcore.conf";
 pub struct Config {
     pub brightness: u8,
     pub current_mode: [u8; 4],
-    builtin_modes: BuiltInModeBytes,
+    pub builtin_modes: BuiltInModeBytes,
 }
 
 impl Config {
@@ -52,16 +52,5 @@ impl Config {
             self.current_mode.copy_from_slice(&bytes[0..4]);
             self.builtin_modes.set_field_from(bytes);
         }
-    }
-
-    pub fn get_current(&mut self) -> Option<Vec<u8>> {
-        let bytes = self.current_mode;
-        if bytes[0] == 0x5d && bytes[1] == 0xb3 {
-            return self
-                .builtin_modes
-                .get_field_from(bytes[3])
-                .map(|b| b.to_vec());
-        }
-        None
     }
 }

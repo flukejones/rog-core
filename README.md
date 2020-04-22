@@ -2,7 +2,7 @@
 
 rog-core is a utility for Linux to control many aspects (eventually) of the ASUS ROG laptops like the Zephyrus GX502GW.
 
-The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark captures from others with different ROG laptops then I should be able to add something like laptop and feature detection.
+The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark captures from others with different ROG laptops then I should be able to add them.
 
 I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
 
@@ -101,9 +101,12 @@ First do `lsusb |grep 0b05` and check the part after `0b05:`, output looks like:
 Bus 001 Device 005: ID 0b05:1866 ASUSTek Computer, Inc. N-KEY Device
 ```
 
-Then do `lsusb -vd 0b05:1866 > ~/laptop_info` and give that to me.
+Then do `sudo lsusb -vd 0b05:1866 > ~/laptop_info` and give that to me.
 
-`cat /sys/class/dmi/id/product_name` is the other I'm interested in for the sake of information.
+Also required:
+- `cat /sys/class/dmi/id/product_name`
+- `cat /sys/class/dmi/id/product_family`
+- `cat /sys/class/dmi/id/board_name`
 
 ## License
 

@@ -1,5 +1,29 @@
 use uhid_virt::{Bus, CreateParams, UHIDDevice};
 
+/// Create a virtual device to emit key-presses
+///
+/// This is required in some instances because either the USB device that
+/// an interface for a working set of buttons is also captured, or because
+/// there is no equivalent "system" action to take for a key function and
+/// a key-press is required to emit a particular key code.
+///
+/// The two devices set up mirror that of the GX502GW and can accept the same
+/// original byte arrays to emit.
+/// - "Consumer Device" generally has all device type controls like media, backlight, power
+/// - "Keyboard Device" is a full featured keyboard including special keys like F13-F24
+///
+/// # Some example uses:
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x68, 0, 0, 0, 0]); // F13, Config/Control Panel`
+///
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x70, 0, 0, 0, 0]); // F21, Touchpad toggle, XF86/Gnome`
+///
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x71, 0, 0, 0, 0]); // F22, Touchpad on, XF86/Gnome`
+///
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x72, 0, 0, 0, 0]); // F23, Touchpad off, XF86/Gnome`
+///
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x82, 0, 0, 0, 0]); // Sleep`
+///
+/// `rogcore.virt_keys().press([0x01, 0, 0, 0x66, 0, 0, 0, 0]); // Power (menu)`
 pub(crate) struct VirtKeys {
     device: UHIDDevice<std::fs::File>,
 }
@@ -71,9 +95,10 @@ impl VirtKeys {
         }
     }
 
-    pub(crate) fn press(&mut self, input: [u8; 8]) {
+    /// A single on/off key press
+    pub(crate) fn press(&mut self, input: [u8; 32]) {
         self.device.write(&input).unwrap();
-        let mut reset = [0u8; 8];
+        let mut reset = [0u8; 32];
         reset[0] = input[0];
         self.device.write(&reset).unwrap();
     }
@@ -130,9 +155,9 @@ pub(crate) enum ConsumerKeys {
     MovieBrowser = 0x1B8,
 }
 
-impl From<ConsumerKeys> for [u8; 8] {
+impl From<ConsumerKeys> for [u8; 32] {
     fn from(key: ConsumerKeys) -> Self {
-        let mut bytes = [0u8; 8];
+        let mut bytes = [0u8; 32];
         bytes[0] = 0x02; // report ID for consumer
         bytes[1] = key as u8;
         bytes[2] = (key as u16 >> 8) as u8;

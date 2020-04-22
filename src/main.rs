@@ -1,6 +1,7 @@
 use daemon::{
+    aura::aura_brightness_bytes,
     cli_options::SetAuraBuiltin,
-    core::{aura_brightness_bytes, LedBrightness, LED_MSG_LEN},
+    core::{LedBrightness, LED_MSG_LEN},
     daemon::{start_daemon, DBUS_IFACE, DBUS_NAME, DBUS_PATH},
 };
 use dbus::Error as DbusError;

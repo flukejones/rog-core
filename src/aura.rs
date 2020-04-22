@@ -2,6 +2,38 @@ use crate::cli_options::*;
 use crate::core::LED_MSG_LEN;
 use serde_derive::{Deserialize, Serialize};
 
+/// Writes aout the correct byte string for brightness
+///
+/// The HID descriptor looks like:
+///
+/// ```
+/// 0x06, 0x31, 0xFF,  // Usage Page (Vendor Defined 0xFF31)
+/// 0x09, 0x76,        // Usage (0x76)
+/// 0xA1, 0x01,        // Collection (Application)
+/// 0x85, 0x5A,        //   Report ID (90)
+/// 0x19, 0x00,        //   Usage Minimum (0x00)
+/// 0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+/// 0x15, 0x00,        //   Logical Minimum (0)
+/// 0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+/// 0x75, 0x08,        //   Report Size (8)
+/// 0x95, 0x05,        //   Report Count (5)
+/// 0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+/// 0x19, 0x00,        //   Usage Minimum (0x00)
+/// 0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+/// 0x15, 0x00,        //   Logical Minimum (0)
+/// 0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+/// 0x75, 0x08,        //   Report Size (8)
+/// 0x95, 0x3F,        //   Report Count (63)
+/// 0xB1, 0x00,        //   Feature (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+/// 0xC0,              // End Collection
+/// ```
+pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
+    // TODO: check brightness range
+    [
+        0x5A, 0xBA, 0xC5, 0xC4, brightness, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]
+}
+
 /// Parses `SetAuraBuiltin` in to packet data
 ///
 /// Byte structure:
@@ -44,6 +76,38 @@ use serde_derive::{Deserialize, Serialize};
 /// - 0x03 = downwards
 ///
 /// Bytes 10, 11, 12 are Red, Green, Blue for second colour if mode supports it
+///
+/// The HID descriptor looks like:
+/// ```
+/// 0x06, 0x31, 0xFF,  // Usage Page (Vendor Defined 0xFF31)
+/// 0x09, 0x79,        // Usage (0x79)
+/// 0xA1, 0x01,        // Collection (Application)
+/// 0x85, 0x5D,        //   Report ID (93)
+/// 0x19, 0x00,        //   Usage Minimum (0x00)
+/// 0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+/// 0x15, 0x00,        //   Logical Minimum (0)
+/// 0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+/// 0x75, 0x08,        //   Report Size (8)
+/// 0x95, 0x1F,        //   Report Count (31)
+/// 0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+/// 0x19, 0x00,        //   Usage Minimum (0x00)
+/// 0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+/// 0x15, 0x00,        //   Logical Minimum (0)
+/// 0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+/// 0x75, 0x08,        //   Report Size (8)
+/// 0x95, 0x3F,        //   Report Count (63)
+/// 0x91, 0x00,        //   Output (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+/// 0x19, 0x00,        //   Usage Minimum (0x00)
+/// 0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+/// 0x15, 0x00,        //   Logical Minimum (0)
+/// 0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+/// 0x75, 0x08,        //   Report Size (8)
+/// 0x95, 0x3F,        //   Report Count (63)
+/// 0xB1, 0x00,        //   Feature (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+/// 0xC0,              // End Collection
+/// ```
+///
+/// This descriptor is also used for the per-key LED settings
 impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
     fn from(mode: SetAuraBuiltin) -> Self {
         let mut msg = [0u8; LED_MSG_LEN];
@@ -189,7 +253,7 @@ impl Default for BuiltInModeBytes {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum BuiltInModeByte {
     Stable = 0x00,
     Breathe = 0x01,
@@ -226,6 +290,32 @@ impl From<u8> for BuiltInModeByte {
             0x0b => Self::ThinZoomy,
             0x0c => Self::WideZoomy,
             _ => Self::None,
+        }
+    }
+}
+
+impl From<&u8> for BuiltInModeByte {
+    fn from(byte: &u8) -> Self {
+        Self::from(*byte)
+    }
+}
+
+impl From<BuiltInModeByte> for u8 {
+    fn from(byte: BuiltInModeByte) -> Self {
+        match byte {
+            BuiltInModeByte::Stable => 0x00,
+            BuiltInModeByte::Breathe => 0x01,
+            BuiltInModeByte::Cycle => 0x02,
+            BuiltInModeByte::Rainbow => 0x03,
+            BuiltInModeByte::Rain => 0x04,
+            BuiltInModeByte::Random => 0x05,
+            BuiltInModeByte::Highlight => 0x06,
+            BuiltInModeByte::Laser => 0x07,
+            BuiltInModeByte::Ripple => 0x08,
+            BuiltInModeByte::Pulse => 0x0a,
+            BuiltInModeByte::ThinZoomy => 0x0b,
+            BuiltInModeByte::WideZoomy => 0x0c,
+            BuiltInModeByte::None => 0xff,
         }
     }
 }
