@@ -1,7 +1,7 @@
 // Return show-stopping errors, otherwise map error to a log level
 
 use crate::{
-    aura::{aura_brightness_bytes, BuiltInModeByte},
+    aura::{aura_brightness_bytes, BuiltInModeByte, KeyColourArray},
     config::Config,
     error::AuraError,
     laptops::*,
@@ -52,15 +52,12 @@ impl RogCore {
 
         let dev_config = dev_handle.device().config_descriptor(0).unwrap();
         // Interface with outputs
-        let mut led_interface_num = 0;
-        let mut keys_interface_num = 0;
+        let mut interface = 0;
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
                     if endpoint.address() == laptop.key_endpoint() {
-                        keys_interface_num = desc.interface_number();
-                    } else if endpoint.address() == laptop.led_endpoint() {
-                        led_interface_num = desc.interface_number();
+                        interface = desc.interface_number();
                         break;
                     }
                 }
@@ -69,13 +66,13 @@ impl RogCore {
 
         dev_handle.set_auto_detach_kernel_driver(true).unwrap();
         dev_handle
-            .claim_interface(keys_interface_num)
+            .claim_interface(interface)
             .map_err(|err| AuraError::UsbError(err))?;
 
         Ok(RogCore {
             handle: dev_handle,
             initialised: false,
-            led_endpoint: led_interface_num,
+            led_endpoint: laptop.led_endpoint(),
             keys_endpoint: laptop.key_endpoint(),
             config: Config::default().read(),
             virt_keys: VirtKeys::new(),
@@ -101,16 +98,12 @@ impl RogCore {
 
     fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
         self.handle
-            .write_control(0x21, 0x09, 0x035D, 0, message, Duration::new(0, 5))
-            .map_err(|err| AuraError::UsbError(err))?;
+            .write_interrupt(self.led_endpoint, message, Duration::from_micros(1))
+            .unwrap();
         Ok(())
     }
 
     fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
-        self.handle
-            .claim_interface(self.led_endpoint)
-            .map_err(|err| AuraError::UsbError(err))?;
-
         if !self.initialised {
             self.aura_write(&LED_INIT1)?;
             self.aura_write(LED_INIT2.as_bytes())?;
@@ -126,10 +119,29 @@ impl RogCore {
         }
         // Changes won't persist unless apply is set
         self.aura_write(&LED_APPLY)?;
+        Ok(())
+    }
 
-        self.handle
-            .release_interface(self.led_endpoint)
-            .map_err(|err| AuraError::UsbError(err))?;
+    /// Initialise and clear the keyboard for custom effects
+    pub fn aura_effect_init(&mut self) -> Result<(), AuraError> {
+        let mut init = [0u8; 64];
+        init[0] = 0x5d; // Report ID
+        init[1] = 0xbc; // Mode = custom??, 0xb3 is builtin
+        self.aura_write(&init)?;
+        self.initialised = true;
+
+        Ok(())
+    }
+
+    /// Write an effect block
+    ///
+    /// `aura_effect_init` must be called any effect routine, and called only once.
+    pub fn aura_write_effect(&mut self, effect: &[KeyColourArray]) -> Result<(), AuraError> {
+        for key_colours in effect {
+            for row in key_colours.get() {
+                self.aura_write(row)?;
+            }
+        }
         Ok(())
     }
 

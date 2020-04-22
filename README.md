@@ -53,7 +53,7 @@ Currently if no options are supplied for the CLI mode selection then a default i
 ## Implemented
 
 - [X] Setting/modifying built-in LED modes
-- [ ] Per-key LED setting
+- [X] Per-key LED setting (PARTIALLY COMPLETE)
 - [ ] Fancy LED modes (custom programs)
 - [X] Daemon mode
 - [X] Saving settings for reload
