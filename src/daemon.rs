@@ -9,8 +9,8 @@ use dbus::{
 };
 use log::{error, info, warn};
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::{cell::RefCell, rc::Rc};
 
 pub fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
@@ -36,32 +36,27 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
         },
     );
     connection.request_name(DBUS_IFACE, false, true, false)?;
-    let factory = Factory::new_fnmut::<()>();
+    let factory = Factory::new_sync::<()>();
 
-    let daemon = Rc::new(RefCell::new(rogcore));
+    let daemon = Arc::new(Mutex::new(rogcore));
 
-    // We create a tree with one object path inside and make that path introspectable.
     let tree = factory.tree(()).add(
-        factory.object_path(DBUS_PATH, ()).introspectable().add(
-            // We add an interface to the object path...
-            factory
-                .interface(DBUS_IFACE, ())
-                // ...and a method inside the interface
-                .add_m(
-                    factory
-                        .method("ledmessage", (), {
-                            let daemon = daemon.clone();
-                            let supported = Vec::from(laptop.supported_modes());
-                            move |m| {
-                                // Reads the args passed to the method
+        factory.object_path(DBUS_PATH, ()).add(
+            factory.interface(DBUS_IFACE, ()).add_m(
+                factory
+                    // method for ledmessage
+                    .method("ledmessage", (), {
+                        let daemon = daemon.clone();
+                        let supported = Vec::from(laptop.supported_modes());
+                        move |m| {
+                            if let Ok(mut lock) = daemon.try_lock() {
                                 let bytes: Vec<u8> = m.msg.read1()?;
-                                match daemon
-                                    .borrow_mut()
-                                    .aura_set_and_save(&supported, &bytes[..])
-                                {
+                                match lock.aura_set_and_save(&supported, &bytes[..]) {
                                     Ok(_) => {
-                                        let s = format!("Wrote {:x?}", bytes);
-                                        let mret = m.msg.method_return().append1(&s);
+                                        let mret = m
+                                            .msg
+                                            .method_return()
+                                            .append1(&format!("Wrote {:x?}", bytes));
                                         Ok(vec![mret])
                                     }
                                     Err(err) => {
@@ -69,17 +64,19 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
                                         Err(MethodErr::failed(&err))
                                     }
                                 }
+                            } else {
+                                Err(MethodErr::failed("Could not lock daemon for access"))
                             }
-                        })
-                        // Input?
-                        .outarg::<&str, _>("reply")
-                        .inarg::<Vec<u8>, _>("bytearray"),
-                ),
+                        }
+                    })
+                    .outarg::<&str, _>("reply")
+                    .inarg::<Vec<u8>, _>("bytearray"),
+            ),
         ),
     );
 
     // We add the tree to the connection so that incoming method calls will be handled.
-    tree.start_receive(&connection);
+    tree.start_receive_send(&connection);
 
     loop {
         connection
@@ -90,9 +87,10 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
             });
 
         // TODO: this needs to move to a thread, but there is unsafety
-        let mut borrowed_daemon = daemon.borrow_mut();
-        laptop.run(&mut borrowed_daemon).unwrap_or_else(|err| {
-            error!("{:?}", err);
-        });
+        if let Ok(mut lock) = daemon.try_lock() {
+            laptop.run(&mut lock).unwrap_or_else(|err| {
+                error!("{:?}", err);
+            });
+        }
     }
 }
