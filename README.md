@@ -50,8 +50,6 @@ rog-core <command> <subcommand> --help
 
 Currently the last used brightness and builtin mode will be saved when set, and loaded when the daemon is started. The effect here is the last settings used are the ones loaded on boot. The daemon also saves the settings per mode as the keyboard does not do this itself - this means cycling through modes with the Aura keys will use the settings that were used via CLI.
 
-Currently if no options are supplied for the CLI mode selection then a default is used, and this will overwrite the saved setting. I will fix this at a later date.
-
 ## Implemented
 
 - [X] Setting/modifying built-in LED modes

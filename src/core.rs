@@ -358,7 +358,8 @@ impl RogCore {
         let mut buf = String::new();
         if let Ok(_) = file.read_to_string(&mut buf) {
             let mut n = u8::from_str_radix(&buf.trim_end(), 10)?;
-            info!("Current fan mode: {:?}", &n);
+            let level: &str = FanLevel::from(n).into();
+            info!("Current fan mode: {}", level);
 
             if n < 2 {
                 n += 1;
@@ -366,7 +367,8 @@ impl RogCore {
                 n = 0;
             }
 
-            info!("Fan mode stepped to: {:?}", &n);
+            let level: &str = FanLevel::from(n).into();
+            info!("Fan mode stepped to: {}", level);
             file.write(format!("{:?}\n", n).as_bytes())?;
             self.config.fan_mode = n;
             self.config.write();
@@ -452,6 +454,43 @@ impl FromStr for LedBrightness {
                 println!("Missing required argument, must be one of:\noff,low,med,high\n");
                 Err(AuraError::ParseBrightness)
             }
+        }
+    }
+}
+
+enum FanLevel {
+    Normal,
+    Boost,
+    Silent,
+}
+
+impl From<u8> for FanLevel {
+    fn from(n: u8) -> Self {
+        match n {
+            0 => FanLevel::Normal,
+            1 => FanLevel::Boost,
+            2 => FanLevel::Silent,
+            _ => FanLevel::Normal,
+        }
+    }
+}
+
+impl From<FanLevel> for u8 {
+    fn from(n: FanLevel) -> Self {
+        match n {
+            FanLevel::Normal => 0,
+            FanLevel::Boost => 1,
+            FanLevel::Silent => 2,
+        }
+    }
+}
+
+impl From<FanLevel> for &str {
+    fn from(n: FanLevel) -> Self {
+        match n {
+            FanLevel::Normal => "Normal",
+            FanLevel::Boost => "Boosted",
+            FanLevel::Silent => "Silent",
         }
     }
 }
