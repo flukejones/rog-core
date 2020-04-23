@@ -10,10 +10,14 @@ use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
 
+static VERSION: &'static str = "0.5.0";
+
 #[derive(Debug, Options)]
 struct CLIStart {
     #[options(help = "print help message")]
     help: bool,
+    #[options(help = "show program version number")]
+    version: bool,
     #[options(help = "start daemon")]
     daemon: bool,
     #[options(meta = "VAL", help = "<off, low, med, high>")]
@@ -46,12 +50,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if parsed.daemon {
         start_daemon()?;
     }
+    if parsed.version {
+        println!("Version: {}", VERSION);
+    }
 
     match parsed.command {
         Some(Command::LedMode(mode)) => {
             if let Some(command) = mode.command {
-                let mode = <[u8; LED_MSG_LEN]>::from(command);
-                dbus_led_builtin_write(&mode)?;
+                // Check for special modes here, eg, per-key or multi-zone
+                match command {
+                    SetAuraBuiltin::MultiStatic(_) => {
+                        let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
+                        for arr in byte_arr.iter() {
+                            dbus_led_builtin_write(arr)?;
+                        }
+                    }
+                    _ => {
+                        let mode = <[u8; LED_MSG_LEN]>::from(command);
+                        dbus_led_builtin_write(&mode)?;
+                    }
+                }
             }
         }
         None => {}

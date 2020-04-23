@@ -108,6 +108,20 @@ pub struct SingleColour {
 }
 
 #[derive(Debug, Default, Options)]
+pub struct MultiColour {
+    #[options(help = "print help message")]
+    help: bool,
+    #[options(meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour1: Colour,
+    #[options(meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour2: Colour,
+    #[options(meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour3: Colour,
+    #[options(meta = "HEX", help = "set the RGB value e.g, ff00ff")]
+    pub colour4: Colour,
+}
+
+#[derive(Debug, Default, Options)]
 pub struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
@@ -160,6 +174,8 @@ pub enum SetAuraBuiltin {
     ThinZoomy(SingleColour),
     #[options(help = "set a wide vertical line zooming from left")]
     WideZoomy(SingleColour),
+    #[options(help = "4-zone multi-colour")]
+    MultiStatic(MultiColour),
 }
 
 impl Default for SetAuraBuiltin {

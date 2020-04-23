@@ -272,6 +272,7 @@ impl RogCore {
         &mut self,
         supported_modes: &[BuiltInModeByte],
     ) -> Result<(), AuraError> {
+        // TODO: different path for multi-zone (byte 2 controlled, non-zero)
         let mode_curr = self.config.current_mode[3];
         let idx = supported_modes.binary_search(&mode_curr.into()).unwrap();
         let idx_next = if idx < supported_modes.len() - 1 {
@@ -295,6 +296,7 @@ impl RogCore {
         &mut self,
         supported_modes: &[BuiltInModeByte],
     ) -> Result<(), AuraError> {
+        // TODO: different path for multi-zone (byte 2 controlled, non-zero)
         let mode_curr = self.config.current_mode[3];
         let idx = supported_modes.binary_search(&mode_curr.into()).unwrap();
         let idx_next = if idx > 0 {

@@ -2,6 +2,8 @@
 
 rog-core is a utility for Linux to control many aspects (eventually) of the ASUS ROG laptops like the Zephyrus GX502GW.
 
+One of the benefits of this app (for me at least) is that you *don't* require a kernel with correct support for the laptop, or custom patched modules. The app reads and writes direct to the device interrupts, and can be customised (in source) quite extensively to do what you want such as directly controlling your laptop backlight rather than emitting a key-press for the DE to handle. There is also the possibility of rebinding fn keys to be macros which emit a series of keyboard presses.
+
 The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark captures from others with different ROG laptops then I should be able to add them.
 
 I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
@@ -72,6 +74,17 @@ Currently if no options are supplied for the CLI mode selection then a default i
 - [X] Logging - required for journalctl
 
 As the daemon currently stands it should be enough for a functional system.
+
+## Other Laptops
+
+**Supported:**
+
+- GX502 (Tested on GX502GW)
+
+**Please help test or provide info for:**
+
+- GA502 (attempts to use same profile as GX502GW)
+- GL753 (attempted support from researching 2nd-hand info, multizone may work)
 
 ## Wireshark captures
 

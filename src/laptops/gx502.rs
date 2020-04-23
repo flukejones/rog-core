@@ -6,7 +6,7 @@ use crate::virt_device::ConsumerKeys;
 use super::Laptop;
 use log::info;
 
-pub(super) struct LaptopGX502GW {
+pub(super) struct LaptopGX502 {
     usb_vendor: u16,
     usb_product: u16,
     board_name: &'static str,
@@ -21,7 +21,7 @@ pub(super) struct LaptopGX502GW {
     per_key_led: Vec<KeyColourArray>,
 }
 
-impl LaptopGX502GW {
+impl LaptopGX502 {
     pub(super) fn new() -> Self {
         // Setting up a sample effect to run when ROG pressed
         let mut per_key_led = Vec::new();
@@ -56,7 +56,7 @@ impl LaptopGX502GW {
         }
 
         // Find backlight
-        LaptopGX502GW {
+        LaptopGX502 {
             usb_vendor: 0x0B05,
             usb_product: 0x1866,
             // from `cat /sys/class/dmi/id/board_name`
@@ -90,34 +90,34 @@ impl LaptopGX502GW {
     }
 }
 
-impl LaptopGX502GW {
+impl LaptopGX502 {
     fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
         if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes) {
-            match GX502GWKeys::from(key_buf[1]) {
-                GX502GWKeys::LedBrightUp => {
+            match GX502Keys::from(key_buf[1]) {
+                GX502Keys::LedBrightUp => {
                     rogcore.aura_bright_inc(&self.supported_modes, self.max_led_bright)?;
                 }
-                GX502GWKeys::LedBrightDown => {
+                GX502Keys::LedBrightDown => {
                     rogcore.aura_bright_dec(&self.supported_modes, self.min_led_bright)?;
                 }
-                GX502GWKeys::AuraNext => rogcore.aura_mode_next(&self.supported_modes)?,
-                GX502GWKeys::AuraPrevious => rogcore.aura_mode_prev(&self.supported_modes)?,
-                GX502GWKeys::ScreenBrightUp => self.backlight.step_up(),
-                GX502GWKeys::ScreenBrightDown => self.backlight.step_down(),
-                GX502GWKeys::Sleep => rogcore.suspend_with_systemd(),
-                GX502GWKeys::AirplaneMode => rogcore.toggle_airplane_mode(),
-                GX502GWKeys::MicToggle => {}
-                GX502GWKeys::Fan => {}
-                GX502GWKeys::ScreenToggle => {
+                GX502Keys::AuraNext => rogcore.aura_mode_next(&self.supported_modes)?,
+                GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&self.supported_modes)?,
+                GX502Keys::ScreenBrightUp => self.backlight.step_up(),
+                GX502Keys::ScreenBrightDown => self.backlight.step_down(),
+                GX502Keys::Sleep => rogcore.suspend_with_systemd(),
+                GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
+                GX502Keys::MicToggle => {}
+                GX502Keys::Fan => {}
+                GX502Keys::ScreenToggle => {
                     rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
                 }
-                GX502GWKeys::TouchPadToggle => {
+                GX502Keys::TouchPadToggle => {
                     let mut key = [0u8; 32];
                     key[0] = 0x01;
                     key[3] = 0x070;
                     rogcore.virt_keys().press(key);
                 }
-                GX502GWKeys::Rog => {
+                GX502Keys::Rog => {
                     rogcore.aura_effect_init()?;
                     rogcore.aura_write_effect(&self.per_key_led)?;
                     // let mut key = [0u8; 32];
@@ -125,7 +125,7 @@ impl LaptopGX502GW {
                     // key[3] = 0x68; // XF86Tools? F13
                     // rogcore.virt_keys().press(key);
                 }
-                GX502GWKeys::None => {
+                GX502Keys::None => {
                     if key_buf[0] != 0x5A {
                         info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
                         rogcore.virt_keys().press(key_buf);
@@ -137,7 +137,7 @@ impl LaptopGX502GW {
     }
 }
 
-impl Laptop for LaptopGX502GW {
+impl Laptop for LaptopGX502 {
     fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
         self.do_keypress_actions(rogcore)
     }
@@ -164,7 +164,7 @@ impl Laptop for LaptopGX502GW {
     }
 }
 
-enum GX502GWKeys {
+enum GX502Keys {
     Rog = 0x38,
     MicToggle = 0x7C,
     Fan = 0xAE,
@@ -181,23 +181,23 @@ enum GX502GWKeys {
     None,
 }
 
-impl From<u8> for GX502GWKeys {
+impl From<u8> for GX502Keys {
     fn from(byte: u8) -> Self {
         match byte {
-            0x38 => GX502GWKeys::Rog,
-            0x7C => GX502GWKeys::MicToggle,
-            0xAE => GX502GWKeys::Fan,
-            0x35 => GX502GWKeys::ScreenToggle,
-            0x10 => GX502GWKeys::ScreenBrightDown,
-            0x20 => GX502GWKeys::ScreenBrightUp,
-            0x6b => GX502GWKeys::TouchPadToggle,
-            0x6C => GX502GWKeys::Sleep,
-            0x88 => GX502GWKeys::AirplaneMode,
-            0xC4 => GX502GWKeys::LedBrightUp,
-            0xC5 => GX502GWKeys::LedBrightDown,
-            0xB2 => GX502GWKeys::AuraPrevious,
-            0xB3 => GX502GWKeys::AuraNext,
-            _ => GX502GWKeys::None,
+            0x38 => GX502Keys::Rog,
+            0x7C => GX502Keys::MicToggle,
+            0xAE => GX502Keys::Fan,
+            0x35 => GX502Keys::ScreenToggle,
+            0x10 => GX502Keys::ScreenBrightDown,
+            0x20 => GX502Keys::ScreenBrightUp,
+            0x6b => GX502Keys::TouchPadToggle,
+            0x6C => GX502Keys::Sleep,
+            0x88 => GX502Keys::AirplaneMode,
+            0xC4 => GX502Keys::LedBrightUp,
+            0xC5 => GX502Keys::LedBrightDown,
+            0xB2 => GX502Keys::AuraPrevious,
+            0xB3 => GX502Keys::AuraNext,
+            _ => GX502Keys::None,
         }
     }
 }

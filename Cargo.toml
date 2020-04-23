@@ -1,6 +1,6 @@
 [package]
 name = "rog-daemon"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Luke <luke@ljones.dev>"]
 edition = "2018"
 

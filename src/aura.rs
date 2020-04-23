@@ -46,6 +46,9 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 ///
 /// Bytes 0 and 1 should always be 5d, b3
 ///
+/// On multizone laptops byte 2 is the zone number, RGB in usual
+/// place, byte 3 set to zero
+///
 /// Byte 3 sets the mode type:
 /// - 00 = static
 /// - 01 = breathe (can set two colours)
@@ -126,6 +129,7 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             SetAuraBuiltin::Pulse(_) => msg[3] = 0x0a,
             SetAuraBuiltin::ThinZoomy(_) => msg[3] = 0x0b,
             SetAuraBuiltin::WideZoomy(_) => msg[3] = 0x0c,
+            _ => panic!("Mode not convertable to array"),
         }
 
         match mode {
@@ -163,6 +167,37 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
             }
+            _ => panic!("Mode not convertable to array"),
+        }
+        msg
+    }
+}
+
+impl From<SetAuraBuiltin> for [[u8; LED_MSG_LEN]; 4] {
+    fn from(mode: SetAuraBuiltin) -> Self {
+        let mut msg = [[0u8; LED_MSG_LEN]; 4];
+        for i in 0..4 {
+            msg[i][0] = 0x5d;
+            msg[i][1] = 0xb3;
+            msg[i][2] = i as u8 + 1;
+        }
+
+        match mode {
+            SetAuraBuiltin::MultiStatic(settings) => {
+                msg[0][4] = settings.colour1.0;
+                msg[0][5] = settings.colour1.1;
+                msg[0][6] = settings.colour1.2;
+                msg[1][4] = settings.colour2.0;
+                msg[1][5] = settings.colour2.1;
+                msg[1][6] = settings.colour2.2;
+                msg[2][4] = settings.colour3.0;
+                msg[2][5] = settings.colour3.1;
+                msg[2][6] = settings.colour3.2;
+                msg[3][4] = settings.colour4.0;
+                msg[3][5] = settings.colour4.1;
+                msg[3][6] = settings.colour4.2;
+            }
+            _ => panic!("Mode not convertable to array"),
         }
         msg
     }
@@ -184,6 +219,7 @@ pub struct BuiltInModeBytes {
     pub pulse: [u8; LED_MSG_LEN],
     pub thinzoomy: [u8; LED_MSG_LEN],
     pub widezoomy: [u8; LED_MSG_LEN],
+    pub multi_static: [[u8; LED_MSG_LEN]; 4],
 }
 impl BuiltInModeBytes {
     pub fn set_field_from(&mut self, bytes: &[u8]) {
@@ -249,6 +285,9 @@ impl Default for BuiltInModeBytes {
             widezoomy: <[u8; LED_MSG_LEN]>::from(
                 SetAuraBuiltin::WideZoomy(SingleColour::default()),
             ),
+            multi_static: <[[u8; LED_MSG_LEN]; 4]>::from(SetAuraBuiltin::MultiStatic(
+                MultiColour::default(),
+            )),
         }
     }
 }
