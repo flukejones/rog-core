@@ -28,7 +28,7 @@ impl LaptopGL753 {
             // from `cat /sys/class/dmi/id/board_name`
             board_name: "LaptopGL753VE",
             // from `cat /sys/class/dmi/id/product_family`
-            prod_family: "ROG Strix",
+            prod_family: "",
             report_filter_bytes: [0x5a, 0x02],
             min_led_bright: 0x00,
             max_led_bright: 0x03,

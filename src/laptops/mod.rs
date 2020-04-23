@@ -13,24 +13,42 @@ mod gx502;
 use gx502::LaptopGX502;
 
 pub(crate) fn match_laptop() -> Box<dyn Laptop> {
-    let dmi = sysfs_class::DmiId::default();
-    let board_name = dmi.board_name().unwrap();
-    match &board_name.as_str()[..5] {
-        // TODO: FX503VD - 0x1869,
-        // These two models seem to have the same characteristics
-        "GX502" | "GA502" => {
-            info!("Found GX502 or GA502 series");
-            Box::new(LaptopGX502::new())
-        }
-        // LED should work for this, but unsure of keys
-        "GL753" => {
-            info!("Found GL753 series");
-            Box::new(LaptopGL753::new())
-        }
-        _ => {
-            panic!("could not match laptop");
+    for device in rusb::devices().unwrap().iter() {
+        let device_desc = device.device_descriptor().unwrap();
+        if device_desc.vendor_id() == 0x0b05 {
+            match device_desc.product_id() {
+                0x1866 => {
+                    info!("Found GX502 or similar");
+                    return Box::new(LaptopGX502::new());
+                }
+                0x1854 => {
+                    info!("Found GL753 or similar");
+                    return Box::new(LaptopGL753::new());
+                }
+                _ => {}
+            }
         }
     }
+    panic!("could not match laptop");
+
+    // let dmi = sysfs_class::DmiId::default();
+    // let board_name = dmi.board_name().unwrap();
+    // match &board_name.as_str()[..5] {
+    //     // TODO: FX503VD - 0x1869,
+    //     // These two models seem to have the same characteristics
+    //     "GX502" | "GA502" | "GU502" => {
+    //         info!("Found GX502 or GA502 series");
+    //         Box::new(LaptopGX502::new())
+    //     }
+    //     // LED should work for this, but unsure of keys
+    //     "GL753" => {
+    //         info!("Found GL753 series");
+    //         Box::new(LaptopGL753::new())
+    //     }
+    //     _ => {
+    //         panic!("could not match laptop");
+    //     }
+    // }
 }
 
 /// All laptop models should implement this trait. The role of a `Laptop` is to
