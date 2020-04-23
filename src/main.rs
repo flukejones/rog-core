@@ -10,7 +10,7 @@ use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
 
-static VERSION: &'static str = "0.5.0";
+static VERSION: &'static str = "0.6.0";
 
 #[derive(Debug, Options)]
 struct CLIStart {

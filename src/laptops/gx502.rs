@@ -4,7 +4,7 @@ use crate::error::AuraError;
 use crate::virt_device::ConsumerKeys;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use super::Laptop;
-use log::info;
+use log::{info, warn};
 
 pub(super) struct LaptopGX502 {
     usb_vendor: u16,
@@ -107,7 +107,11 @@ impl LaptopGX502 {
                 GX502Keys::Sleep => rogcore.suspend_with_systemd(),
                 GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
                 GX502Keys::MicToggle => {}
-                GX502Keys::Fan => {}
+                GX502Keys::Fan => {
+                    rogcore.fan_mode_step().unwrap_or_else(|err| {
+                        warn!("Couldn't toggle fan mode: {:?}", err);
+                    });
+                }
                 GX502Keys::ScreenToggle => {
                     rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
                 }

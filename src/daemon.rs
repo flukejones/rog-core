@@ -14,7 +14,7 @@ use std::time::Duration;
 
 pub fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
-    let rogcore = RogCore::new(&*laptop).map_or_else(
+    let mut rogcore = RogCore::new(&*laptop).map_or_else(
         |err| {
             error!("{}", err);
             panic!("{}", err);
@@ -24,6 +24,8 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
             daemon
         },
     );
+    // Reload settings
+    rogcore.reload()?;
 
     let mut connection = Connection::new_system().map_or_else(
         |err| {

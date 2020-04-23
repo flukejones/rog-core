@@ -7,6 +7,7 @@ pub static CONFIG_PATH: &'static str = "/etc/rogcore.conf";
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
+    pub fan_mode: u8,
     pub brightness: u8,
     pub current_mode: [u8; 4],
     pub builtin_modes: BuiltInModeBytes,

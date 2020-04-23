@@ -65,7 +65,7 @@ Currently if no options are supplied for the CLI mode selection then a default i
   + [X] Screen off? Now mapped to a keycode but has no effect
   + [X] Screen brightness up/down
   + [ ] ROG key custom mapping (Can be done in source)
-  + [ ] Fan/Performance mode
+  + [X] Fan/Performance mode
   + [ ] Screen off??
   + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
 - [X] Capture and use hotkeys **Partially completed: aura keys work**
@@ -73,7 +73,7 @@ Currently if no options are supplied for the CLI mode selection then a default i
   + [X] Volume + media controls work
 - [X] Logging - required for journalctl
 
-As the daemon currently stands it should be enough for a functional system.
+Fan mode toggling requires a newer kernel. I'm unsure when the patches required for it got merged - I've tested with the 5.6.6 kernel only.
 
 ## Other Laptops
 

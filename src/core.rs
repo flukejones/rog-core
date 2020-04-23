@@ -9,8 +9,12 @@ use crate::{
 };
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
-use log::{error, warn};
+use log::{error, info, warn};
 use rusb::DeviceHandle;
+use std::error::Error;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
+use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::time::Duration;
@@ -26,6 +30,9 @@ static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
 // Only these two packets must be 17 bytes
 static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+static FAN_TYPE_1_PATH: &'static str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
+static FAN_TYPE_2_PATH: &'static str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
 
 /// ROG device controller
 ///
@@ -77,6 +84,30 @@ impl RogCore {
             config: Config::default().read(),
             virt_keys: VirtKeys::new(),
         })
+    }
+
+    pub(crate) fn reload(&mut self) -> Result<(), Box<dyn Error>> {
+        let mode_curr = self.config.current_mode[3];
+        let mode = self
+            .config
+            .builtin_modes
+            .get_field_from(BuiltInModeByte::from(mode_curr).into())
+            .unwrap()
+            .to_owned();
+        self.aura_write_messages(&[&mode])?;
+
+        let path = if Path::new(FAN_TYPE_1_PATH).exists() {
+            FAN_TYPE_1_PATH
+        } else if Path::new(FAN_TYPE_2_PATH).exists() {
+            FAN_TYPE_2_PATH
+        } else {
+            return Ok(());
+        };
+
+        let mut file = OpenOptions::new().write(true).open(path)?;
+        file.write(format!("{:?}\n", self.config.fan_mode).as_bytes())?;
+
+        Ok(())
     }
 
     pub(crate) fn virt_keys(&mut self) -> &mut VirtKeys {
@@ -311,6 +342,36 @@ impl RogCore {
             .unwrap()
             .to_owned();
         self.aura_set_and_save(supported_modes, &mode_next)
+    }
+
+    pub(crate) fn fan_mode_step(&mut self) -> Result<(), Box<dyn Error>> {
+        let path = if Path::new(FAN_TYPE_1_PATH).exists() {
+            FAN_TYPE_1_PATH
+        } else if Path::new(FAN_TYPE_2_PATH).exists() {
+            FAN_TYPE_2_PATH
+        } else {
+            return Ok(());
+        };
+
+        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+
+        let mut buf = String::new();
+        if let Ok(_) = file.read_to_string(&mut buf) {
+            let mut n = u8::from_str_radix(&buf.trim_end(), 10)?;
+            info!("Current fan mode: {:?}", &n);
+
+            if n < 2 {
+                n += 1;
+            } else {
+                n = 0;
+            }
+
+            info!("Fan mode stepped to: {:?}", &n);
+            file.write(format!("{:?}\n", n).as_bytes())?;
+            self.config.fan_mode = n;
+            self.config.write();
+        }
+        Ok(())
     }
 }
 
