@@ -127,7 +127,7 @@ impl RogCore {
         Err(AuraError::UsbError(rusb::Error::NoDevice))
     }
 
-    fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+    pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
         self.handle
             .write_interrupt(self.led_endpoint, message, Duration::from_micros(1))
             .unwrap();
