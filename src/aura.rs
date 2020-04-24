@@ -226,8 +226,8 @@ impl BuiltInModeBytes {
         if bytes[0] == 0x5d && bytes[1] == 0xb3 {
             let b = BuiltInModeByte::from(bytes[3]);
             match b {
-                BuiltInModeByte::Stable => self.stable.copy_from_slice(bytes),
-                BuiltInModeByte::Breathe => self.breathe.copy_from_slice(bytes),
+                BuiltInModeByte::Single => self.stable.copy_from_slice(bytes),
+                BuiltInModeByte::Breathing => self.breathe.copy_from_slice(bytes),
                 BuiltInModeByte::Cycle => self.cycle.copy_from_slice(bytes),
                 BuiltInModeByte::Rainbow => self.rainbow.copy_from_slice(bytes),
                 BuiltInModeByte::Rain => self.rain.copy_from_slice(bytes),
@@ -245,8 +245,8 @@ impl BuiltInModeBytes {
 
     pub fn get_field_from(&mut self, byte: u8) -> Option<&[u8]> {
         let bytes = match BuiltInModeByte::from(byte) {
-            BuiltInModeByte::Stable => &self.stable,
-            BuiltInModeByte::Breathe => &self.breathe,
+            BuiltInModeByte::Single => &self.stable,
+            BuiltInModeByte::Breathing => &self.breathe,
             BuiltInModeByte::Cycle => &self.cycle,
             BuiltInModeByte::Rainbow => &self.rainbow,
             BuiltInModeByte::Rain => &self.rain,
@@ -294,8 +294,8 @@ impl Default for BuiltInModeBytes {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum BuiltInModeByte {
-    Stable = 0x00,
-    Breathe = 0x01,
+    Single = 0x00,
+    Breathing = 0x01,
     Cycle = 0x02,
     Rainbow = 0x03,
     Rain = 0x04,
@@ -310,14 +310,15 @@ pub enum BuiltInModeByte {
 }
 impl Default for BuiltInModeByte {
     fn default() -> Self {
-        BuiltInModeByte::Stable
+        BuiltInModeByte::Single
     }
 }
+
 impl From<u8> for BuiltInModeByte {
     fn from(byte: u8) -> Self {
         match byte {
-            0x00 => Self::Stable,
-            0x01 => Self::Breathe,
+            0x00 => Self::Single,
+            0x01 => Self::Breathing,
             0x02 => Self::Cycle,
             0x03 => Self::Rainbow,
             0x04 => Self::Rain,
@@ -342,8 +343,8 @@ impl From<&u8> for BuiltInModeByte {
 impl From<BuiltInModeByte> for u8 {
     fn from(byte: BuiltInModeByte) -> Self {
         match byte {
-            BuiltInModeByte::Stable => 0x00,
-            BuiltInModeByte::Breathe => 0x01,
+            BuiltInModeByte::Single => 0x00,
+            BuiltInModeByte::Breathing => 0x01,
             BuiltInModeByte::Cycle => 0x02,
             BuiltInModeByte::Rainbow => 0x03,
             BuiltInModeByte::Rain => 0x04,
@@ -379,6 +380,14 @@ impl KeyColourArray {
             row[8] = 0x00;
         }
         KeyColourArray(set)
+    }
+
+    /// Initialise and clear the keyboard for custom effects
+    pub fn get_init_msg() -> Vec<u8> {
+        let mut init = vec![0u8; 64];
+        init[0] = 0x5d; // Report ID
+        init[1] = 0xbc; // Mode = custom??, 0xb3 is builtin
+        init
     }
 
     pub fn set(&mut self, key: Key, r: u8, g: u8, b: u8) {

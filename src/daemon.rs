@@ -10,6 +10,7 @@ use dbus::{
 use log::{error, info, warn};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 pub fn start_daemon() -> Result<(), Box<dyn Error>> {
@@ -40,7 +41,7 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
     connection.request_name(DBUS_IFACE, false, true, false)?;
     let factory = Factory::new_sync::<()>();
 
-    let daemon = Arc::new(Mutex::new(rogcore));
+    let input: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
     let tree = factory.tree(()).add(
         factory.object_path(DBUS_PATH, ()).add(
@@ -48,26 +49,19 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
                 factory
                     // method for ledmessage
                     .method("ledmessage", (), {
-                        let daemon = daemon.clone();
-                        let supported = Vec::from(laptop.supported_modes());
+                        let input = input.clone();
+
                         move |m| {
-                            if let Ok(mut lock) = daemon.try_lock() {
-                                let bytes: Vec<u8> = m.msg.read1()?;
-                                match lock.aura_set_and_save(&supported, &bytes[..]) {
-                                    Ok(_) => {
-                                        let mret = m
-                                            .msg
-                                            .method_return()
-                                            .append1(&format!("Wrote {:x?}", bytes));
-                                        Ok(vec![mret])
-                                    }
-                                    Err(err) => {
-                                        warn!("{:?}", err);
-                                        Err(MethodErr::failed(&err))
-                                    }
-                                }
+                            let bytes: Vec<u8> = m.msg.read1()?;
+                            if let Ok(mut lock) = input.lock() {
+                                *lock = Some(bytes.to_vec());
+                                let mret = m
+                                    .msg
+                                    .method_return()
+                                    .append1(&format!("Wrote {:x?}", bytes));
+                                return Ok(vec![mret]);
                             } else {
-                                Err(MethodErr::failed("Could not lock daemon for access"))
+                                return Err(MethodErr::failed("Could not lock daemon for access"));
                             }
                         }
                     })
@@ -80,19 +74,31 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&connection);
 
+    //thread::spawn(move || loop {});
+
+    let supported = Vec::from(laptop.supported_modes());
     loop {
+        //thread::sleep(Duration::from_millis(2));
         connection
-            .process(Duration::from_millis(10))
+            .process(Duration::from_millis(20))
             .unwrap_or_else(|err| {
                 error!("{:?}", err);
                 false
             });
 
-        // TODO: this needs to move to a thread, but there is unsafety
-        if let Ok(mut lock) = daemon.try_lock() {
-            laptop.run(&mut lock).unwrap_or_else(|err| {
+        if let Ok(mut lock) = input.try_lock() {
+            if let Some(bytes) = &*lock {
+                rogcore.aura_set_and_save(&supported, &bytes)?;
+                *lock = None;
+            }
+        }
+
+        match laptop.run(&mut rogcore) {
+            Ok(_) => {}
+            Err(err) => {
                 error!("{:?}", err);
-            });
+                panic!("Force crash for systemd to restart service")
+            }
         }
     }
 }

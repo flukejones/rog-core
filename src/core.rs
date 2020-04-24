@@ -176,86 +176,16 @@ impl RogCore {
         Ok(())
     }
 
-    /// Write the bytes read from the device interrupt to the buffer arg, and returns the
-    /// count of bytes written
-    ///
-    /// `report_filter_bytes` is used to filter the data read from the interupt so
-    /// only the relevant byte array is returned.
-    pub(crate) fn poll_keyboard(&mut self, report_filter_bytes: &[u8]) -> Option<[u8; 32]> {
-        let mut buf = [0u8; 32];
-        match self
-            .handle
-            .read_interrupt(self.keys_endpoint, &mut buf, Duration::from_micros(1))
-        {
-            Ok(_) => {
-                if report_filter_bytes.contains(&buf[0]) {
-                    return Some(buf);
-                }
-            }
-            Err(err) => {
-                error!("Failed to read keyboard interrupt: {:?}", err);
-            }
-        }
-        None
-    }
-
-    /// A direct call to systemd to suspend the PC.
-    ///
-    /// This avoids desktop environments being required to handle it
-    /// (which means it works while in a TTY also)
-    pub(crate) fn suspend_with_systemd(&self) {
-        std::process::Command::new("systemctl")
-            .arg("suspend")
-            .spawn()
-            .map_or_else(|err| warn!("Failed to suspend: {}", err), |_| {});
-    }
-
-    /// A direct call to rfkill to suspend wireless devices.
-    ///
-    /// This avoids desktop environments being required to handle it (which
-    /// means it works while in a TTY also)
-    pub(crate) fn toggle_airplane_mode(&self) {
-        match Command::new("rfkill").arg("list").output() {
-            Ok(output) => {
-                if output.status.success() {
-                    let patterns = &["yes"];
-                    let ac = AhoCorasick::new(patterns);
-                    if ac.earliest_find(output.stdout).is_some() {
-                        Command::new("rfkill")
-                            .arg("unblock")
-                            .arg("all")
-                            .spawn()
-                            .map_or_else(
-                                |err| warn!("Could not unblock rf devices: {}", err),
-                                |_| {},
-                            );
-                    } else {
-                        let _ = Command::new("rfkill")
-                            .arg("block")
-                            .arg("all")
-                            .spawn()
-                            .map_or_else(
-                                |err| warn!("Could not block rf devices: {}", err),
-                                |_| {},
-                            );
-                    }
-                } else {
-                    warn!("Could not list rf devices");
-                }
-            }
-            Err(err) => {
-                warn!("Could not list rf devices: {}", err);
-            }
-        }
-    }
-
     pub(crate) fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         bytes: &[u8],
     ) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
-        if supported_modes.contains(&mode) || bytes[1] == 0xba {
+        if bytes[1] == 0xbc {
+            self.aura_write(bytes)?;
+            return Ok(());
+        } else if supported_modes.contains(&mode) || bytes[1] == 0xba {
             let messages = [bytes];
             self.aura_write_messages(&messages)?;
             self.config.set_field_from(bytes);
@@ -317,7 +247,9 @@ impl RogCore {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next)
+        self.aura_set_and_save(supported_modes, &mode_next)?;
+        info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
+        Ok(())
     }
 
     /// Select previous Aura effect
@@ -341,7 +273,9 @@ impl RogCore {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next)
+        self.aura_set_and_save(supported_modes, &mode_next)?;
+        info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
+        Ok(())
     }
 
     pub(crate) fn fan_mode_step(&mut self) -> Result<(), Box<dyn Error>> {
@@ -358,8 +292,7 @@ impl RogCore {
         let mut buf = String::new();
         if let Ok(_) = file.read_to_string(&mut buf) {
             let mut n = u8::from_str_radix(&buf.trim_end(), 10)?;
-            let level: &str = FanLevel::from(n).into();
-            info!("Current fan mode: {}", level);
+            info!("Current fan mode: {:#?}", FanLevel::from(n));
 
             if n < 2 {
                 n += 1;
@@ -367,13 +300,86 @@ impl RogCore {
                 n = 0;
             }
 
-            let level: &str = FanLevel::from(n).into();
-            info!("Fan mode stepped to: {}", level);
+            info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
             file.write(format!("{:?}\n", n).as_bytes())?;
             self.config.fan_mode = n;
             self.config.write();
         }
         Ok(())
+    }
+
+    /// Write the bytes read from the device interrupt to the buffer arg, and returns the
+    /// count of bytes written
+    ///
+    /// `report_filter_bytes` is used to filter the data read from the interupt so
+    /// only the relevant byte array is returned.
+    pub(crate) fn poll_keyboard(&mut self, report_filter_bytes: &[u8]) -> Option<[u8; 32]> {
+        let mut buf = [0u8; 32];
+        match self
+            .handle
+            .read_interrupt(self.keys_endpoint, &mut buf, Duration::from_millis(1))
+        {
+            Ok(_) => {
+                if report_filter_bytes.contains(&buf[0]) {
+                    return Some(buf);
+                }
+            }
+            Err(err) => match err {
+                rusb::Error::Timeout => {}
+                _ => error!("Failed to read keyboard interrupt: {:?}", err),
+            },
+        }
+        None
+    }
+
+    /// A direct call to systemd to suspend the PC.
+    ///
+    /// This avoids desktop environments being required to handle it
+    /// (which means it works while in a TTY also)
+    pub(crate) fn suspend_with_systemd(&self) {
+        std::process::Command::new("systemctl")
+            .arg("suspend")
+            .spawn()
+            .map_or_else(|err| warn!("Failed to suspend: {}", err), |_| {});
+    }
+
+    /// A direct call to rfkill to suspend wireless devices.
+    ///
+    /// This avoids desktop environments being required to handle it (which
+    /// means it works while in a TTY also)
+    pub(crate) fn toggle_airplane_mode(&self) {
+        match Command::new("rfkill").arg("list").output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let patterns = &["yes"];
+                    let ac = AhoCorasick::new(patterns);
+                    if ac.earliest_find(output.stdout).is_some() {
+                        Command::new("rfkill")
+                            .arg("unblock")
+                            .arg("all")
+                            .spawn()
+                            .map_or_else(
+                                |err| warn!("Could not unblock rf devices: {}", err),
+                                |_| {},
+                            );
+                    } else {
+                        let _ = Command::new("rfkill")
+                            .arg("block")
+                            .arg("all")
+                            .spawn()
+                            .map_or_else(
+                                |err| warn!("Could not block rf devices: {}", err),
+                                |_| {},
+                            );
+                    }
+                } else {
+                    warn!("Could not list rf devices");
+                }
+            }
+            Err(err) => {
+                warn!("Could not list rf devices: {}", err);
+            }
+        }
     }
 }
 
@@ -457,7 +463,7 @@ impl FromStr for LedBrightness {
         }
     }
 }
-
+#[derive(Debug)]
 enum FanLevel {
     Normal,
     Boost,
@@ -481,16 +487,6 @@ impl From<FanLevel> for u8 {
             FanLevel::Normal => 0,
             FanLevel::Boost => 1,
             FanLevel::Silent => 2,
-        }
-    }
-}
-
-impl From<FanLevel> for &str {
-    fn from(n: FanLevel) -> Self {
-        match n {
-            FanLevel::Normal => "Normal",
-            FanLevel::Boost => "Boosted",
-            FanLevel::Silent => "Silent",
         }
     }
 }

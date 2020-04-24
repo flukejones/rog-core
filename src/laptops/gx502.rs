@@ -71,8 +71,8 @@ impl LaptopGX502 {
             //from `lsusb -vd 0b05:1866`
             key_endpoint: 0x83,
             supported_modes: [
-                BuiltInModeByte::Stable,
-                BuiltInModeByte::Breathe,
+                BuiltInModeByte::Single,
+                BuiltInModeByte::Breathing,
                 BuiltInModeByte::Cycle,
                 BuiltInModeByte::Rainbow,
                 BuiltInModeByte::Rain,
