@@ -22,24 +22,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut per_key_led = Vec::new();
     let mut key_colours = KeyColourArray::new();
-    key_colours.set(Key::ROG, 255, 0, 0);
-    key_colours.set(Key::L, 255, 0, 0);
-    key_colours.set(Key::I, 255, 0, 0);
-    key_colours.set(Key::N, 255, 0, 0);
-    key_colours.set(Key::U, 255, 0, 0);
-    key_colours.set(Key::X, 255, 0, 0);
+    // key_colours.set(Key::ROG, 0, 0, 0);
+    // key_colours.set(Key::L, 0, 0, 0);
+    // key_colours.set(Key::I, 0, 0, 0);
+    // key_colours.set(Key::N, 0, 0, 0);
+    // key_colours.set(Key::U, 0, 0, 0);
+    // key_colours.set(Key::X, 0, 0, 0);
     per_key_led.push(key_colours.clone());
 
-    for _ in 0..46 {
-        *key_colours.key(Key::ROG).0 -= 5;
-        *key_colours.key(Key::L).0 -= 5;
-        *key_colours.key(Key::I).0 -= 5;
-        *key_colours.key(Key::N).0 -= 5;
-        *key_colours.key(Key::U).0 -= 5;
-        *key_colours.key(Key::X).0 -= 5;
-        per_key_led.push(key_colours.clone());
-    }
-    for _ in 0..46 {
+    // for _ in 0..49 {
+    //     *key_colours.key(Key::ROG).0 -= 5;
+    //     *key_colours.key(Key::L).0 -= 5;
+    //     *key_colours.key(Key::I).0 -= 5;
+    //     *key_colours.key(Key::N).0 -= 5;
+    //     *key_colours.key(Key::U).0 -= 5;
+    //     *key_colours.key(Key::X).0 -= 5;
+    //     per_key_led.push(key_colours.clone());
+    // }
+    for _ in 0..49 {
         *key_colours.key(Key::ROG).0 += 5;
         *key_colours.key(Key::L).0 += 5;
         *key_colours.key(Key::I).0 += 5;
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         per_key_led.push(key_colours.clone());
     }
 
-    let time = time::Duration::from_micros(1600);
+    let time = time::Duration::from_millis(2);
 
     let row = KeyColourArray::get_init_msg();
     let msg =
@@ -73,5 +73,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let after = std::time::Instant::now();
         let diff = after.duration_since(now);
         dbg!(diff.as_millis());
+        //return Ok(());
     }
 }

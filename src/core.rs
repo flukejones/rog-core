@@ -128,11 +128,24 @@ impl RogCore {
     }
 
     pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+        let now = std::time::Instant::now();
         match self
             .handle
             .write_interrupt(self.led_endpoint, message, Duration::from_millis(1))
         {
-            Ok(_) => {}
+            Ok(_) => {
+                let after = std::time::Instant::now();
+                let diff = after.duration_since(now);
+                dbg!(diff.as_micros());
+                // let mut buf = [0u8; 32];
+                // if let Ok(_) = self.handle.read_interrupt(
+                //     self.led_endpoint,
+                //     &mut buf,
+                //     Duration::from_millis(1),
+                // ) {
+                //     println!("{:X?}", buf);
+                // }
+            }
             Err(err) => match err {
                 rusb::Error::Timeout => {}
                 _ => error!("Failed to read keyboard interrupt: {:?}", err),
