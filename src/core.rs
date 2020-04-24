@@ -128,9 +128,16 @@ impl RogCore {
     }
 
     pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
-        self.handle
-            .write_interrupt(self.led_endpoint, message, Duration::from_micros(1))
-            .unwrap();
+        match self
+            .handle
+            .write_interrupt(self.led_endpoint, message, Duration::from_millis(1))
+        {
+            Ok(_) => {}
+            Err(err) => match err {
+                rusb::Error::Timeout => {}
+                _ => error!("Failed to read keyboard interrupt: {:?}", err),
+            },
+        }
         Ok(())
     }
 

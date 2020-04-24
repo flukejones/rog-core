@@ -127,31 +127,37 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let supported = Vec::from(laptop.supported_modes());
     loop {
+        // A no-comp loop takes 2 milliseconds
+        // With effect, up to 16ms
+        // With single write, 3ms
+        // Actual EC for keyboard seems to take longer to process
         //thread::sleep(Duration::from_millis(2));
         connection
-            .process(Duration::from_millis(1))
+            .process(Duration::from_millis(20))
             .unwrap_or_else(|err| {
                 error!("{:?}", err);
                 false
             });
 
+        // 700u per write
         if let Ok(mut lock) = input.try_borrow_mut() {
             if let Some(bytes) = &*lock {
                 rogcore.aura_set_and_save(&supported, &bytes)?;
                 *lock = None;
             }
         }
+
         if let Ok(mut lock) = effect.try_borrow_mut() {
             if let Some(bytes) = &*lock {
-                // It takes up to 20 milliseconds to write a complete colour block...
-                //let now = std::time::Instant::now();
+                // It takes up to 10 milliseconds to write a complete colour block...
+                // let now = std::time::Instant::now();
                 for row in bytes {
                     rogcore.aura_write(&row)?;
                 }
                 *lock = None;
-                //let after = std::time::Instant::now();
-                //let diff = after.duration_since(now);
-                //dbg!(diff.as_millis());
+                // let after = std::time::Instant::now();
+                // let diff = after.duration_since(now);
+                // dbg!(diff.as_millis());
             }
         }
 
