@@ -9,7 +9,7 @@ use crate::{
 };
 use aho_corasick::AhoCorasick;
 use gumdrop::Options;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use rusb::DeviceHandle;
 use std::error::Error;
 use std::fs::OpenOptions;
@@ -64,6 +64,10 @@ impl RogCore {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
                     if endpoint.address() == laptop.key_endpoint() {
+                        debug!("INTERVAL: {:?}", endpoint.interval());
+                        debug!("MAX: {:?}", endpoint.max_packet_size());
+                        debug!("SYNC: {:?}", endpoint.sync_type());
+                        debug!("TRANSFER_TYPE: {:?}", endpoint.transfer_type());
                         interface = desc.interface_number();
                         break;
                     }
@@ -128,24 +132,11 @@ impl RogCore {
     }
 
     pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
-        let now = std::time::Instant::now();
         match self
             .handle
             .write_interrupt(self.led_endpoint, message, Duration::from_millis(1))
         {
-            Ok(_) => {
-                let after = std::time::Instant::now();
-                let diff = after.duration_since(now);
-                dbg!(diff.as_micros());
-                // let mut buf = [0u8; 32];
-                // if let Ok(_) = self.handle.read_interrupt(
-                //     self.led_endpoint,
-                //     &mut buf,
-                //     Duration::from_millis(1),
-                // ) {
-                //     println!("{:X?}", buf);
-                // }
-            }
+            Ok(_) => {}
             Err(err) => match err {
                 rusb::Error::Timeout => {}
                 _ => error!("Failed to read keyboard interrupt: {:?}", err),

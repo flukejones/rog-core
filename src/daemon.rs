@@ -7,7 +7,7 @@ use dbus::{
     blocking::Connection,
     tree::{Factory, MethodErr},
 };
-use log::{error, info, warn};
+use log::{error, info};
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
@@ -123,20 +123,21 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive(&connection);
 
-    //thread::spawn(move || loop {});
-
     let supported = Vec::from(laptop.supported_modes());
     loop {
         // A no-comp loop takes 2 milliseconds
         // With effect, up to 16ms
         // With single write, 3ms
-        // Actual EC for keyboard seems to take longer to process, something like
-        // 2ms per line in, so 20ms per colour block?
         //
-        // rusb is slow. Wireshark caps show speed in nanoseconds
-        //thread::sleep(Duration::from_millis(2));
+        // Timing is such that:
+        // - interrupt write is minimum 1ms (sometimes lower)
+        // - read interrupt must timeout, minimum of 1ms
+        // - for a single usb packet, 2ms total.
+        // - to maintain constant times of 1ms, per-key colours should use
+        //   the effect endpoint so that the complete colour block is written
+        //   as fast as 1ms per row of the matrix inside it. (10ms total time)
         connection
-            .process(Duration::from_millis(20))
+            .process(Duration::from_millis(100))
             .unwrap_or_else(|err| {
                 error!("{:?}", err);
                 false
@@ -145,27 +146,19 @@ pub fn start_daemon() -> Result<(), Box<dyn Error>> {
         // 700u per write
         if let Ok(mut lock) = input.try_borrow_mut() {
             if let Some(bytes) = &*lock {
-                // It takes up to 10 milliseconds to write a complete colour block here
-                // let now = std::time::Instant::now();
+                // It takes up to 20 milliseconds to write a complete colour block here
                 rogcore.aura_set_and_save(&supported, &bytes)?;
                 *lock = None;
-                // let after = std::time::Instant::now();
-                // let diff = after.duration_since(now);
-                // dbg!(diff.as_millis());
             }
         }
 
         if let Ok(mut lock) = effect.try_borrow_mut() {
             if let Some(bytes) = &*lock {
                 // It takes up to 10 milliseconds to write a complete colour block and here
-                // let now = std::time::Instant::now();
                 for row in bytes {
                     rogcore.aura_write(&row)?;
                 }
                 *lock = None;
-                // let after = std::time::Instant::now();
-                // let diff = after.duration_since(now);
-                // dbg!(diff.as_millis());
             }
         }
 
