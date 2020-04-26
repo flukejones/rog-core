@@ -110,7 +110,7 @@ impl RogCore {
 
         let mut file = OpenOptions::new().write(true).open(path)?;
         file.write(format!("{:?}\n", self.config.fan_mode).as_bytes())?;
-
+        info!("Reloaded last saved settings");
         Ok(())
     }
 
@@ -325,7 +325,7 @@ impl RogCore {
     pub(crate) async fn poll_keyboard(
         handle: &DeviceHandle<rusb::GlobalContext>,
         endpoint: u8,
-        report_filter_bytes: Vec<u8>,
+        report_filter_bytes: &[u8],
     ) -> Option<[u8; 32]> {
         let mut buf = [0u8; 32];
         match handle.read_interrupt(endpoint, &mut buf, Duration::from_millis(200)) {
