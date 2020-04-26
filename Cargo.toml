@@ -29,5 +29,3 @@ log = "^0.4.8"
 uhid-virt = "^0.0.4"
 #keycode = "0.3"
 env_logger = "^0.7.1"
-
-async-trait = "0.1.30"

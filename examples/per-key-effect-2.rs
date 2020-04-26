@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // It takes each interrupt at least 1ms. 10ms to write complete block. Plus any extra
     // penalty time such as read waits
-    let time = time::Duration::from_millis(1); // aim for 60 per second
+    let time = time::Duration::from_millis(10); // aim for 100 per second
 
     let row = KeyColourArray::get_init_msg();
     let msg =

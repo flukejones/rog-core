@@ -47,44 +47,42 @@ impl LaptopGL753 {
 }
 
 impl LaptopGL753 {
-    async fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes).await {
-            match GL753Keys::from(key_buf[1]) {
-                GL753Keys::LedBrightUp => {
-                    rogcore
-                        .aura_bright_inc(&self.supported_modes, self.max_led_bright)
-                        .await?;
-                }
-                GL753Keys::LedBrightDown => {
-                    rogcore
-                        .aura_bright_dec(&self.supported_modes, self.min_led_bright)
-                        .await?;
-                }
-                GL753Keys::ScreenBrightUp => self.backlight.step_up(),
-                GL753Keys::ScreenBrightDown => self.backlight.step_down(),
-                GL753Keys::Sleep => rogcore.suspend_with_systemd(),
-                GL753Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
-                GL753Keys::ScreenToggle => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
-                }
-                GL753Keys::TouchPadToggle => {
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x070;
-                    rogcore.virt_keys().press(key);
-                }
-                GL753Keys::Rog => {
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x68; // XF86Tools? F13
-                    rogcore.virt_keys().press(key);
-                }
-                GL753Keys::None => {
-                    if key_buf[0] != 0x5A {
-                        info!("Unmapped key array: {:X?}", &key_buf);
-                        info!("Attempting passthrough: {:X?}", &key_buf[1]);
-                        rogcore.virt_keys().press(key_buf);
-                    }
+    fn do_keypress_actions(
+        &self,
+        rogcore: &mut RogCore,
+        key_buf: [u8; 32],
+    ) -> Result<(), AuraError> {
+        match GL753Keys::from(key_buf[1]) {
+            GL753Keys::LedBrightUp => {
+                rogcore.aura_bright_inc(&self.supported_modes, self.max_led_bright)?;
+            }
+            GL753Keys::LedBrightDown => {
+                rogcore.aura_bright_dec(&self.supported_modes, self.min_led_bright)?;
+            }
+            GL753Keys::ScreenBrightUp => self.backlight.step_up(),
+            GL753Keys::ScreenBrightDown => self.backlight.step_down(),
+            GL753Keys::Sleep => rogcore.suspend_with_systemd(),
+            GL753Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
+            GL753Keys::ScreenToggle => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
+            }
+            GL753Keys::TouchPadToggle => {
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x070;
+                rogcore.virt_keys().press(key);
+            }
+            GL753Keys::Rog => {
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x68; // XF86Tools? F13
+                rogcore.virt_keys().press(key);
+            }
+            GL753Keys::None => {
+                if key_buf[0] != 0x5A {
+                    info!("Unmapped key array: {:X?}", &key_buf);
+                    info!("Attempting passthrough: {:X?}", &key_buf[1]);
+                    rogcore.virt_keys().press(key_buf);
                 }
             }
         }
@@ -92,17 +90,18 @@ impl LaptopGL753 {
     }
 }
 
-use async_trait::async_trait;
-#[async_trait]
 impl Laptop for LaptopGL753 {
-    async fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        self.do_keypress_actions(rogcore).await
+    fn run(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
+        self.do_keypress_actions(rogcore, key_buf)
     }
     fn led_endpoint(&self) -> u8 {
         self.led_endpoint
     }
     fn key_endpoint(&self) -> u8 {
         self.key_endpoint
+    }
+    fn key_filter(&self) -> &[u8] {
+        &self.report_filter_bytes
     }
     fn usb_vendor(&self) -> u16 {
         self.usb_vendor

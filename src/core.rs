@@ -98,7 +98,7 @@ impl RogCore {
             .get_field_from(BuiltInModeByte::from(mode_curr).into())
             .unwrap()
             .to_owned();
-        self.aura_write_messages(&[&mode]).await?;
+        self.aura_write_messages(&[&mode])?;
 
         let path = if Path::new(FAN_TYPE_1_PATH).exists() {
             FAN_TYPE_1_PATH
@@ -131,7 +131,7 @@ impl RogCore {
         Err(AuraError::UsbError(rusb::Error::NoDevice))
     }
 
-    pub async fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+    pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
         match self
             .handle
             .write_interrupt(self.led_endpoint, message, Duration::from_millis(1))
@@ -145,31 +145,31 @@ impl RogCore {
         Ok(())
     }
 
-    async fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
+    fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
         if !self.initialised {
-            self.aura_write(&LED_INIT1).await?;
-            self.aura_write(LED_INIT2.as_bytes()).await?;
-            self.aura_write(&LED_INIT3).await?;
-            self.aura_write(LED_INIT4.as_bytes()).await?;
-            self.aura_write(&LED_INIT5).await?;
+            self.aura_write(&LED_INIT1)?;
+            self.aura_write(LED_INIT2.as_bytes())?;
+            self.aura_write(&LED_INIT3)?;
+            self.aura_write(LED_INIT4.as_bytes())?;
+            self.aura_write(&LED_INIT5)?;
             self.initialised = true;
         }
 
         for message in messages {
-            self.aura_write(*message).await?;
-            self.aura_write(&LED_SET).await?;
+            self.aura_write(*message)?;
+            self.aura_write(&LED_SET)?;
         }
         // Changes won't persist unless apply is set
-        self.aura_write(&LED_APPLY).await?;
+        self.aura_write(&LED_APPLY)?;
         Ok(())
     }
 
     /// Initialise and clear the keyboard for custom effects
-    pub async fn aura_effect_init(&mut self) -> Result<(), AuraError> {
+    pub fn aura_effect_init(&mut self) -> Result<(), AuraError> {
         let mut init = [0u8; 64];
         init[0] = 0x5d; // Report ID
         init[1] = 0xbc; // Mode = custom??, 0xb3 is builtin
-        self.aura_write(&init).await?;
+        self.aura_write(&init)?;
         self.initialised = true;
 
         Ok(())
@@ -178,25 +178,25 @@ impl RogCore {
     /// Write an effect block
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
-    pub async fn aura_write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
+    pub fn aura_write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
         for row in effect.iter() {
-            self.aura_write(row).await?;
+            self.aura_write(row)?;
         }
         Ok(())
     }
 
-    pub(crate) async fn aura_set_and_save(
+    pub(crate) fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         bytes: &[u8],
     ) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
         if bytes[1] == 0xbc {
-            self.aura_write(bytes).await?;
+            self.aura_write(bytes)?;
             return Ok(());
         } else if supported_modes.contains(&mode) || bytes[1] == 0xba {
             let messages = [bytes];
-            self.aura_write_messages(&messages).await?;
+            self.aura_write_messages(&messages)?;
             self.config.set_field_from(bytes);
             self.config.write();
             return Ok(());
@@ -205,7 +205,7 @@ impl RogCore {
         Err(AuraError::NotSupported)
     }
 
-    pub(crate) async fn aura_bright_inc(
+    pub(crate) fn aura_bright_inc(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         max_bright: u8,
@@ -216,11 +216,11 @@ impl RogCore {
             self.config.brightness = bright;
         }
         let bytes = aura_brightness_bytes(bright);
-        self.aura_set_and_save(supported_modes, &bytes).await?;
+        self.aura_set_and_save(supported_modes, &bytes)?;
         Ok(())
     }
 
-    pub(crate) async fn aura_bright_dec(
+    pub(crate) fn aura_bright_dec(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         min_bright: u8,
@@ -231,14 +231,14 @@ impl RogCore {
             self.config.brightness = bright;
         }
         let bytes = aura_brightness_bytes(bright);
-        self.aura_set_and_save(supported_modes, &bytes).await?;
+        self.aura_set_and_save(supported_modes, &bytes)?;
         Ok(())
     }
 
     /// Select next Aura effect
     ///
     /// If the current effect is the last one then the effect selected wraps around to the first.
-    pub(crate) async fn aura_mode_next(
+    pub(crate) fn aura_mode_next(
         &mut self,
         supported_modes: &[BuiltInModeByte],
     ) -> Result<(), AuraError> {
@@ -256,7 +256,7 @@ impl RogCore {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next).await?;
+        self.aura_set_and_save(supported_modes, &mode_next)?;
         info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
         Ok(())
     }
@@ -264,7 +264,7 @@ impl RogCore {
     /// Select previous Aura effect
     ///
     /// If the current effect is the first one then the effect selected wraps around to the last.
-    pub(crate) async fn aura_mode_prev(
+    pub(crate) fn aura_mode_prev(
         &mut self,
         supported_modes: &[BuiltInModeByte],
     ) -> Result<(), AuraError> {
@@ -282,7 +282,7 @@ impl RogCore {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next).await?;
+        self.aura_set_and_save(supported_modes, &mode_next)?;
         info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
         Ok(())
     }
@@ -322,12 +322,13 @@ impl RogCore {
     ///
     /// `report_filter_bytes` is used to filter the data read from the interupt so
     /// only the relevant byte array is returned.
-    pub(crate) async fn poll_keyboard(&mut self, report_filter_bytes: &[u8]) -> Option<[u8; 32]> {
+    pub(crate) async fn poll_keyboard(
+        handle: &DeviceHandle<rusb::GlobalContext>,
+        endpoint: u8,
+        report_filter_bytes: Vec<u8>,
+    ) -> Option<[u8; 32]> {
         let mut buf = [0u8; 32];
-        match self
-            .handle
-            .read_interrupt(self.keys_endpoint, &mut buf, Duration::from_millis(50))
-        {
+        match handle.read_interrupt(endpoint, &mut buf, Duration::from_millis(200)) {
             Ok(_) => {
                 if report_filter_bytes.contains(&buf[0]) {
                     return Some(buf);
@@ -339,6 +340,11 @@ impl RogCore {
             },
         }
         None
+    }
+
+    pub(crate) fn get_raw_device_handle(&mut self) -> *mut DeviceHandle<rusb::GlobalContext> {
+        // Breaking every damn lifetime guarantee rust gives us
+        &mut self.handle as *mut DeviceHandle<rusb::GlobalContext>
     }
 
     /// A direct call to systemd to suspend the PC.

@@ -12,7 +12,7 @@ use dbus_tokio::connection;
 use log::{error, info};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
@@ -28,7 +28,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     );
     // Reload settings
     rogcore.reload().await?;
-    println!("RELOADED");
+    info!("Reloaded last saved settings");
 
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
@@ -36,11 +36,9 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         panic!("Lost connection to D-Bus: {}", err);
     });
 
-    println!("CONN REQUEST");
     connection
         .request_name(DBUS_IFACE, false, true, false)
         .await?;
-    println!("CONN REQUEST DONE");
 
     let factory = Factory::new_sync::<()>();
 
@@ -127,6 +125,27 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     tree.start_receive_send(&*connection);
 
     let supported = Vec::from(laptop.supported_modes());
+
+    let key_buf: Arc<Mutex<Option<[u8; 32]>>> = Arc::new(Mutex::new(None));
+    let handle = unsafe { &*(rogcore.get_raw_device_handle()) };
+    let endpoint = laptop.key_endpoint();
+    let report_filter_bytes = laptop.key_filter().to_owned();
+
+    let key_buf1 = key_buf.clone();
+    // This is *not* safe
+    tokio::spawn(async move {
+        loop {
+            let data = RogCore::poll_keyboard(handle, endpoint, report_filter_bytes.clone()).await;
+            if let Some(stuff) = data {
+                if let Ok(mut lock) = key_buf1.lock() {
+                    lock.replace(stuff);
+                }
+            }
+        }
+    });
+
+    // When any action occurs this time is reset
+    let mut time_mark = Instant::now();
     loop {
         // Timing is such that:
         // - interrupt write is minimum 1ms (sometimes lower)
@@ -143,26 +162,43 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         if let Ok(mut lock) = input.try_lock() {
             if let Some(bytes) = &*lock {
                 // It takes up to 20 milliseconds to write a complete colour block here
-                rogcore.aura_set_and_save(&supported, &bytes).await?;
+                rogcore.aura_set_and_save(&supported, &bytes)?;
                 *lock = None;
+                time_mark = Instant::now();
             }
         }
 
-        if let Ok(mut lock) = effect.try_lock() {
+        if let Ok(mut lock) = effect.lock() {
             if lock.is_some() {
                 let effect = lock.take();
-                rogcore.aura_write_effect(effect.unwrap()).await?;
+                rogcore.aura_write_effect(effect.unwrap())?;
+                time_mark = Instant::now();
             }
         }
 
-        match laptop.run(&mut rogcore).await {
-            Ok(_) => {}
-            Err(err) => {
-                error!("{:?}", err);
-                panic!("Force crash for systemd to restart service")
+        if let Ok(mut lock) = key_buf.try_lock() {
+            if let Some(bytes) = *lock {
+                // this takes at least 10ms per colour block
+                match laptop.run(&mut rogcore, bytes) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("{:?}", err);
+                        panic!("Force crash for systemd to restart service")
+                    }
+                }
+                *lock = None;
+                time_mark = Instant::now();
             }
         }
-        // When using an effect gen, 17-20ms is the min/max time to account for.
-        // If DBUS didn't take so long we could get this down to 11-12ms.
+
+        let now = Instant::now();
+        // Cool-down steps
+        if now.duration_since(time_mark).as_millis() > 500 {
+            std::thread::sleep(Duration::from_millis(100));
+        } else if now.duration_since(time_mark).as_millis() > 20 {
+            std::thread::sleep(Duration::from_millis(20));
+        } else {
+            std::thread::sleep(Duration::from_micros(400));
+        }
     }
 }

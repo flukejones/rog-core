@@ -25,17 +25,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-trait"
-version = "0.1.30"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da71fef07bc806586090247e971229289f64c210a278ee5ae419314eb386b31d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -631,7 +620,6 @@ name = "rog-daemon"
 version = "0.6.1"
 dependencies = [
  "aho-corasick",
- "async-trait",
  "dbus",
  "dbus-tokio",
  "env_logger",
