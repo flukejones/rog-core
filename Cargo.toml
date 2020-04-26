@@ -15,7 +15,10 @@ path = "src/main.rs"
 [dependencies]
 rusb = "^0.5.5"
 gumdrop = "^0.8.0"
-dbus = "^0.7.1"
+dbus = { version = "^0.8.2", features = ["futures"] }
+dbus-tokio = "^0.5.1"
+tokio = { version = "0.2.19", features = ["rt-threaded", "macros"] }
+
 serde = "1.0"
 serde_derive = "1.0"
 toml = "0.5"
@@ -26,3 +29,5 @@ log = "^0.4.8"
 uhid-virt = "^0.0.4"
 #keycode = "0.3"
 env_logger = "^0.7.1"
+
+async-trait = "0.1.30"

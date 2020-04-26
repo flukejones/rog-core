@@ -1,6 +1,7 @@
 use crate::aura::BuiltInModeByte;
 use crate::core::RogCore;
 use crate::error::AuraError;
+use async_trait::async_trait;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use log::info;
 
@@ -62,10 +63,11 @@ pub(crate) fn match_laptop() -> Box<dyn Laptop> {
 ///
 /// If using the `keycode` crate to build keyboard input, the report must be prefixed
 /// with the report ID (usually `0x01` for the virtual keyboard).
+#[async_trait]
 pub(crate) trait Laptop {
     fn board_name(&self) -> &str;
     fn prod_family(&self) -> &str;
-    fn run(&self, core: &mut RogCore) -> Result<(), AuraError>;
+    async fn run(&self, core: &mut RogCore) -> Result<(), AuraError>;
     fn led_endpoint(&self) -> u8;
     fn key_endpoint(&self) -> u8;
     fn usb_vendor(&self) -> u16;

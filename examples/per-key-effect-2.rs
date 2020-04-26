@@ -24,29 +24,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut key_colours = KeyColourArray::new();
     per_key_led.push(key_colours.clone());
 
-    for _ in 0..29 {
-        *key_colours.key(Key::ROG).0 += 8;
-        *key_colours.key(Key::L).0 += 8;
-        *key_colours.key(Key::I).0 += 8;
-        *key_colours.key(Key::N).0 += 8;
-        *key_colours.key(Key::U).0 += 8;
-        *key_colours.key(Key::X).0 += 8;
+    for _ in 0..49 {
+        *key_colours.key(Key::ROG).0 += 3;
+        *key_colours.key(Key::L).0 += 3;
+        *key_colours.key(Key::I).0 += 3;
+        *key_colours.key(Key::N).0 += 3;
+        *key_colours.key(Key::U).0 += 3;
+        *key_colours.key(Key::X).0 += 3;
         per_key_led.push(key_colours.clone());
     }
 
-    for _ in 0..29 {
-        *key_colours.key(Key::ROG).0 -= 8;
-        *key_colours.key(Key::L).0 -= 8;
-        *key_colours.key(Key::I).0 -= 8;
-        *key_colours.key(Key::N).0 -= 8;
-        *key_colours.key(Key::U).0 -= 8;
-        *key_colours.key(Key::X).0 -= 8;
+    for _ in 0..49 {
+        *key_colours.key(Key::ROG).0 -= 3;
+        *key_colours.key(Key::L).0 -= 3;
+        *key_colours.key(Key::I).0 -= 3;
+        *key_colours.key(Key::N).0 -= 3;
+        *key_colours.key(Key::U).0 -= 3;
+        *key_colours.key(Key::X).0 -= 3;
         per_key_led.push(key_colours.clone());
     }
 
     // It takes each interrupt at least 1ms. 10ms to write complete block. Plus any extra
     // penalty time such as read waits
-    let time = time::Duration::from_millis(16); // aim for 60 per second
+    let time = time::Duration::from_millis(1); // aim for 60 per second
 
     let row = KeyColourArray::get_init_msg();
     let msg =

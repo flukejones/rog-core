@@ -89,17 +89,21 @@ impl LaptopGX502 {
 }
 
 impl LaptopGX502 {
-    fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes) {
+    async fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
+        if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes).await {
             match GX502Keys::from(key_buf[1]) {
                 GX502Keys::LedBrightUp => {
-                    rogcore.aura_bright_inc(&self.supported_modes, self.max_led_bright)?;
+                    rogcore
+                        .aura_bright_inc(&self.supported_modes, self.max_led_bright)
+                        .await?;
                 }
                 GX502Keys::LedBrightDown => {
-                    rogcore.aura_bright_dec(&self.supported_modes, self.min_led_bright)?;
+                    rogcore
+                        .aura_bright_dec(&self.supported_modes, self.min_led_bright)
+                        .await?;
                 }
-                GX502Keys::AuraNext => rogcore.aura_mode_next(&self.supported_modes)?,
-                GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&self.supported_modes)?,
+                GX502Keys::AuraNext => rogcore.aura_mode_next(&self.supported_modes).await?,
+                GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&self.supported_modes).await?,
                 GX502Keys::ScreenBrightUp => self.backlight.step_up(),
                 GX502Keys::ScreenBrightDown => self.backlight.step_down(),
                 GX502Keys::Sleep => rogcore.suspend_with_systemd(),
@@ -120,8 +124,8 @@ impl LaptopGX502 {
                     rogcore.virt_keys().press(key);
                 }
                 GX502Keys::Rog => {
-                    rogcore.aura_effect_init()?;
-                    rogcore.aura_write_effect(&self.per_key_led)?;
+                    //rogcore.aura_effect_init()?;
+                    //rogcore.aura_write_effect(&self.per_key_led)?;
                     // let mut key = [0u8; 32];
                     // key[0] = 0x01;
                     // key[3] = 0x68; // XF86Tools? F13
@@ -139,9 +143,11 @@ impl LaptopGX502 {
     }
 }
 
+use async_trait::async_trait;
+#[async_trait]
 impl Laptop for LaptopGX502 {
-    fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        self.do_keypress_actions(rogcore)
+    async fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
+        self.do_keypress_actions(rogcore).await
     }
     fn led_endpoint(&self) -> u8 {
         self.led_endpoint

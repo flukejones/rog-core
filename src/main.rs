@@ -40,7 +40,8 @@ struct LedModeCommand {
     command: Option<SetAuraBuiltin>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = Builder::from_env("ROGCORE_LOG");
     builder.target(Target::Stdout);
     builder.format_timestamp(None);
@@ -48,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parsed = CLIStart::parse_args_default_or_exit();
     if parsed.daemon {
-        start_daemon()?;
+        start_daemon().await?;
     }
     if parsed.version {
         println!("Version: {}", VERSION);

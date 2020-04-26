@@ -47,14 +47,18 @@ impl LaptopGL753 {
 }
 
 impl LaptopGL753 {
-    fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes) {
+    async fn do_keypress_actions(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
+        if let Some(key_buf) = rogcore.poll_keyboard(&self.report_filter_bytes).await {
             match GL753Keys::from(key_buf[1]) {
                 GL753Keys::LedBrightUp => {
-                    rogcore.aura_bright_inc(&self.supported_modes, self.max_led_bright)?;
+                    rogcore
+                        .aura_bright_inc(&self.supported_modes, self.max_led_bright)
+                        .await?;
                 }
                 GL753Keys::LedBrightDown => {
-                    rogcore.aura_bright_dec(&self.supported_modes, self.min_led_bright)?;
+                    rogcore
+                        .aura_bright_dec(&self.supported_modes, self.min_led_bright)
+                        .await?;
                 }
                 GL753Keys::ScreenBrightUp => self.backlight.step_up(),
                 GL753Keys::ScreenBrightDown => self.backlight.step_down(),
@@ -88,9 +92,11 @@ impl LaptopGL753 {
     }
 }
 
+use async_trait::async_trait;
+#[async_trait]
 impl Laptop for LaptopGL753 {
-    fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
-        self.do_keypress_actions(rogcore)
+    async fn run(&self, rogcore: &mut RogCore) -> Result<(), AuraError> {
+        self.do_keypress_actions(rogcore).await
     }
     fn led_endpoint(&self) -> u8 {
         self.led_endpoint
