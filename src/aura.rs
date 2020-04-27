@@ -54,7 +54,7 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 /// - 01 = breathe (can set two colours)
 /// - 02 = cycle (through all colours)
 /// - 03 = rainbow
-/// - 04 = rain
+/// - 04 = rain (byte 9 sets random colour)
 /// - 05 = random keys, red, white, turquoise
 /// - 06 = pressed keys light up and fade
 /// - 07 = pressed key emits laser
@@ -137,8 +137,14 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[7] = settings.speed as u8;
                 msg[8] = settings.direction as u8;
             }
+            SetAuraBuiltin::Rain(settings) => {
+                msg[4] = settings.colour.0;
+                msg[5] = settings.colour.1;
+                msg[6] = settings.colour.2;
+                msg[7] = settings.speed as u8;
+                msg[9] = settings.colour2.2;
+            }
             SetAuraBuiltin::Breathe(settings) => {
-                msg[3] = 0x01;
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
@@ -150,8 +156,7 @@ impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             SetAuraBuiltin::Cycle(settings) | SetAuraBuiltin::Disco(settings) => {
                 msg[7] = settings.speed as u8;
             }
-            SetAuraBuiltin::Rain(settings)
-            | SetAuraBuiltin::Highlight(settings)
+            SetAuraBuiltin::Highlight(settings)
             | SetAuraBuiltin::Laser(settings)
             | SetAuraBuiltin::Ripple(settings) => {
                 msg[4] = settings.colour.0;
@@ -271,7 +276,7 @@ impl Default for BuiltInModeBytes {
             rainbow: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rainbow(
                 SingleSpeedDirection::default(),
             )),
-            rain: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rain(SingleColourSpeed::default())),
+            rain: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Rain(TwoColourSpeed::default())),
             random: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Disco(SingleSpeed::default())),
             highlight: <[u8; LED_MSG_LEN]>::from(SetAuraBuiltin::Highlight(
                 SingleColourSpeed::default(),

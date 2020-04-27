@@ -159,7 +159,7 @@ pub enum SetAuraBuiltin {
     #[options(help = "rainbow cycling in one of four directions")]
     Rainbow(SingleSpeedDirection),
     #[options(help = "random pattern mimicking raindrops")]
-    Rain(SingleColourSpeed),
+    Rain(TwoColourSpeed),
     #[options(help = "random pattern of three preset colours")]
     Disco(SingleSpeed),
     #[options(help = "pressed keys are highlighted to fade")]

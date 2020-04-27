@@ -28,7 +28,13 @@ type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
-    let mut rogcore = RogCore::new(&*laptop).map_or_else(
+    let mut rogcore = RogCore::new(
+        laptop.usb_vendor(),
+        laptop.usb_product(),
+        laptop.led_endpoint(),
+        laptop.key_endpoint(),
+    )
+    .map_or_else(
         |err| {
             error!("{}", err);
             panic!("{}", err);

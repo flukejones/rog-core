@@ -17,7 +17,7 @@ pub(crate) fn match_laptop() -> Box<dyn Laptop> {
         let device_desc = device.device_descriptor().unwrap();
         if device_desc.vendor_id() == 0x0b05 {
             match device_desc.product_id() {
-                0x1866 => {
+                0x1869 | 0x1866 => {
                     info!("Found GX502 or similar");
                     return Box::new(LaptopGX502::new());
                 }

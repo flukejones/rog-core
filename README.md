@@ -77,12 +77,14 @@ Fan mode toggling requires a newer kernel. I'm unsure when the patches required 
 
 **Supported:**
 
-- GX502 (Tested on GX502GW)
+- GX502 (product 0x1866) (Tested on GX502GW)
 
 **Please help test or provide info for:**
 
-- GA502 (attempts to use same profile as GX502GW)
-- GL753 (attempted support from researching 2nd-hand info, multizone may work)
+- GL703(0x1869), GA502 (attempts to use same profile as GX502GW)
+- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
+
+If the USB product ID is 0x1866 or 0x1869 then the per-key profile with hotkeys *should* work - 0x1866 is tested as this is what I have.
 
 ## Wireshark captures
 

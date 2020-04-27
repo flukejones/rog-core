@@ -17,7 +17,7 @@ rusb = "^0.5.5"
 gumdrop = "^0.8.0"
 dbus = { version = "^0.8.2", features = ["futures"] }
 dbus-tokio = "^0.5.1"
-tokio = { version = "0.2.19", features = ["rt-threaded", "macros"] }
+tokio = { version = "0.2.4", features = ["rt-threaded", "macros"] }
 
 serde = "1.0"
 serde_derive = "1.0"

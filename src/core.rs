@@ -53,8 +53,13 @@ pub(crate) struct RogCore {
 }
 
 impl RogCore {
-    pub(crate) fn new(laptop: &dyn Laptop) -> Result<RogCore, AuraError> {
-        let mut dev_handle = RogCore::get_device(laptop.usb_vendor(), laptop.usb_product())?;
+    pub(crate) fn new(
+        vendor: u16,
+        product: u16,
+        led_endpoint: u8,
+        key_endpoint: u8,
+    ) -> Result<RogCore, AuraError> {
+        let mut dev_handle = RogCore::get_device(vendor, product)?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
         let dev_config = dev_handle.device().config_descriptor(0).unwrap();
@@ -63,7 +68,7 @@ impl RogCore {
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == laptop.key_endpoint() {
+                    if endpoint.address() == key_endpoint {
                         debug!("INTERVAL: {:?}", endpoint.interval());
                         debug!("MAX: {:?}", endpoint.max_packet_size());
                         debug!("SYNC: {:?}", endpoint.sync_type());
@@ -83,8 +88,8 @@ impl RogCore {
         Ok(RogCore {
             handle: dev_handle,
             initialised: false,
-            led_endpoint: laptop.led_endpoint(),
-            keys_endpoint: laptop.key_endpoint(),
+            led_endpoint: led_endpoint,
+            keys_endpoint: key_endpoint,
             config: Config::default().read(),
             virt_keys: VirtKeys::new(),
         })
