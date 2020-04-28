@@ -17,42 +17,11 @@ pub(super) struct LaptopGX502 {
     led_endpoint: u8,
     key_endpoint: u8,
     supported_modes: [BuiltInModeByte; 12],
-    backlight: Backlight,
-    per_key_led: Vec<KeyColourArray>,
+    //backlight: Backlight,
 }
 
 impl LaptopGX502 {
     pub(super) fn new() -> Self {
-        // Setting up a sample effect to run when ROG pressed
-        let mut per_key_led = Vec::new();
-        let mut key_colours = KeyColourArray::new();
-        key_colours.set(Key::ROG, 255, 0, 0);
-        key_colours.set(Key::L, 255, 0, 0);
-        key_colours.set(Key::I, 255, 0, 0);
-        key_colours.set(Key::N, 255, 0, 0);
-        key_colours.set(Key::U, 255, 0, 0);
-        key_colours.set(Key::X, 255, 0, 0);
-        per_key_led.push(key_colours.clone());
-
-        for _ in 0..49 {
-            *key_colours.key(Key::ROG).0 -= 5;
-            *key_colours.key(Key::L).0 -= 5;
-            *key_colours.key(Key::I).0 -= 5;
-            *key_colours.key(Key::N).0 -= 5;
-            *key_colours.key(Key::U).0 -= 5;
-            *key_colours.key(Key::X).0 -= 5;
-            per_key_led.push(key_colours.clone());
-        }
-        for _ in 0..49 {
-            *key_colours.key(Key::ROG).0 += 5;
-            *key_colours.key(Key::L).0 += 5;
-            *key_colours.key(Key::I).0 += 5;
-            *key_colours.key(Key::N).0 += 5;
-            *key_colours.key(Key::U).0 += 5;
-            *key_colours.key(Key::X).0 += 5;
-            per_key_led.push(key_colours.clone());
-        }
-
         // Find backlight
         LaptopGX502 {
             usb_vendor: 0x0B05,
@@ -82,8 +51,7 @@ impl LaptopGX502 {
                 BuiltInModeByte::ThinZoomy,
                 BuiltInModeByte::WideZoomy,
             ],
-            backlight: Backlight::new("intel_backlight").unwrap(),
-            per_key_led,
+            //backlight: Backlight::new("intel_backlight").unwrap(),
         }
     }
 }
@@ -103,8 +71,12 @@ impl LaptopGX502 {
             }
             GX502Keys::AuraNext => rogcore.aura_mode_next(&self.supported_modes)?,
             GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&self.supported_modes)?,
-            GX502Keys::ScreenBrightUp => self.backlight.step_up(),
-            GX502Keys::ScreenBrightDown => self.backlight.step_down(),
+            GX502Keys::ScreenBrightUp => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
+            } //self.backlight.step_up(),
+            GX502Keys::ScreenBrightDown => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
+            } //self.backlight.step_down(),
             GX502Keys::Sleep => rogcore.suspend_with_systemd(),
             GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
             GX502Keys::MicToggle => {}
@@ -125,10 +97,10 @@ impl LaptopGX502 {
             GX502Keys::Rog => {
                 //rogcore.aura_effect_init()?;
                 //rogcore.aura_write_effect(&self.per_key_led)?;
-                // let mut key = [0u8; 32];
-                // key[0] = 0x01;
-                // key[3] = 0x68; // XF86Tools? F13
-                // rogcore.virt_keys().press(key);
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x68; // XF86Tools? F13
+                rogcore.virt_keys().press(key);
             }
             GX502Keys::None => {
                 if key_buf[0] != 0x5A {
