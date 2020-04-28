@@ -1,5 +1,5 @@
 use crate::aura::BuiltInModeByte;
-use crate::core::{Backlight, RogCore};
+use crate::core::RogCore;
 use crate::error::AuraError;
 use crate::virt_device::ConsumerKeys;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
@@ -17,7 +17,7 @@ pub(super) struct LaptopGL753 {
     led_endpoint: u8,
     key_endpoint: u8,
     supported_modes: [BuiltInModeByte; 3],
-    backlight: Backlight,
+    // backlight: Backlight,
 }
 
 impl LaptopGL753 {
@@ -41,7 +41,7 @@ impl LaptopGL753 {
                 BuiltInModeByte::Breathing,
                 BuiltInModeByte::Cycle,
             ],
-            backlight: Backlight::new("intel_backlight").unwrap(),
+            // backlight: Backlight::new("intel_backlight").unwrap(),
         }
     }
 }
@@ -59,8 +59,12 @@ impl LaptopGL753 {
             GL753Keys::LedBrightDown => {
                 rogcore.aura_bright_dec(&self.supported_modes, self.min_led_bright)?;
             }
-            GL753Keys::ScreenBrightUp => self.backlight.step_up(),
-            GL753Keys::ScreenBrightDown => self.backlight.step_down(),
+            GL753Keys::ScreenBrightUp => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
+            }
+            GL753Keys::ScreenBrightDown => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
+            }
             GL753Keys::Sleep => rogcore.suspend_with_systemd(),
             GL753Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
             GL753Keys::ScreenToggle => {
@@ -80,8 +84,7 @@ impl LaptopGL753 {
             }
             GL753Keys::None => {
                 if key_buf[0] != 0x5A {
-                    info!("Unmapped key array: {:X?}", &key_buf);
-                    info!("Attempting passthrough: {:X?}", &key_buf[1]);
+                    info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
                     rogcore.virt_keys().press(key_buf);
                 }
             }

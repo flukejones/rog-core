@@ -14,18 +14,25 @@ path = "src/main.rs"
 
 [dependencies]
 rusb = "^0.5.5"
+# cli crate
 gumdrop = "^0.8.0"
+log = "^0.4.8"
+env_logger = "^0.7.1"
+# async
 dbus = { version = "^0.8.2", features = ["futures"] }
 dbus-tokio = "^0.5.1"
 tokio = { version = "0.2.4", features = ["rt-threaded", "macros"] }
-
+# serialisation
 serde = "1.0"
 serde_derive = "1.0"
 toml = "0.5"
-sysfs-class = "^0.1.2"
+# used for backlight control mostly
+# sysfs-class = "^0.1.2"
+# cpu power management
+intel-pstate = { git = "https://github.com/flukejones/intel-pstate" }
+#
 aho-corasick = "^0.7.10"
 thiserror = "^1.0.15"
-log = "^0.4.8"
+# virtualisation of HID, mainly for outputting consumer key codes
 uhid-virt = "^0.0.4"
 #keycode = "0.3"
-env_logger = "^0.7.1"

@@ -1,10 +1,9 @@
 // Return show-stopping errors, otherwise map error to a log level
 
 use crate::{
-    aura::{aura_brightness_bytes, BuiltInModeByte, KeyColourArray},
+    aura::{aura_brightness_bytes, BuiltInModeByte},
     config::Config,
     error::AuraError,
-    laptops::*,
     virt_device::VirtKeys,
 };
 use aho_corasick::AhoCorasick;
@@ -18,7 +17,6 @@ use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::time::Duration;
-use sysfs_class::{Brightness, SysClass};
 
 pub const LED_MSG_LEN: usize = 17;
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
@@ -47,7 +45,6 @@ pub(crate) struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
     led_endpoint: u8,
-    keys_endpoint: u8,
     config: Config,
     virt_keys: VirtKeys,
 }
@@ -88,8 +85,7 @@ impl RogCore {
         Ok(RogCore {
             handle: dev_handle,
             initialised: false,
-            led_endpoint: led_endpoint,
-            keys_endpoint: key_endpoint,
+            led_endpoint,
             config: Config::default().read(),
             virt_keys: VirtKeys::new(),
         })
@@ -115,6 +111,7 @@ impl RogCore {
 
         let mut file = OpenOptions::new().write(true).open(path)?;
         file.write(format!("{:?}\n", self.config.fan_mode).as_bytes())?;
+        self.set_pstate_for_fan_mode(FanLevel::from(self.config.fan_mode))?;
         info!("Reloaded last saved settings");
         Ok(())
     }
@@ -166,17 +163,6 @@ impl RogCore {
         }
         // Changes won't persist unless apply is set
         self.aura_write(&LED_APPLY)?;
-        Ok(())
-    }
-
-    /// Initialise and clear the keyboard for custom effects
-    pub fn aura_effect_init(&mut self) -> Result<(), AuraError> {
-        let mut init = [0u8; 64];
-        init[0] = 0x5d; // Report ID
-        init[1] = 0xbc; // Mode = custom??, 0xb3 is builtin
-        self.aura_write(&init)?;
-        self.initialised = true;
-
         Ok(())
     }
 
@@ -301,23 +287,50 @@ impl RogCore {
             return Ok(());
         };
 
-        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+        let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
 
         let mut buf = String::new();
-        if let Ok(_) = file.read_to_string(&mut buf) {
+        if let Ok(_) = fan_ctrl.read_to_string(&mut buf) {
             let mut n = u8::from_str_radix(&buf.trim_end(), 10)?;
             info!("Current fan mode: {:#?}", FanLevel::from(n));
-
+            // wrap around the step number
             if n < 2 {
                 n += 1;
             } else {
                 n = 0;
             }
-
             info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
-            file.write(format!("{:?}\n", n).as_bytes())?;
+            fan_ctrl.write(format!("{:?}\n", n).as_bytes())?;
+            self.set_pstate_for_fan_mode(FanLevel::from(n))?;
             self.config.fan_mode = n;
             self.config.write();
+        }
+        Ok(())
+    }
+
+    fn set_pstate_for_fan_mode(&self, mode: FanLevel) -> Result<(), Box<dyn Error>> {
+        // Set CPU pstate
+        if let Ok(pstate) = intel_pstate::PState::new() {
+            match mode {
+                FanLevel::Normal => {
+                    pstate.set_min_perf_pct(0)?;
+                    pstate.set_max_perf_pct(100)?;
+                    pstate.set_no_turbo(false)?;
+                    info!("CPU pstate: normal");
+                }
+                FanLevel::Boost => {
+                    pstate.set_min_perf_pct(50)?;
+                    pstate.set_max_perf_pct(100)?;
+                    pstate.set_no_turbo(false)?;
+                    info!("CPU pstate: boost");
+                }
+                FanLevel::Silent => {
+                    pstate.set_min_perf_pct(0)?;
+                    pstate.set_max_perf_pct(70)?;
+                    pstate.set_no_turbo(true)?;
+                    info!("CPU pstate: silent, no-turbo");
+                }
+            }
         }
         Ok(())
     }
@@ -403,59 +416,60 @@ impl RogCore {
     }
 }
 
-pub(crate) struct Backlight {
-    backlight: sysfs_class::Backlight,
-    step: u64,
-    max: u64,
-}
+// use sysfs_class::{Brightness, SysClass};
+// pub(crate) struct Backlight {
+//     backlight: sysfs_class::Backlight,
+//     step: u64,
+//     max: u64,
+// }
 
-impl Backlight {
-    pub(crate) fn new(id: &str) -> Result<Backlight, std::io::Error> {
-        for bl in sysfs_class::Backlight::iter() {
-            let bl = bl?;
-            if bl.id() == id {
-                let max = bl.max_brightness()?;
-                let step = max / 50;
-                return Ok(Backlight {
-                    backlight: bl,
-                    step,
-                    max,
-                });
-            }
-        }
-        panic!("Backlight not found")
-    }
-    pub(crate) fn step_up(&self) {
-        let brightness = self
-            .backlight
-            .brightness()
-            .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
-            .unwrap();
-        if brightness + self.step <= self.max {
-            self.backlight
-                .set_brightness(brightness + self.step)
-                .map_or_else(
-                    |err| warn!("Failed to increment backlight level: {}", err),
-                    |_| {},
-                );
-        }
-    }
-    pub(crate) fn step_down(&self) {
-        let brightness = self
-            .backlight
-            .brightness()
-            .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
-            .unwrap();
-        if brightness > self.step {
-            self.backlight
-                .set_brightness(brightness - self.step)
-                .map_or_else(
-                    |err| warn!("Failed to increment backlight level: {}", err),
-                    |_| {},
-                );
-        }
-    }
-}
+// impl Backlight {
+//     pub(crate) fn new(id: &str) -> Result<Backlight, std::io::Error> {
+//         for bl in sysfs_class::Backlight::iter() {
+//             let bl = bl?;
+//             if bl.id() == id {
+//                 let max = bl.max_brightness()?;
+//                 let step = max / 50;
+//                 return Ok(Backlight {
+//                     backlight: bl,
+//                     step,
+//                     max,
+//                 });
+//             }
+//         }
+//         panic!("Backlight not found")
+//     }
+//     pub(crate) fn step_up(&self) {
+//         let brightness = self
+//             .backlight
+//             .brightness()
+//             .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
+//             .unwrap();
+//         if brightness + self.step <= self.max {
+//             self.backlight
+//                 .set_brightness(brightness + self.step)
+//                 .map_or_else(
+//                     |err| warn!("Failed to increment backlight level: {}", err),
+//                     |_| {},
+//                 );
+//         }
+//     }
+//     pub(crate) fn step_down(&self) {
+//         let brightness = self
+//             .backlight
+//             .brightness()
+//             .map_err(|err| warn!("Failed to fetch backlight level: {}", err))
+//             .unwrap();
+//         if brightness > self.step {
+//             self.backlight
+//                 .set_brightness(brightness - self.step)
+//                 .map_or_else(
+//                     |err| warn!("Failed to increment backlight level: {}", err),
+//                     |_| {},
+//                 );
+//         }
+//     }
+// }
 
 #[derive(Debug, Options)]
 pub struct LedBrightness {

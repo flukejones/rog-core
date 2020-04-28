@@ -1,5 +1,5 @@
-use crate::aura::{BuiltInModeByte, Key, KeyColourArray};
-use crate::core::{Backlight, RogCore};
+use crate::aura::BuiltInModeByte;
+use crate::core::RogCore;
 use crate::error::AuraError;
 use crate::virt_device::ConsumerKeys;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
