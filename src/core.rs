@@ -19,17 +19,17 @@ use std::time::Duration;
 
 pub const LED_MSG_LEN: usize = 17;
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
-static LED_INIT2: &'static str = "]ASUS Tech.Inc."; // ] == 0x5d
+static LED_INIT2: &str = "]ASUS Tech.Inc."; // ] == 0x5d
 static LED_INIT3: [u8; 6] = [0x5d, 0x05, 0x20, 0x31, 0, 0x08];
-static LED_INIT4: &'static str = "^ASUS Tech.Inc."; // ^ == 0x5e
+static LED_INIT4: &str = "^ASUS Tech.Inc."; // ^ == 0x5e
 static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
 
 // Only these two packets must be 17 bytes
 static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-static FAN_TYPE_1_PATH: &'static str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
-static FAN_TYPE_2_PATH: &'static str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
+static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
+static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
 
 /// ROG device controller
 ///
@@ -75,7 +75,7 @@ impl RogCore {
         dev_handle.set_auto_detach_kernel_driver(true).unwrap();
         dev_handle
             .claim_interface(interface)
-            .map_err(|err| AuraError::UsbError(err))?;
+            .map_err(AuraError::UsbError)?;
 
         Ok(RogCore {
             handle: dev_handle,
@@ -131,7 +131,7 @@ impl RogCore {
     pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
         match self
             .handle
-            .write_interrupt(self.led_endpoint, message, Duration::from_millis(1))
+            .write_interrupt(self.led_endpoint, message, Duration::from_millis(2))
         {
             Ok(_) => {}
             Err(err) => match err {
@@ -180,7 +180,7 @@ impl RogCore {
         effect: Vec<Vec<u8>>,
     ) -> Result<(), AuraError> {
         for row in effect.iter() {
-            match handle.write_interrupt(endpoint, row, Duration::from_millis(1)) {
+            match handle.write_interrupt(endpoint, row, Duration::from_millis(2)) {
                 Ok(_) => {}
                 Err(err) => match err {
                     rusb::Error::Timeout => {}
@@ -207,7 +207,7 @@ impl RogCore {
             self.config.write();
             return Ok(());
         }
-        warn!("{:?} not supported", BuiltInModeByte::from(mode));
+        warn!("{:?} not supported", mode);
         Err(AuraError::NotSupported)
     }
 
@@ -365,7 +365,9 @@ impl RogCore {
         let mut buf = [0u8; 32];
         match handle.read_interrupt(endpoint, &mut buf, Duration::from_millis(200)) {
             Ok(_) => {
-                if report_filter_bytes.contains(&buf[0]) {
+                if report_filter_bytes.contains(&buf[0])
+                    && (buf[1] != 0 || buf[2] != 0 || buf[3] != 0 || buf[4] != 0)
+                {
                     return Some(buf);
                 }
             }

@@ -78,7 +78,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
 /// If using the `keycode` crate to build keyboard input, the report must be prefixed
 /// with the report ID (usually `0x01` for the virtual keyboard).
 pub(crate) trait Laptop {
-    fn get_runner(&self) -> Box<dyn Fn(&mut RogCore, [u8; 32]) -> Result<(), AuraError>>;
+    fn run(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError>;
     fn led_endpoint(&self) -> u8;
     fn key_endpoint(&self) -> u8;
     fn key_filter(&self) -> &[u8];
@@ -104,10 +104,10 @@ pub(super) struct LaptopBase {
 }
 
 impl Laptop for LaptopBase {
-    fn get_runner(&self) -> Box<LaptopRunner> {
+    fn run(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
         match self.usb_product {
-            0x1869 | 0x1866 => self.gx502_runner(),
-            0x1854 => self.gl753_runner(),
+            0x1869 | 0x1866 => self.gx502_runner(rogcore, key_buf),
+            0x1854 => self.gl753_runner(rogcore, key_buf),
             _ => panic!("No runner available for this device"),
         }
     }
@@ -137,109 +137,103 @@ impl Laptop for LaptopBase {
 
 impl LaptopBase {
     // 0x1866, per-key LEDs, media-keys split from vendor specific
-    fn gx502_runner(&self) -> Box<LaptopRunner> {
+    fn gx502_runner(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
         let max_led_bright = self.max_led_bright;
         let min_led_bright = self.min_led_bright;
         let supported_modes = self.supported_modes.to_owned();
-        let function = move |rogcore: &mut RogCore, key_buf: [u8; 32]| {
-            match GX502Keys::from(key_buf[1]) {
-                GX502Keys::LedBrightUp => {
-                    rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
-                }
-                GX502Keys::LedBrightDown => {
-                    rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
-                }
-                GX502Keys::AuraNext => rogcore.aura_mode_next(&supported_modes)?,
-                GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&supported_modes)?,
-                GX502Keys::ScreenBrightUp => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
-                } //self.backlight.step_up(),
-                GX502Keys::ScreenBrightDown => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
-                } //self.backlight.step_down(),
-                GX502Keys::Sleep => rogcore.suspend_with_systemd(),
-                GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
-                GX502Keys::MicToggle => {}
-                GX502Keys::Fan => {
-                    rogcore.fan_mode_step().unwrap_or_else(|err| {
-                        warn!("Couldn't toggle fan mode: {:?}", err);
-                    });
-                }
-                GX502Keys::ScreenToggle => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
-                }
-                GX502Keys::TouchPadToggle => {
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x070;
-                    rogcore.virt_keys().press(key);
-                }
-                GX502Keys::Rog => {
-                    //rogcore.aura_effect_init()?;
-                    //rogcore.aura_write_effect(&self.per_key_led)?;
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x68; // XF86Tools? F13
-                    rogcore.virt_keys().press(key);
-                }
-                GX502Keys::None => {
-                    if key_buf[0] != 0x5A {
-                        info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
-                        rogcore.virt_keys().press(key_buf);
-                    }
+        match GX502Keys::from(key_buf[1]) {
+            GX502Keys::LedBrightUp => {
+                rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
+            }
+            GX502Keys::LedBrightDown => {
+                rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
+            }
+            GX502Keys::AuraNext => rogcore.aura_mode_next(&supported_modes)?,
+            GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&supported_modes)?,
+            GX502Keys::ScreenBrightUp => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
+            } //self.backlight.step_up(),
+            GX502Keys::ScreenBrightDown => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
+            } //self.backlight.step_down(),
+            GX502Keys::Sleep => rogcore.suspend_with_systemd(),
+            GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
+            GX502Keys::MicToggle => {}
+            GX502Keys::Fan => {
+                rogcore.fan_mode_step().unwrap_or_else(|err| {
+                    warn!("Couldn't toggle fan mode: {:?}", err);
+                });
+            }
+            GX502Keys::ScreenToggle => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
+            }
+            GX502Keys::TouchPadToggle => {
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x070;
+                rogcore.virt_keys().press(key);
+            }
+            GX502Keys::Rog => {
+                //rogcore.aura_effect_init()?;
+                //rogcore.aura_write_effect(&self.per_key_led)?;
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x68; // XF86Tools? F13
+                rogcore.virt_keys().press(key);
+            }
+            GX502Keys::None => {
+                if key_buf[0] != 0x5A {
+                    info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
+                    rogcore.virt_keys().press(key_buf);
                 }
             }
-            Ok(())
-        };
-        Box::new(function)
+        }
+        Ok(())
     }
 
     // GL753VE == 0x1854, 4 zone keyboard
-    fn gl753_runner(&self) -> Box<LaptopRunner> {
+    fn gl753_runner(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
         let max_led_bright = self.max_led_bright;
         let min_led_bright = self.min_led_bright;
         let supported_modes = self.supported_modes.to_owned();
-        let function = move |rogcore: &mut RogCore, key_buf: [u8; 32]| {
-            match GL753Keys::from(key_buf[1]) {
-                GL753Keys::LedBrightUp => {
-                    rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
-                }
-                GL753Keys::LedBrightDown => {
-                    rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
-                }
-                GL753Keys::ScreenBrightUp => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
-                }
-                GL753Keys::ScreenBrightDown => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
-                }
-                GL753Keys::Sleep => rogcore.suspend_with_systemd(),
-                GL753Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
-                GL753Keys::ScreenToggle => {
-                    rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
-                }
-                GL753Keys::TouchPadToggle => {
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x070;
-                    rogcore.virt_keys().press(key);
-                }
-                GL753Keys::Rog => {
-                    let mut key = [0u8; 32];
-                    key[0] = 0x01;
-                    key[3] = 0x68; // XF86Tools? F13
-                    rogcore.virt_keys().press(key);
-                }
-                GL753Keys::None => {
-                    if key_buf[0] != 0x5A {
-                        info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
-                        rogcore.virt_keys().press(key_buf);
-                    }
+        match GL753Keys::from(key_buf[1]) {
+            GL753Keys::LedBrightUp => {
+                rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
+            }
+            GL753Keys::LedBrightDown => {
+                rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
+            }
+            GL753Keys::ScreenBrightUp => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
+            }
+            GL753Keys::ScreenBrightDown => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into())
+            }
+            GL753Keys::Sleep => rogcore.suspend_with_systemd(),
+            GL753Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
+            GL753Keys::ScreenToggle => {
+                rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into());
+            }
+            GL753Keys::TouchPadToggle => {
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x070;
+                rogcore.virt_keys().press(key);
+            }
+            GL753Keys::Rog => {
+                let mut key = [0u8; 32];
+                key[0] = 0x01;
+                key[3] = 0x68; // XF86Tools? F13
+                rogcore.virt_keys().press(key);
+            }
+            GL753Keys::None => {
+                if key_buf[0] != 0x5A {
+                    info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
+                    rogcore.virt_keys().press(key_buf);
                 }
             }
-            Ok(())
-        };
-        Box::new(function)
+        }
+        Ok(())
     }
 }
 

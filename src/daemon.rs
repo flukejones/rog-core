@@ -14,11 +14,11 @@ use dbus_tokio::connection;
 
 use log::{error, info};
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
-type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
+type LedMsgType = Arc<tokio::sync::Mutex<Option<Vec<u8>>>>;
+type EffectType = Arc<tokio::sync::Mutex<Option<Vec<Vec<u8>>>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -35,7 +35,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.usb_vendor(),
         laptop.usb_product(),
         laptop.led_endpoint(),
-        laptop.key_endpoint(),
     )
     .map_or_else(
         |err| {
@@ -49,6 +48,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     );
     // Reload settings
     rogcore.reload().await?;
+    let usb_dev_handle = unsafe { &*(rogcore.get_raw_device_handle()) };
+    let rogcore = Arc::new(tokio::sync::Mutex::new(Box::pin(rogcore)));
 
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
@@ -64,65 +65,55 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
-    let key_buf: Arc<Mutex<Option<[u8; 32]>>> = Arc::new(Mutex::new(None));
+    let supported = Vec::from(laptop.supported_modes());
+    let led_endpoint = laptop.led_endpoint();
+
     {
-        let usb_dev_handle = unsafe { &*(rogcore.get_raw_device_handle()) };
         let keyboard_endpoint = laptop.key_endpoint();
         let report_filter_bytes = laptop.key_filter().to_owned();
-
-        let key_buf1 = key_buf.clone();
         // This is *not* safe
+        let rogcore = rogcore.clone();
         tokio::spawn(async move {
             loop {
                 let data =
                     RogCore::poll_keyboard(usb_dev_handle, keyboard_endpoint, &report_filter_bytes)
                         .await;
-                if let Some(stuff) = data {
-                    // If we have some data to show, we *must* lock
-                    if let Ok(mut lock) = key_buf1.lock() {
-                        lock.replace(stuff);
+                if let Some(bytes) = data {
+                    let mut rogcore = rogcore.lock().await;
+                    match laptop.run(&mut rogcore, bytes) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("{:?}", err);
+                            panic!("Force crash for systemd to restart service")
+                        }
                     }
                 }
             }
         });
     }
 
-    let supported = Vec::from(laptop.supported_modes());
-    // When any action occurs this time is reset
     let mut time_mark = Instant::now();
-    let laptop_actions = laptop.get_runner();
-
     loop {
         connection.process_all();
 
         if let Ok(mut lock) = input.try_lock() {
-            if let Some(bytes) = &*lock {
-                // It takes up to 20 milliseconds to write a complete colour block here
+            if let Some(bytes) = lock.take() {
+                let mut rogcore = rogcore.lock().await;
                 rogcore.aura_set_and_save(&supported, &bytes)?;
-                *lock = None;
                 time_mark = Instant::now();
             }
         }
 
-        if let Ok(mut lock) = effect.lock() {
-            if lock.is_some() {
-                let effect = lock.take();
-                rogcore.aura_write_effect(effect.unwrap())?;
-                time_mark = Instant::now();
-            }
-        }
-
-        if let Ok(mut lock) = key_buf.try_lock() {
-            if let Some(bytes) = *lock {
-                // this takes at least 10ms per colour block
-                match laptop_actions(&mut rogcore, bytes) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("{:?}", err);
-                        panic!("Force crash for systemd to restart service")
-                    }
-                }
-                *lock = None;
+        // Write a colour block
+        // Yank data out and drop lock quick (effect write takes 10ms)
+        if let Ok(mut lock) = effect.try_lock() {
+            // Spawn a writer
+            if let Some(stuff) = lock.take() {
+                tokio::spawn(async move {
+                    RogCore::async_write_effect(usb_dev_handle, led_endpoint, stuff)
+                        .await
+                        .unwrap();
+                });
                 time_mark = Instant::now();
             }
         }
@@ -130,11 +121,11 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         let now = Instant::now();
         // Cool-down steps
         if now.duration_since(time_mark).as_millis() > 500 {
-            std::thread::sleep(Duration::from_millis(100));
-        } else if now.duration_since(time_mark).as_millis() > 20 {
-            std::thread::sleep(Duration::from_millis(20));
+            std::thread::sleep(Duration::from_millis(200));
+        } else if now.duration_since(time_mark).as_millis() > 100 {
+            std::thread::sleep(Duration::from_millis(50));
         } else {
-            std::thread::sleep(Duration::from_micros(400));
+            std::thread::sleep(Duration::from_micros(5));
         }
     }
 }
@@ -152,9 +143,9 @@ fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
                         .msg
                         .method_return()
                         .append1(&format!("Wrote {:x?}", bytes));
-                    return Ok(vec![mret]);
+                    Ok(vec![mret])
                 } else {
-                    return Err(MethodErr::failed("Could not lock daemon for access"));
+                    Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
@@ -185,9 +176,9 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
 
                     *lock = Some(byte_array);
                     let mret = m.msg.method_return().append1(&format!("Got effect part"));
-                    return Ok(vec![mret]);
+                    Ok(vec![mret])
                 } else {
-                    return Err(MethodErr::failed("Could not lock daemon for access"));
+                    Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
@@ -205,8 +196,8 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
 }
 
 fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType) {
-    let input: LedMsgType = Arc::new(Mutex::new(None));
-    let effect: EffectType = Arc::new(Mutex::new(None));
+    let input: LedMsgType = Arc::new(tokio::sync::Mutex::new(None));
+    let effect: EffectType = Arc::new(tokio::sync::Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
     let tree = factory.tree(()).add(
