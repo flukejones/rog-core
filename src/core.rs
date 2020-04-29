@@ -6,7 +6,6 @@ use crate::{
     error::AuraError,
     virt_device::VirtKeys,
 };
-use aho_corasick::AhoCorasick;
 use gumdrop::Options;
 use log::{debug, error, info, warn};
 use rusb::DeviceHandle;
@@ -50,12 +49,7 @@ pub(crate) struct RogCore {
 }
 
 impl RogCore {
-    pub(crate) fn new(
-        vendor: u16,
-        product: u16,
-        led_endpoint: u8,
-        key_endpoint: u8,
-    ) -> Result<RogCore, AuraError> {
+    pub(crate) fn new(vendor: u16, product: u16, led_endpoint: u8) -> Result<RogCore, AuraError> {
         let mut dev_handle = RogCore::get_device(vendor, product)?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
@@ -65,11 +59,12 @@ impl RogCore {
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == key_endpoint {
-                        debug!("INTERVAL: {:?}", endpoint.interval());
-                        debug!("MAX: {:?}", endpoint.max_packet_size());
-                        debug!("SYNC: {:?}", endpoint.sync_type());
-                        debug!("TRANSFER_TYPE: {:?}", endpoint.transfer_type());
+                    if endpoint.address() == led_endpoint {
+                        info!("INTERVAL: {:?}", endpoint.interval());
+                        info!("MAX_PKT_SIZE: {:?}", endpoint.max_packet_size());
+                        info!("SYNC: {:?}", endpoint.sync_type());
+                        info!("TRANSFER_TYPE: {:?}", endpoint.transfer_type());
+                        info!("ENDPOINT: {:X?}", endpoint.address());
                         interface = desc.interface_number();
                         break;
                     }
@@ -110,7 +105,7 @@ impl RogCore {
         };
 
         let mut file = OpenOptions::new().write(true).open(path)?;
-        file.write(format!("{:?}\n", self.config.fan_mode).as_bytes())?;
+        file.write_all(format!("{:?}\n", self.config.fan_mode).as_bytes())?;
         self.set_pstate_for_fan_mode(FanLevel::from(self.config.fan_mode))?;
         info!("Reloaded last saved settings");
         Ok(())
@@ -176,6 +171,26 @@ impl RogCore {
         Ok(())
     }
 
+    /// Write an effect block
+    ///
+    /// `aura_effect_init` must be called any effect routine, and called only once.
+    pub async fn async_write_effect(
+        handle: &DeviceHandle<rusb::GlobalContext>,
+        endpoint: u8,
+        effect: Vec<Vec<u8>>,
+    ) -> Result<(), AuraError> {
+        for row in effect.iter() {
+            match handle.write_interrupt(endpoint, row, Duration::from_millis(1)) {
+                Ok(_) => {}
+                Err(err) => match err {
+                    rusb::Error::Timeout => {}
+                    _ => error!("Failed to write LED interrupt: {:?}", err),
+                },
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
@@ -205,9 +220,10 @@ impl RogCore {
         if bright < max_bright {
             bright += 1;
             self.config.brightness = bright;
+            let bytes = aura_brightness_bytes(bright);
+            self.aura_set_and_save(supported_modes, &bytes)?;
+            info!("Increased LED brightness to {:#?}", bright);
         }
-        let bytes = aura_brightness_bytes(bright);
-        self.aura_set_and_save(supported_modes, &bytes)?;
         Ok(())
     }
 
@@ -220,9 +236,10 @@ impl RogCore {
         if bright > min_bright {
             bright -= 1;
             self.config.brightness = bright;
+            let bytes = aura_brightness_bytes(bright);
+            self.aura_set_and_save(supported_modes, &bytes)?;
+            info!("Decreased LED brightness to {:#?}", bright);
         }
-        let bytes = aura_brightness_bytes(bright);
-        self.aura_set_and_save(supported_modes, &bytes)?;
         Ok(())
     }
 
@@ -300,7 +317,7 @@ impl RogCore {
                 n = 0;
             }
             info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
-            fan_ctrl.write(format!("{:?}\n", n).as_bytes())?;
+            fan_ctrl.write_all(format!("{:?}\n", n).as_bytes())?;
             self.set_pstate_for_fan_mode(FanLevel::from(n))?;
             self.config.fan_mode = n;
             self.config.write();
@@ -384,26 +401,26 @@ impl RogCore {
         match Command::new("rfkill").arg("list").output() {
             Ok(output) => {
                 if output.status.success() {
-                    let patterns = &["yes"];
-                    let ac = AhoCorasick::new(patterns);
-                    if ac.earliest_find(output.stdout).is_some() {
-                        Command::new("rfkill")
-                            .arg("unblock")
-                            .arg("all")
-                            .spawn()
-                            .map_or_else(
-                                |err| warn!("Could not unblock rf devices: {}", err),
-                                |_| {},
-                            );
-                    } else {
-                        let _ = Command::new("rfkill")
-                            .arg("block")
-                            .arg("all")
-                            .spawn()
-                            .map_or_else(
-                                |err| warn!("Could not block rf devices: {}", err),
-                                |_| {},
-                            );
+                    if let Ok(out) = String::from_utf8(output.stdout) {
+                        if out.contains(": yes") {
+                            Command::new("rfkill")
+                                .arg("unblock")
+                                .arg("all")
+                                .spawn()
+                                .map_or_else(
+                                    |err| warn!("Could not unblock rf devices: {}", err),
+                                    |_| {},
+                                );
+                        } else {
+                            Command::new("rfkill")
+                                .arg("block")
+                                .arg("all")
+                                .spawn()
+                                .map_or_else(
+                                    |err| warn!("Could not block rf devices: {}", err),
+                                    |_| {},
+                                );
+                        }
                     }
                 } else {
                     warn!("Could not list rf devices");

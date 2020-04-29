@@ -2,7 +2,10 @@ pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
 pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
 pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
 
-use crate::{core::RogCore, laptops::match_laptop};
+use crate::{
+    core::RogCore,
+    laptops::{match_laptop, Laptop},
+};
 use dbus::{
     nonblock::Process,
     tree::{Factory, MTSync, Method, MethodErr, Tree},
@@ -87,6 +90,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let supported = Vec::from(laptop.supported_modes());
     // When any action occurs this time is reset
     let mut time_mark = Instant::now();
+    let laptop_actions = laptop.get_runner();
+
     loop {
         connection.process_all();
 
@@ -110,7 +115,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         if let Ok(mut lock) = key_buf.try_lock() {
             if let Some(bytes) = *lock {
                 // this takes at least 10ms per colour block
-                match laptop.run(&mut rogcore, bytes) {
+                match laptop_actions(&mut rogcore, bytes) {
                     Ok(_) => {}
                     Err(err) => {
                         error!("{:?}", err);

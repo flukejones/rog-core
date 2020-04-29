@@ -10,7 +10,7 @@ use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
 
-static VERSION: &'static str = "0.6.1";
+static VERSION: &'static str = "0.7.0";
 
 #[derive(Debug, Options)]
 struct CLIStart {
@@ -42,7 +42,7 @@ struct LedModeCommand {
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut builder = Builder::from_env("ROGCORE_LOG");
+    let mut builder = Builder::new();
     builder.target(Target::Stdout);
     builder.format_timestamp(None);
     builder.filter(None, LevelFilter::Info).init();
@@ -55,32 +55,26 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Version: {}", VERSION);
     }
 
-    match parsed.command {
-        Some(Command::LedMode(mode)) => {
-            if let Some(command) = mode.command {
-                // Check for special modes here, eg, per-key or multi-zone
-                match command {
-                    SetAuraBuiltin::MultiStatic(_) => {
-                        let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
-                        for arr in byte_arr.iter() {
-                            dbus_led_builtin_write(arr)?;
-                        }
+    if let Some(Command::LedMode(mode)) = parsed.command {
+        if let Some(command) = mode.command {
+            // Check for special modes here, eg, per-key or multi-zone
+            match command {
+                SetAuraBuiltin::MultiStatic(_) => {
+                    let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
+                    for arr in byte_arr.iter() {
+                        dbus_led_builtin_write(arr)?;
                     }
-                    _ => {
-                        let mode = <[u8; LED_MSG_LEN]>::from(command);
-                        dbus_led_builtin_write(&mode)?;
-                    }
+                }
+                _ => {
+                    let mode = <[u8; LED_MSG_LEN]>::from(command);
+                    dbus_led_builtin_write(&mode)?;
                 }
             }
         }
-        None => {}
     }
-    match parsed.bright {
-        Some(brightness) => {
-            let bytes = aura_brightness_bytes(brightness.level());
-            dbus_led_builtin_write(&bytes)?;
-        }
-        _ => {}
+    if let Some(brightness) = parsed.bright {
+        let bytes = aura_brightness_bytes(brightness.level());
+        dbus_led_builtin_write(&bytes)?;
     }
     Ok(())
 }
