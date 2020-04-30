@@ -12,7 +12,7 @@ use rusb::DeviceHandle;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use std::marker::PhantomData;
+use std::marker::{PhantomData, PhantomPinned};
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
@@ -45,6 +45,7 @@ static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode
 pub(crate) struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     virt_keys: VirtKeys,
+    _pin: PhantomPinned,
 }
 
 impl RogCore {
@@ -79,6 +80,7 @@ impl RogCore {
         Ok(RogCore {
             handle: dev_handle,
             virt_keys: VirtKeys::new(),
+            _pin: PhantomPinned,
         })
     }
 
@@ -181,13 +183,6 @@ impl RogCore {
         Ok(())
     }
 
-    pub(crate) fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
-        // Breaking every damn lifetime guarantee rust gives us
-        unsafe {
-            NonNull::new_unchecked(&mut self.handle as *mut DeviceHandle<rusb::GlobalContext>)
-        }
-    }
-
     /// A direct call to systemd to suspend the PC.
     ///
     /// This avoids desktop environments being required to handle it
@@ -237,13 +232,16 @@ impl RogCore {
             }
         }
     }
+
+    pub(crate) fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
+        // Breaking every damn lifetime guarantee rust gives us
+        unsafe {
+            NonNull::new_unchecked(&mut self.handle as *mut DeviceHandle<rusb::GlobalContext>)
+        }
+    }
 }
 
-/// UNSAFE: Must live as long as RogCore
-///
-/// Because we're holding a pointer to something that *may* go out of scope while the
-/// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
-/// that may cause invalididated pointer to cause the program to panic rather than continue.
+/// Lifetime is tied to `DeviceHandle` from `RogCore`
 pub(crate) struct KeyboardReader<'d, C: 'd>
 where
     C: rusb::UsbContext,
@@ -316,7 +314,6 @@ where
 
 /// UNSAFE
 unsafe impl<'d, C> Send for LedWriter<'d, C> where C: rusb::UsbContext {}
-unsafe impl<'d, C> Sync for LedWriter<'d, C> where C: rusb::UsbContext {}
 
 impl<'d, C> LedWriter<'d, C>
 where

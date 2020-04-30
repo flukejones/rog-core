@@ -31,22 +31,20 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
     let mut config = Config::default().read();
 
-    let mut rogcore = Box::pin(
-        RogCore::new(
-            laptop.usb_vendor(),
-            laptop.usb_product(),
-            laptop.led_endpoint(),
-        )
-        .map_or_else(
-            |err| {
-                error!("{}", err);
-                panic!("{}", err);
-            },
-            |daemon| {
-                info!("RogCore loaded");
-                daemon
-            },
-        ),
+    let mut rogcore = RogCore::new(
+        laptop.usb_vendor(),
+        laptop.usb_product(),
+        laptop.led_endpoint(),
+    )
+    .map_or_else(
+        |err| {
+            error!("{}", err);
+            panic!("{}", err);
+        },
+        |daemon| {
+            info!("RogCore loaded");
+            daemon
+        },
     );
     // Reload settings
     rogcore.reload(&mut config).await?;
@@ -76,31 +74,27 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     // Keyboard reader goes in separate task because we want a high interrupt timeout
     // and don't want that to hold up other tasks, or miss keystrokes
-    {
-        let keyboard_reader = KeyboardReader::new(
-            rogcore.get_raw_device_handle(),
-            laptop.key_endpoint(),
-            laptop.key_filter().to_owned(),
-        );
-        // This is *not* safe
-        let led_writer = led_writer.clone();
-        let config = config.clone();
-        // start the keyboard reader and laptop-action loop
-        tokio::spawn(async move {
-            loop {
-                let data = unsafe { keyboard_reader.poll_keyboard().await };
-                if let Some(bytes) = data {
-                    match laptop.run(&mut rogcore, &led_writer, &config, bytes).await {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("{:?}", err);
-                            panic!("Force crash for systemd to restart service")
-                        }
-                    }
-                }
+    let keyboard_reader = KeyboardReader::new(
+        rogcore.get_raw_device_handle(),
+        laptop.key_endpoint(),
+        laptop.key_filter().to_owned(),
+    );
+
+    let led_writer1 = led_writer.clone();
+    let config1 = config.clone();
+    // start the keyboard reader and laptop-action loop
+    tokio::task::spawn(async move {
+        loop {
+            let data = keyboard_reader.poll_keyboard().await;
+            if let Some(bytes) = data {
+                laptop
+                    .run(&mut rogcore, &led_writer1, &config1, bytes)
+                    .await
+                    .map_err(|err| warn!("{:?}", err))
+                    .unwrap();
             }
-        });
-    }
+        }
+    });
 
     // start the LED writer loop
     let mut time_mark = Instant::now();
@@ -122,6 +116,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
 
         // Write a colour block
+        let led_writer = led_writer.clone();
         if let Ok(mut lock) = effect.try_lock() {
             // Spawn a writer
             if let Some(stuff) = lock.take() {
