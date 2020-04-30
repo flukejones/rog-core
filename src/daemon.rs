@@ -2,10 +2,7 @@ pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
 pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
 pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
 
-use crate::{
-    core::RogCore,
-    laptops::{match_laptop, Laptop},
-};
+use crate::{config::Config, core::*, laptops::match_laptop};
 use dbus::{
     nonblock::Process,
     tree::{Factory, MTSync, Method, MethodErr, Tree},
@@ -16,9 +13,10 @@ use log::{error, info};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
-type LedMsgType = Arc<tokio::sync::Mutex<Option<Vec<u8>>>>;
-type EffectType = Arc<tokio::sync::Mutex<Option<Vec<Vec<u8>>>>>;
+type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
+type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -31,6 +29,8 @@ type EffectType = Arc<tokio::sync::Mutex<Option<Vec<Vec<u8>>>>>;
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
+    let mut config = Config::default().read();
+
     let mut rogcore = RogCore::new(
         laptop.usb_vendor(),
         laptop.usb_product(),
@@ -47,9 +47,16 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         },
     );
     // Reload settings
-    rogcore.reload().await?;
+    rogcore.reload(&mut config).await?;
     let usb_dev_handle = unsafe { &*(rogcore.get_raw_device_handle()) };
-    let rogcore = Arc::new(tokio::sync::Mutex::new(Box::pin(rogcore)));
+
+    // Set up the mutexes
+    let led_writer = Arc::new(Mutex::new(LedWriter::new(
+        rogcore.get_raw_device_handle(),
+        laptop.led_endpoint(),
+    )));
+    let config = Arc::new(Mutex::new(config));
+    let rogcore = Arc::new(Mutex::new(Box::pin(rogcore)));
 
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
@@ -73,6 +80,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         let report_filter_bytes = laptop.key_filter().to_owned();
         // This is *not* safe
         let rogcore = rogcore.clone();
+        let led_writer = led_writer.clone();
+        let config = config.clone();
         tokio::spawn(async move {
             loop {
                 let data =
@@ -80,7 +89,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .await;
                 if let Some(bytes) = data {
                     let mut rogcore = rogcore.lock().await;
-                    match laptop.run(&mut rogcore, bytes) {
+                    match laptop.run(&mut rogcore, &led_writer, &config, bytes).await {
                         Ok(_) => {}
                         Err(err) => {
                             error!("{:?}", err);
@@ -96,10 +105,12 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     loop {
         connection.process_all();
 
+        let led_writer = led_writer.clone();
         if let Ok(mut lock) = input.try_lock() {
             if let Some(bytes) = lock.take() {
-                let mut rogcore = rogcore.lock().await;
-                rogcore.aura_set_and_save(&supported, &bytes)?;
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_set_and_save(&supported, &bytes, &mut config)?;
                 time_mark = Instant::now();
             }
         }
@@ -110,7 +121,9 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             // Spawn a writer
             if let Some(stuff) = lock.take() {
                 tokio::spawn(async move {
-                    RogCore::async_write_effect(usb_dev_handle, led_endpoint, stuff)
+                    let led_writer = led_writer.lock().await;
+                    led_writer
+                        .async_write_effect(led_endpoint, stuff)
                         .await
                         .unwrap();
                 });
@@ -196,8 +209,8 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
 }
 
 fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType) {
-    let input: LedMsgType = Arc::new(tokio::sync::Mutex::new(None));
-    let effect: EffectType = Arc::new(tokio::sync::Mutex::new(None));
+    let input: LedMsgType = Arc::new(Mutex::new(None));
+    let effect: EffectType = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
     let tree = factory.tree(()).add(

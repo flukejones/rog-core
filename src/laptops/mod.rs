@@ -1,5 +1,6 @@
 use crate::aura::BuiltInModeByte;
-use crate::core::RogCore;
+use crate::config::Config;
+use crate::core::{LedWriter, RogCore};
 use crate::error::AuraError;
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;
@@ -66,29 +67,6 @@ pub(crate) fn match_laptop() -> LaptopBase {
     panic!("could not match laptop");
 }
 
-/// All laptop models should implement this trait. The role of a `Laptop` is to
-/// "drive" the `RogCore`.
-///
-/// `do_hotkey_action` is passed the byte that a hotkey emits, and is expected to
-/// perform whichever action matches that. For now the only key bytes passed in are
-/// the ones which match `byte[0] == hotkey_group_byte`. On the GX502GW the keyboard
-/// has 3 explicit groups: main, vol+media, and the ones that the Linux kernel doesn't
-/// map.
-///
-/// If using the `keycode` crate to build keyboard input, the report must be prefixed
-/// with the report ID (usually `0x01` for the virtual keyboard).
-pub(crate) trait Laptop {
-    fn run(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError>;
-    fn led_endpoint(&self) -> u8;
-    fn key_endpoint(&self) -> u8;
-    fn key_filter(&self) -> &[u8];
-    fn usb_vendor(&self) -> u16;
-    fn usb_product(&self) -> u16;
-    // required for profiles which match more than one laptop
-    fn set_usb_product(&mut self, product: u16);
-    fn supported_modes(&self) -> &[BuiltInModeByte];
-}
-
 pub(crate) type LaptopRunner = dyn Fn(&mut RogCore, [u8; 32]) -> Result<(), AuraError>;
 
 pub(super) struct LaptopBase {
@@ -103,53 +81,84 @@ pub(super) struct LaptopBase {
     //backlight: Backlight,
 }
 
-impl Laptop for LaptopBase {
-    fn run(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
+use tokio::sync::Mutex;
+
+impl LaptopBase {
+    /// Pass in LedWriter as Mutex so it is only locked when required
+    pub(super) async fn run(
+        &self,
+        rogcore: &mut RogCore,
+        led_writer: &Mutex<LedWriter>,
+        config: &Mutex<Config>,
+        key_buf: [u8; 32],
+    ) -> Result<(), AuraError> {
         match self.usb_product {
-            0x1869 | 0x1866 => self.gx502_runner(rogcore, key_buf),
-            0x1854 => self.gl753_runner(rogcore, key_buf),
+            0x1869 | 0x1866 => {
+                self.gx502_runner(rogcore, led_writer, config, key_buf)
+                    .await
+            }
+            0x1854 => {
+                self.gl753_runner(rogcore, led_writer, config, key_buf)
+                    .await
+            }
             _ => panic!("No runner available for this device"),
         }
     }
 
-    fn led_endpoint(&self) -> u8 {
+    pub(super) fn led_endpoint(&self) -> u8 {
         self.led_endpoint
     }
-    fn key_endpoint(&self) -> u8 {
+    pub(super) fn key_endpoint(&self) -> u8 {
         self.key_endpoint
     }
-    fn key_filter(&self) -> &[u8] {
+    pub(super) fn key_filter(&self) -> &[u8] {
         &self.report_filter_bytes
     }
-    fn usb_vendor(&self) -> u16 {
+    pub(super) fn usb_vendor(&self) -> u16 {
         self.usb_vendor
     }
-    fn usb_product(&self) -> u16 {
+    pub(super) fn usb_product(&self) -> u16 {
         self.usb_product
     }
-    fn set_usb_product(&mut self, product: u16) {
+    pub(super) fn set_usb_product(&mut self, product: u16) {
         self.usb_product = product;
     }
-    fn supported_modes(&self) -> &[BuiltInModeByte] {
+    pub(super) fn supported_modes(&self) -> &[BuiltInModeByte] {
         &self.supported_modes
     }
-}
 
-impl LaptopBase {
     // 0x1866, per-key LEDs, media-keys split from vendor specific
-    fn gx502_runner(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
+    async fn gx502_runner(
+        &self,
+        rogcore: &mut RogCore,
+        led_writer: &Mutex<LedWriter>,
+        config: &Mutex<Config>,
+        key_buf: [u8; 32],
+    ) -> Result<(), AuraError> {
         let max_led_bright = self.max_led_bright;
         let min_led_bright = self.min_led_bright;
         let supported_modes = self.supported_modes.to_owned();
         match GX502Keys::from(key_buf[1]) {
             GX502Keys::LedBrightUp => {
-                rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_bright_inc(&supported_modes, max_led_bright, &mut config)?;
             }
             GX502Keys::LedBrightDown => {
-                rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_bright_dec(&supported_modes, min_led_bright, &mut config)?;
             }
-            GX502Keys::AuraNext => rogcore.aura_mode_next(&supported_modes)?,
-            GX502Keys::AuraPrevious => rogcore.aura_mode_prev(&supported_modes)?,
+            GX502Keys::AuraNext => {
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_mode_next(&supported_modes, &mut config)?;
+            }
+            GX502Keys::AuraPrevious => {
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_mode_prev(&supported_modes, &mut config)?;
+            }
             GX502Keys::ScreenBrightUp => {
                 rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
             } //self.backlight.step_up(),
@@ -160,7 +169,8 @@ impl LaptopBase {
             GX502Keys::AirplaneMode => rogcore.toggle_airplane_mode(),
             GX502Keys::MicToggle => {}
             GX502Keys::Fan => {
-                rogcore.fan_mode_step().unwrap_or_else(|err| {
+                let mut config = config.lock().await;
+                rogcore.fan_mode_step(&mut config).unwrap_or_else(|err| {
                     warn!("Couldn't toggle fan mode: {:?}", err);
                 });
             }
@@ -192,16 +202,26 @@ impl LaptopBase {
     }
 
     // GL753VE == 0x1854, 4 zone keyboard
-    fn gl753_runner(&self, rogcore: &mut RogCore, key_buf: [u8; 32]) -> Result<(), AuraError> {
+    async fn gl753_runner(
+        &self,
+        rogcore: &mut RogCore,
+        led_writer: &Mutex<LedWriter>,
+        config: &Mutex<Config>,
+        key_buf: [u8; 32],
+    ) -> Result<(), AuraError> {
         let max_led_bright = self.max_led_bright;
         let min_led_bright = self.min_led_bright;
         let supported_modes = self.supported_modes.to_owned();
         match GL753Keys::from(key_buf[1]) {
             GL753Keys::LedBrightUp => {
-                rogcore.aura_bright_inc(&supported_modes, max_led_bright)?;
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_bright_inc(&supported_modes, max_led_bright, &mut config)?;
             }
             GL753Keys::LedBrightDown => {
-                rogcore.aura_bright_dec(&supported_modes, min_led_bright)?;
+                let mut led_writer = led_writer.lock().await;
+                let mut config = config.lock().await;
+                led_writer.aura_bright_dec(&supported_modes, min_led_bright, &mut config)?;
             }
             GL753Keys::ScreenBrightUp => {
                 rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
