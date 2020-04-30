@@ -53,9 +53,8 @@ opt-level = 3
 panic = "abort"
 
 [profile.dev]
-lto = true
 debug = false
-opt-level = 3
+opt-level = 2
 #panic = "abort"
 
 [profile.bench]

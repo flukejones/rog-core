@@ -12,8 +12,10 @@ use rusb::DeviceHandle;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
+use std::marker::PhantomData;
 use std::path::Path;
 use std::process::Command;
+use std::ptr::NonNull;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -179,36 +181,11 @@ impl RogCore {
         Ok(())
     }
 
-    /// Write the bytes read from the device interrupt to the buffer arg, and returns the
-    /// count of bytes written
-    ///
-    /// `report_filter_bytes` is used to filter the data read from the interupt so
-    /// only the relevant byte array is returned.
-    pub(crate) async fn poll_keyboard(
-        handle: &DeviceHandle<rusb::GlobalContext>,
-        endpoint: u8,
-        report_filter_bytes: &[u8],
-    ) -> Option<[u8; 32]> {
-        let mut buf = [0u8; 32];
-        match handle.read_interrupt(endpoint, &mut buf, Duration::from_millis(200)) {
-            Ok(_) => {
-                if report_filter_bytes.contains(&buf[0])
-                    && (buf[1] != 0 || buf[2] != 0 || buf[3] != 0 || buf[4] != 0)
-                {
-                    return Some(buf);
-                }
-            }
-            Err(err) => match err {
-                rusb::Error::Timeout => {}
-                _ => error!("Failed to read keyboard interrupt: {:?}", err),
-            },
-        }
-        None
-    }
-
-    pub(crate) fn get_raw_device_handle(&mut self) -> *mut DeviceHandle<rusb::GlobalContext> {
+    pub(crate) fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
         // Breaking every damn lifetime guarantee rust gives us
-        &mut self.handle as *mut DeviceHandle<rusb::GlobalContext>
+        unsafe {
+            NonNull::new_unchecked(&mut self.handle as *mut DeviceHandle<rusb::GlobalContext>)
+        }
     }
 
     /// A direct call to systemd to suspend the PC.
@@ -262,31 +239,104 @@ impl RogCore {
     }
 }
 
-/// UNSAFE: because we're holding a pointer to something that *may* go out of scope while the
+/// UNSAFE: Must live as long as RogCore
+///
+/// Because we're holding a pointer to something that *may* go out of scope while the
 /// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
 /// that may cause invalididated pointer to cause the program to panic rather than continue.
-pub(crate) struct LedWriter {
-    handle: *mut DeviceHandle<rusb::GlobalContext>,
-    led_endpoint: u8,
-    initialised: bool,
+pub(crate) struct KeyboardReader<'d, C: 'd>
+where
+    C: rusb::UsbContext,
+{
+    handle: NonNull<DeviceHandle<C>>,
+    endpoint: u8,
+    filter: Vec<u8>,
+    _phantom: PhantomData<&'d DeviceHandle<C>>,
 }
 
 /// UNSAFE
-unsafe impl Send for LedWriter {}
-unsafe impl Sync for LedWriter {}
+unsafe impl<'d, C> Send for KeyboardReader<'d, C> where C: rusb::UsbContext {}
+unsafe impl<'d, C> Sync for KeyboardReader<'d, C> where C: rusb::UsbContext {}
 
-impl LedWriter {
-    pub fn new(device_handle: *mut DeviceHandle<rusb::GlobalContext>, led_endpoint: u8) -> Self {
+impl<'d, C> KeyboardReader<'d, C>
+where
+    C: rusb::UsbContext,
+{
+    pub fn new(device_handle: NonNull<DeviceHandle<C>>, key_endpoint: u8, filter: Vec<u8>) -> Self {
+        KeyboardReader {
+            handle: device_handle,
+            endpoint: key_endpoint,
+            filter,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Write the bytes read from the device interrupt to the buffer arg, and returns the
+    /// count of bytes written
+    ///
+    /// `report_filter_bytes` is used to filter the data read from the interupt so
+    /// only the relevant byte array is returned.
+    pub(crate) async fn poll_keyboard(&self) -> Option<[u8; 32]> {
+        let mut buf = [0u8; 32];
+        match unsafe { self.handle.as_ref() }.read_interrupt(
+            self.endpoint,
+            &mut buf,
+            Duration::from_millis(200),
+        ) {
+            Ok(_) => {
+                if self.filter.contains(&buf[0])
+                    && (buf[1] != 0 || buf[2] != 0 || buf[3] != 0 || buf[4] != 0)
+                {
+                    return Some(buf);
+                }
+            }
+            Err(err) => match err {
+                rusb::Error::Timeout => {}
+                _ => error!("Failed to read keyboard interrupt: {:?}", err),
+            },
+        }
+        None
+    }
+}
+
+/// UNSAFE: Must live as long as RogCore
+///
+/// Because we're holding a pointer to something that *may* go out of scope while the
+/// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
+/// that may cause invalididated pointer to cause the program to panic rather than continue.
+pub(crate) struct LedWriter<'d, C: 'd>
+where
+    C: rusb::UsbContext,
+{
+    handle: NonNull<DeviceHandle<C>>,
+    led_endpoint: u8,
+    initialised: bool,
+    _phantom: PhantomData<&'d DeviceHandle<C>>,
+}
+
+/// UNSAFE
+unsafe impl<'d, C> Send for LedWriter<'d, C> where C: rusb::UsbContext {}
+unsafe impl<'d, C> Sync for LedWriter<'d, C> where C: rusb::UsbContext {}
+
+impl<'d, C> LedWriter<'d, C>
+where
+    C: rusb::UsbContext,
+{
+    pub fn new(device_handle: NonNull<DeviceHandle<C>>, led_endpoint: u8) -> Self {
         LedWriter {
             handle: device_handle,
             led_endpoint,
             initialised: false,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
-        let handle = unsafe { &*self.handle };
-        match handle.write_interrupt(self.led_endpoint, message, Duration::from_millis(2)) {
+    async fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+        match unsafe { self.handle.as_ref() }.write_interrupt(
+            self.led_endpoint,
+            message,
+            Duration::from_millis(1),
+        ) {
             Ok(_) => {}
             Err(err) => match err {
                 rusb::Error::Timeout => {}
@@ -296,32 +346,22 @@ impl LedWriter {
         Ok(())
     }
 
-    fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
+    async fn aura_write_messages(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
         if !self.initialised {
-            self.aura_write(&LED_INIT1)?;
-            self.aura_write(LED_INIT2.as_bytes())?;
-            self.aura_write(&LED_INIT3)?;
-            self.aura_write(LED_INIT4.as_bytes())?;
-            self.aura_write(&LED_INIT5)?;
+            self.aura_write(&LED_INIT1).await?;
+            self.aura_write(LED_INIT2.as_bytes()).await?;
+            self.aura_write(&LED_INIT3).await?;
+            self.aura_write(LED_INIT4.as_bytes()).await?;
+            self.aura_write(&LED_INIT5).await?;
             self.initialised = true;
         }
 
         for message in messages {
-            self.aura_write(*message)?;
-            self.aura_write(&LED_SET)?;
+            self.aura_write(*message).await?;
+            self.aura_write(&LED_SET).await?;
         }
         // Changes won't persist unless apply is set
-        self.aura_write(&LED_APPLY)?;
-        Ok(())
-    }
-
-    /// Write an effect block
-    ///
-    /// `aura_effect_init` must be called any effect routine, and called only once.
-    pub fn aura_write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
-        for row in effect.iter() {
-            self.aura_write(row)?;
-        }
+        self.aura_write(&LED_APPLY).await?;
         Ok(())
     }
 
@@ -333,9 +373,12 @@ impl LedWriter {
         endpoint: u8,
         effect: Vec<Vec<u8>>,
     ) -> Result<(), AuraError> {
-        let handle = unsafe { &*self.handle };
         for row in effect.iter() {
-            match handle.write_interrupt(endpoint, row, Duration::from_millis(2)) {
+            match unsafe { self.handle.as_ref() }.write_interrupt(
+                endpoint,
+                row,
+                Duration::from_millis(1),
+            ) {
                 Ok(_) => {}
                 Err(err) => match err {
                     rusb::Error::Timeout => {}
@@ -346,7 +389,7 @@ impl LedWriter {
         Ok(())
     }
 
-    pub(crate) fn aura_set_and_save(
+    pub(crate) async fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         bytes: &[u8],
@@ -354,11 +397,11 @@ impl LedWriter {
     ) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
         if bytes[1] == 0xbc {
-            self.aura_write(bytes)?;
+            self.aura_write(bytes).await?;
             return Ok(());
         } else if supported_modes.contains(&mode) || bytes[1] == 0xba {
             let messages = [bytes];
-            self.aura_write_messages(&messages)?;
+            self.aura_write_messages(&messages).await?;
             config.set_field_from(bytes);
             config.write();
             return Ok(());
@@ -367,7 +410,7 @@ impl LedWriter {
         Err(AuraError::NotSupported)
     }
 
-    pub(crate) fn aura_bright_inc(
+    pub(crate) async fn aura_bright_inc(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         max_bright: u8,
@@ -378,13 +421,14 @@ impl LedWriter {
             bright += 1;
             config.brightness = bright;
             let bytes = aura_brightness_bytes(bright);
-            self.aura_set_and_save(supported_modes, &bytes, config)?;
+            self.aura_set_and_save(supported_modes, &bytes, config)
+                .await?;
             info!("Increased LED brightness to {:#?}", bright);
         }
         Ok(())
     }
 
-    pub(crate) fn aura_bright_dec(
+    pub(crate) async fn aura_bright_dec(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         min_bright: u8,
@@ -395,7 +439,8 @@ impl LedWriter {
             bright -= 1;
             config.brightness = bright;
             let bytes = aura_brightness_bytes(bright);
-            self.aura_set_and_save(supported_modes, &bytes, config)?;
+            self.aura_set_and_save(supported_modes, &bytes, config)
+                .await?;
             info!("Decreased LED brightness to {:#?}", bright);
         }
         Ok(())
@@ -404,7 +449,7 @@ impl LedWriter {
     /// Select next Aura effect
     ///
     /// If the current effect is the last one then the effect selected wraps around to the first.
-    pub(crate) fn aura_mode_next(
+    pub(crate) async fn aura_mode_next(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         config: &mut Config,
@@ -422,7 +467,8 @@ impl LedWriter {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next, config)?;
+        self.aura_set_and_save(supported_modes, &mode_next, config)
+            .await?;
         info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
         Ok(())
     }
@@ -430,7 +476,7 @@ impl LedWriter {
     /// Select previous Aura effect
     ///
     /// If the current effect is the first one then the effect selected wraps around to the last.
-    pub(crate) fn aura_mode_prev(
+    pub(crate) async fn aura_mode_prev(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         config: &mut Config,
@@ -448,7 +494,8 @@ impl LedWriter {
             .get_field_from(supported_modes[idx_next].into())
             .unwrap()
             .to_owned();
-        self.aura_set_and_save(supported_modes, &mode_next, config)?;
+        self.aura_set_and_save(supported_modes, &mode_next, config)
+            .await?;
         info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
         Ok(())
     }

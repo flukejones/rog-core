@@ -9,7 +9,7 @@ use dbus::{
 };
 use dbus_tokio::connection;
 
-use log::{error, info};
+use log::{error, info, warn};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -31,24 +31,25 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
     let mut config = Config::default().read();
 
-    let mut rogcore = RogCore::new(
-        laptop.usb_vendor(),
-        laptop.usb_product(),
-        laptop.led_endpoint(),
-    )
-    .map_or_else(
-        |err| {
-            error!("{}", err);
-            panic!("{}", err);
-        },
-        |daemon| {
-            info!("RogCore loaded");
-            daemon
-        },
+    let mut rogcore = Box::pin(
+        RogCore::new(
+            laptop.usb_vendor(),
+            laptop.usb_product(),
+            laptop.led_endpoint(),
+        )
+        .map_or_else(
+            |err| {
+                error!("{}", err);
+                panic!("{}", err);
+            },
+            |daemon| {
+                info!("RogCore loaded");
+                daemon
+            },
+        ),
     );
     // Reload settings
     rogcore.reload(&mut config).await?;
-    let usb_dev_handle = unsafe { &*(rogcore.get_raw_device_handle()) };
 
     // Set up the mutexes
     let led_writer = Arc::new(Mutex::new(LedWriter::new(
@@ -56,8 +57,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.led_endpoint(),
     )));
     let config = Arc::new(Mutex::new(config));
-    let rogcore = Arc::new(Mutex::new(Box::pin(rogcore)));
-
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
         let err = resource.await;
@@ -65,7 +64,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     });
 
     connection
-        .request_name(DBUS_IFACE, false, true, false)
+        .request_name(DBUS_IFACE, false, true, true)
         .await?;
 
     let (tree, input, effect) = dbus_create_tree();
@@ -75,20 +74,22 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let supported = Vec::from(laptop.supported_modes());
     let led_endpoint = laptop.led_endpoint();
 
+    // Keyboard reader goes in separate task because we want a high interrupt timeout
+    // and don't want that to hold up other tasks, or miss keystrokes
     {
-        let keyboard_endpoint = laptop.key_endpoint();
-        let report_filter_bytes = laptop.key_filter().to_owned();
+        let keyboard_reader = KeyboardReader::new(
+            rogcore.get_raw_device_handle(),
+            laptop.key_endpoint(),
+            laptop.key_filter().to_owned(),
+        );
         // This is *not* safe
-        let rogcore = rogcore.clone();
         let led_writer = led_writer.clone();
         let config = config.clone();
+        // start the keyboard reader and laptop-action loop
         tokio::spawn(async move {
             loop {
-                let data =
-                    RogCore::poll_keyboard(usb_dev_handle, keyboard_endpoint, &report_filter_bytes)
-                        .await;
+                let data = unsafe { keyboard_reader.poll_keyboard().await };
                 if let Some(bytes) = data {
-                    let mut rogcore = rogcore.lock().await;
                     match laptop.run(&mut rogcore, &led_writer, &config, bytes).await {
                         Ok(_) => {}
                         Err(err) => {
@@ -101,6 +102,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         });
     }
 
+    // start the LED writer loop
     let mut time_mark = Instant::now();
     loop {
         connection.process_all();
@@ -110,35 +112,36 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             if let Some(bytes) = lock.take() {
                 let mut led_writer = led_writer.lock().await;
                 let mut config = config.lock().await;
-                led_writer.aura_set_and_save(&supported, &bytes, &mut config)?;
+                led_writer
+                    .aura_set_and_save(&supported, &bytes, &mut config)
+                    .await
+                    .map_err(|err| warn!("{:?}", err))
+                    .unwrap();
                 time_mark = Instant::now();
             }
         }
 
         // Write a colour block
-        // Yank data out and drop lock quick (effect write takes 10ms)
         if let Ok(mut lock) = effect.try_lock() {
             // Spawn a writer
             if let Some(stuff) = lock.take() {
-                tokio::spawn(async move {
-                    let led_writer = led_writer.lock().await;
-                    led_writer
-                        .async_write_effect(led_endpoint, stuff)
-                        .await
-                        .unwrap();
-                });
+                let led_writer = led_writer.lock().await;
+                led_writer
+                    .async_write_effect(led_endpoint, stuff)
+                    .await
+                    .map_err(|err| warn!("{:?}", err))
+                    .unwrap();
                 time_mark = Instant::now();
             }
         }
 
         let now = Instant::now();
         // Cool-down steps
+        // This block is to prevent the loop spooling as fast as possible and saturating the CPU
         if now.duration_since(time_mark).as_millis() > 500 {
             std::thread::sleep(Duration::from_millis(200));
         } else if now.duration_since(time_mark).as_millis() > 100 {
             std::thread::sleep(Duration::from_millis(50));
-        } else {
-            std::thread::sleep(Duration::from_micros(5));
         }
     }
 }
