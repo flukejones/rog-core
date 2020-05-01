@@ -1,11 +1,11 @@
-use crate::{aura::*, config::Config, core::*, laptops::match_laptop};
+use crate::{config::Config, core::*, laptops::match_laptop};
 use dbus::{
     nonblock::Process,
     tree::{Factory, MTSync, Method, MethodErr, Tree},
 };
 use dbus_tokio::connection;
-
 use log::{error, info, warn};
+use rog_aura::{DBUS_IFACE, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -134,6 +134,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 std::thread::sleep(Duration::from_millis(200));
             } else if now.duration_since(time_mark).as_millis() > 100 {
                 std::thread::sleep(Duration::from_millis(50));
+            } else {
+                std::thread::sleep(Duration::from_micros(300));
             }
         }
     });

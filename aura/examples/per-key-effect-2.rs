@@ -1,4 +1,4 @@
-use daemon::aura::{AuraDbusWriter, Key, KeyColourArray};
+use rog_aura::{AuraDbusWriter, Key, KeyColourArray};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let writer = AuraDbusWriter::new()?;

@@ -628,9 +628,9 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quote"
-version = "1.0.4"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c1f4b0efa5fc5e8ceb705136bfee52cfdb6a4e3509f770b478cd6ed434232a7"
+checksum = "2bdc6c187c65bca4260c9011c9e3132efe4909da44726bad24cf7572ae338d7f"
 dependencies = [
  "proc-macro2",
 ]
@@ -666,17 +666,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 
 [[package]]
-name = "rog-aura"
-version = "0.8.0"
-dependencies = [
- "dbus",
- "gumdrop",
- "serde",
- "serde_derive",
- "thiserror",
-]
-
-[[package]]
 name = "rog-daemon"
 version = "0.8.0"
 dependencies = [
@@ -686,10 +675,10 @@ dependencies = [
  "gumdrop",
  "intel-pstate",
  "log",
- "rog-aura",
  "rusb",
  "serde",
  "serde_derive",
+ "thiserror",
  "tokio",
  "toml",
  "uhid-virt",
@@ -870,9 +859,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "0.2.20"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05c1d570eb1a36f0345a5ce9c6c6e665b70b73d11236912c0b477616aeec47b1"
+checksum = "7d9c43f1bb96970e153bcbae39a65e249ccb942bd9d36dbdf086024920417c9c"
 dependencies = [
  "bytes",
  "fnv",

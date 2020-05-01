@@ -15,10 +15,4 @@ pub enum AuraError {
     PollKeyboard,
     #[error("mode not supported")]
     NotSupported,
-    #[error("USB error")]
-    UsbError(rusb::Error),
-    #[error("IO error")]
-    IOError(#[from] std::io::Error),
-    #[error("external command failed")]
-    CommandFailed,
 }

@@ -1,7 +1,6 @@
-use crate::aura::BuiltInModeByte;
 use crate::config::Config;
 use crate::core::{LedWriter, RogCore};
-use crate::error::AuraError;
+use rog_aura::{error::AuraError, BuiltInModeByte};
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;
 use log::{info, warn};

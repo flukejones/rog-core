@@ -1,13 +1,9 @@
 // Return show-stopping errors, otherwise map error to a log level
 
-use crate::{
-    aura::{aura_brightness_bytes, BuiltInModeByte},
-    config::Config,
-    error::AuraError,
-    virt_device::VirtKeys,
-};
+use crate::{config::Config, virt_device::VirtKeys};
 use gumdrop::Options;
 use log::{debug, error, info, warn};
+use rog_aura::{aura_brightness_bytes, error::AuraError, BuiltInModeByte};
 use rusb::DeviceHandle;
 use std::error::Error;
 use std::fs::OpenOptions;
@@ -48,7 +44,11 @@ pub(crate) struct RogCore {
 }
 
 impl RogCore {
-    pub(crate) fn new(vendor: u16, product: u16, led_endpoint: u8) -> Result<RogCore, AuraError> {
+    pub(crate) fn new(
+        vendor: u16,
+        product: u16,
+        led_endpoint: u8,
+    ) -> Result<RogCore, Box<dyn Error>> {
         let mut dev_handle = RogCore::get_device(vendor, product)?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
@@ -72,9 +72,7 @@ impl RogCore {
         }
 
         dev_handle.set_auto_detach_kernel_driver(true).unwrap();
-        dev_handle
-            .claim_interface(interface)
-            .map_err(AuraError::UsbError)?;
+        dev_handle.claim_interface(interface)?;
 
         Ok(RogCore {
             handle: dev_handle,
@@ -115,14 +113,14 @@ impl RogCore {
     fn get_device(
         vendor: u16,
         product: u16,
-    ) -> Result<DeviceHandle<rusb::GlobalContext>, AuraError> {
+    ) -> Result<DeviceHandle<rusb::GlobalContext>, rusb::Error> {
         for device in rusb::devices().unwrap().iter() {
             let device_desc = device.device_descriptor().unwrap();
             if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return device.open().map_err(|err| AuraError::UsbError(err));
+                return device.open();
             }
         }
-        Err(AuraError::UsbError(rusb::Error::NoDevice))
+        Err(rusb::Error::NoDevice)
     }
 
     pub(crate) fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
