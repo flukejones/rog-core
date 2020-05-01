@@ -1,8 +1,4 @@
-pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
-pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
-pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
-
-use crate::{config::Config, core::*, laptops::match_laptop};
+use crate::{aura::*, config::Config, core::*, laptops::match_laptop};
 use dbus::{
     nonblock::Process,
     tree::{Factory, MTSync, Method, MethodErr, Tree},
@@ -83,7 +79,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let led_writer1 = led_writer.clone();
     let config1 = config.clone();
     // start the keyboard reader and laptop-action loop
-    tokio::task::spawn(async move {
+    let key_read_handle = tokio::spawn(async move {
         loop {
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
@@ -97,48 +93,54 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     });
 
     // start the LED writer loop
-    let mut time_mark = Instant::now();
-    loop {
-        connection.process_all();
+    let led_write_handle = tokio::spawn(async move {
+        let mut time_mark = Instant::now();
+        loop {
+            connection.process_all();
 
-        let led_writer = led_writer.clone();
-        if let Ok(mut lock) = input.try_lock() {
-            if let Some(bytes) = lock.take() {
-                let mut led_writer = led_writer.lock().await;
-                let mut config = config.lock().await;
-                led_writer
-                    .aura_set_and_save(&supported, &bytes, &mut config)
-                    .await
-                    .map_err(|err| warn!("{:?}", err))
-                    .unwrap();
-                time_mark = Instant::now();
+            let led_writer = led_writer.clone();
+            if let Ok(mut lock) = input.try_lock() {
+                if let Some(bytes) = lock.take() {
+                    let mut led_writer = led_writer.lock().await;
+                    let mut config = config.lock().await;
+                    led_writer
+                        .aura_set_and_save(&supported, &bytes, &mut config)
+                        .await
+                        .map_err(|err| warn!("{:?}", err))
+                        .unwrap();
+                    time_mark = Instant::now();
+                }
+            }
+
+            // Write a colour block
+            let led_writer = led_writer.clone();
+            if let Ok(mut lock) = effect.try_lock() {
+                // Spawn a writer
+                if let Some(stuff) = lock.take() {
+                    let led_writer = led_writer.lock().await;
+                    led_writer
+                        .async_write_effect(led_endpoint, stuff)
+                        .await
+                        .map_err(|err| warn!("{:?}", err))
+                        .unwrap();
+                    time_mark = Instant::now();
+                }
+            }
+
+            let now = Instant::now();
+            // Cool-down steps
+            // This block is to prevent the loop spooling as fast as possible and saturating the CPU
+            if now.duration_since(time_mark).as_millis() > 500 {
+                std::thread::sleep(Duration::from_millis(200));
+            } else if now.duration_since(time_mark).as_millis() > 100 {
+                std::thread::sleep(Duration::from_millis(50));
             }
         }
+    });
 
-        // Write a colour block
-        let led_writer = led_writer.clone();
-        if let Ok(mut lock) = effect.try_lock() {
-            // Spawn a writer
-            if let Some(stuff) = lock.take() {
-                let led_writer = led_writer.lock().await;
-                led_writer
-                    .async_write_effect(led_endpoint, stuff)
-                    .await
-                    .map_err(|err| warn!("{:?}", err))
-                    .unwrap();
-                time_mark = Instant::now();
-            }
-        }
-
-        let now = Instant::now();
-        // Cool-down steps
-        // This block is to prevent the loop spooling as fast as possible and saturating the CPU
-        if now.duration_since(time_mark).as_millis() > 500 {
-            std::thread::sleep(Duration::from_millis(200));
-        } else if now.duration_since(time_mark).as_millis() > 100 {
-            std::thread::sleep(Duration::from_millis(50));
-        }
-    }
+    led_write_handle.await?;
+    key_read_handle.await?;
+    Ok(())
 }
 
 fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {

@@ -1,11 +1,9 @@
 use daemon::{
-    aura::aura_brightness_bytes,
+    aura::{AuraDbusWriter, LED_MSG_LEN},
     cli_options::SetAuraBuiltin,
-    core::{LedBrightness, LED_MSG_LEN},
-    daemon::{start_daemon, DBUS_IFACE, DBUS_NAME, DBUS_PATH},
+    core::LedBrightness,
+    daemon::start_daemon,
 };
-use dbus::Error as DbusError;
-use dbus::{ffidisp::Connection, Message};
 use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
@@ -55,6 +53,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Version: {}", VERSION);
     }
 
+    let writer = AuraDbusWriter::new()?;
+
     if let Some(Command::LedMode(mode)) = parsed.command {
         if let Some(command) = mode.command {
             // Check for special modes here, eg, per-key or multi-zone
@@ -62,32 +62,17 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 SetAuraBuiltin::MultiStatic(_) => {
                     let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
                     for arr in byte_arr.iter() {
-                        dbus_led_builtin_write(arr)?;
+                        writer.write_bytes(arr)?;
                     }
                 }
                 _ => {
-                    let mode = <[u8; LED_MSG_LEN]>::from(command);
-                    dbus_led_builtin_write(&mode)?;
+                    writer.write_builtin_mode(&command)?;
                 }
             }
         }
     }
     if let Some(brightness) = parsed.bright {
-        let bytes = aura_brightness_bytes(brightness.level());
-        dbus_led_builtin_write(&bytes)?;
+        writer.write_brightness(brightness.level())?;
     }
     Ok(())
-}
-
-pub fn dbus_led_builtin_write(bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    let bus = Connection::new_system()?;
-    //let proxy = bus.with_proxy(DBUS_IFACE, "/", Duration::from_millis(5000));
-    let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledmessage")?
-        .append1(bytes.to_vec());
-    let r = bus.send_with_reply_and_block(msg, 5000)?;
-    if let Some(reply) = r.get1::<&str>() {
-        println!("Success: {:x?}", reply);
-        return Ok(());
-    }
-    Err(Box::new(DbusError::new_custom("name", "message")))
 }

@@ -24,7 +24,7 @@ impl FromStr for Colour {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Speed {
     Low = 0xe1,
     Med = 0xeb,
@@ -52,7 +52,7 @@ impl FromStr for Speed {
 /// Used for Rainbow mode.
 ///
 /// Enum corresponds to the required integer value
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Direction {
     Right,
     Left,

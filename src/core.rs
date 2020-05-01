@@ -19,7 +19,6 @@ use std::ptr::NonNull;
 use std::str::FromStr;
 use std::time::Duration;
 
-pub const LED_MSG_LEN: usize = 17;
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
 static LED_INIT2: &str = "]ASUS Tech.Inc."; // ] == 0x5d
 static LED_INIT3: [u8; 6] = [0x5d, 0x05, 0x20, 0x31, 0, 0x08];
@@ -314,6 +313,7 @@ where
 
 /// UNSAFE
 unsafe impl<'d, C> Send for LedWriter<'d, C> where C: rusb::UsbContext {}
+unsafe impl<'d, C> Sync for LedWriter<'d, C> where C: rusb::UsbContext {}
 
 impl<'d, C> LedWriter<'d, C>
 where
@@ -524,6 +524,7 @@ impl FromStr for LedBrightness {
         }
     }
 }
+
 #[derive(Debug)]
 enum FanLevel {
     Normal,
