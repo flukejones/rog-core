@@ -272,7 +272,7 @@ impl LaptopBase {
     }
 }
 
-pub(crate) enum GX502Keys {
+pub enum GX502Keys {
     Rog = 0x38,
     MicToggle = 0x7C,
     Fan = 0xAE,

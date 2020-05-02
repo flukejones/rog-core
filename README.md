@@ -23,6 +23,10 @@ $ sudo systemctl start rog-core.service
 $ sudo systemctl enable rog-core.service
 ```
 
+## Updating
+
+Occasionally I might break things for you by tweaking or changing the config file layout. Usually this will mean you need to remove `/etc/rog-core.toml' and restart the daemon to create a new one. You *can* back up the old one and copy settings back over (then restart daemon again).
+
 ## Use
 
 Running the program as a daemon manually will require root. Standard (non-daemon) mode expects to be communicating with the daemon mode over dbus.
@@ -116,7 +120,9 @@ Bus 001 Device 005: ID 0b05:1866 ASUSTek Computer, Inc. N-KEY Device
 
 Then do `sudo lsusb -vd 0b05:1866 > ~/laptop_info` and give that to me.
 
-Also required:
+Other helpful info can be gained from `sudo usbhid-dump`, for which you may need to unload kernel drivers. Please google this.
+
+Also required (for my book-keeping of data):
 - `cat /sys/class/dmi/id/product_name`
 - `cat /sys/class/dmi/id/product_family`
 - `cat /sys/class/dmi/id/board_name`

@@ -24,12 +24,12 @@ use uhid_virt::{Bus, CreateParams, UHIDDevice};
 /// `rogcore.virt_keys().press([0x01, 0, 0, 0x82, 0, 0, 0, 0]); // Sleep`
 ///
 /// `rogcore.virt_keys().press([0x01, 0, 0, 0x66, 0, 0, 0, 0]); // Power (menu)`
-pub(crate) struct VirtKeys {
+pub struct VirtKeys {
     device: UHIDDevice<std::fs::File>,
 }
 
 impl VirtKeys {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         VirtKeys {
             device: UHIDDevice::create(CreateParams {
                 name: String::from("Virtual ROG buttons"),
@@ -96,7 +96,7 @@ impl VirtKeys {
     }
 
     /// A single on/off key press
-    pub(crate) fn press(&mut self, input: [u8; 32]) {
+    pub fn press(&mut self, input: [u8; 32]) {
         self.device.write(&input).unwrap();
         let mut reset = [0u8; 32];
         reset[0] = input[0];
@@ -106,7 +106,7 @@ impl VirtKeys {
 
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
-pub(crate) enum ConsumerKeys {
+pub enum ConsumerKeys {
     Power = 0x30,
     Sleep = 0x32,
     Menu = 0x0040,

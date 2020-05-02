@@ -37,18 +37,14 @@ static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode
 /// - `LED_INIT4`
 /// - `LED_INIT2`
 /// - `LED_INIT4`
-pub(crate) struct RogCore {
+pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
     virt_keys: VirtKeys,
     _pin: PhantomPinned,
 }
 
 impl RogCore {
-    pub(crate) fn new(
-        vendor: u16,
-        product: u16,
-        led_endpoint: u8,
-    ) -> Result<RogCore, Box<dyn Error>> {
+    pub fn new(vendor: u16, product: u16, led_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
         let mut dev_handle = RogCore::get_device(vendor, product)?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
@@ -81,16 +77,7 @@ impl RogCore {
         })
     }
 
-    pub(crate) async fn reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        // let mode_curr = self.config.current_mode[3];
-        // let mode = self
-        //     .config
-        //     .builtin_modes
-        //     .get_field_from(BuiltInModeByte::from(mode_curr).into())
-        //     .unwrap()
-        //     .to_owned();
-        // self.aura_write_messages(&[&mode])?;
-
+    pub async fn reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = if Path::new(FAN_TYPE_1_PATH).exists() {
             FAN_TYPE_1_PATH
         } else if Path::new(FAN_TYPE_2_PATH).exists() {
@@ -101,12 +88,12 @@ impl RogCore {
 
         let mut file = OpenOptions::new().write(true).open(path)?;
         file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())?;
-        self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode))?;
+        self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
         info!("Reloaded last saved settings");
         Ok(())
     }
 
-    pub(crate) fn virt_keys(&mut self) -> &mut VirtKeys {
+    pub fn virt_keys(&mut self) -> &mut VirtKeys {
         &mut self.virt_keys
     }
 
@@ -123,7 +110,7 @@ impl RogCore {
         Err(rusb::Error::NoDevice)
     }
 
-    pub(crate) fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+    pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = if Path::new(FAN_TYPE_1_PATH).exists() {
             FAN_TYPE_1_PATH
         } else if Path::new(FAN_TYPE_2_PATH).exists() {
@@ -146,34 +133,55 @@ impl RogCore {
             }
             info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
             fan_ctrl.write_all(format!("{:?}\n", n).as_bytes())?;
-            self.set_pstate_for_fan_mode(FanLevel::from(n))?;
+            self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
             config.fan_mode = n;
             config.write();
         }
         Ok(())
     }
 
-    fn set_pstate_for_fan_mode(&self, mode: FanLevel) -> Result<(), Box<dyn Error>> {
+    fn set_pstate_for_fan_mode(
+        &self,
+        mode: FanLevel,
+        config: &mut Config,
+    ) -> Result<(), Box<dyn Error>> {
         // Set CPU pstate
         if let Ok(pstate) = intel_pstate::PState::new() {
+            // re-read the config here in case a user changed the pstate settings
+            config.read();
             match mode {
                 FanLevel::Normal => {
-                    pstate.set_min_perf_pct(0)?;
-                    pstate.set_max_perf_pct(100)?;
-                    pstate.set_no_turbo(false)?;
-                    info!("CPU pstate: normal");
+                    pstate.set_min_perf_pct(config.mode_performance.normal.min_percentage)?;
+                    pstate.set_max_perf_pct(config.mode_performance.normal.max_percentage)?;
+                    pstate.set_no_turbo(config.mode_performance.normal.no_turbo)?;
+                    info!(
+                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        config.mode_performance.normal.min_percentage,
+                        config.mode_performance.normal.max_percentage,
+                        !config.mode_performance.normal.no_turbo
+                    );
                 }
                 FanLevel::Boost => {
-                    pstate.set_min_perf_pct(50)?;
-                    pstate.set_max_perf_pct(100)?;
-                    pstate.set_no_turbo(false)?;
-                    info!("CPU pstate: boost");
+                    pstate.set_min_perf_pct(config.mode_performance.boost.min_percentage)?;
+                    pstate.set_max_perf_pct(config.mode_performance.boost.max_percentage)?;
+                    pstate.set_no_turbo(config.mode_performance.boost.no_turbo)?;
+                    info!(
+                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        config.mode_performance.boost.min_percentage,
+                        config.mode_performance.boost.max_percentage,
+                        !config.mode_performance.boost.no_turbo
+                    );
                 }
                 FanLevel::Silent => {
-                    pstate.set_min_perf_pct(0)?;
-                    pstate.set_max_perf_pct(70)?;
-                    pstate.set_no_turbo(true)?;
-                    info!("CPU pstate: silent, no-turbo");
+                    pstate.set_min_perf_pct(config.mode_performance.silent.min_percentage)?;
+                    pstate.set_max_perf_pct(config.mode_performance.silent.max_percentage)?;
+                    pstate.set_no_turbo(config.mode_performance.silent.no_turbo)?;
+                    info!(
+                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        config.mode_performance.silent.min_percentage,
+                        config.mode_performance.silent.max_percentage,
+                        !config.mode_performance.silent.no_turbo
+                    );
                 }
             }
         }
@@ -184,7 +192,7 @@ impl RogCore {
     ///
     /// This avoids desktop environments being required to handle it
     /// (which means it works while in a TTY also)
-    pub(crate) fn suspend_with_systemd(&self) {
+    pub fn suspend_with_systemd(&self) {
         std::process::Command::new("systemctl")
             .arg("suspend")
             .spawn()
@@ -195,7 +203,7 @@ impl RogCore {
     ///
     /// This avoids desktop environments being required to handle it (which
     /// means it works while in a TTY also)
-    pub(crate) fn toggle_airplane_mode(&self) {
+    pub fn toggle_airplane_mode(&self) {
         match Command::new("rfkill").arg("list").output() {
             Ok(output) => {
                 if output.status.success() {
@@ -230,7 +238,7 @@ impl RogCore {
         }
     }
 
-    pub(crate) fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
+    pub fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
         // Breaking every damn lifetime guarantee rust gives us
         unsafe {
             NonNull::new_unchecked(&mut self.handle as *mut DeviceHandle<rusb::GlobalContext>)
@@ -239,7 +247,7 @@ impl RogCore {
 }
 
 /// Lifetime is tied to `DeviceHandle` from `RogCore`
-pub(crate) struct KeyboardReader<'d, C: 'd>
+pub struct KeyboardReader<'d, C: 'd>
 where
     C: rusb::UsbContext,
 {
@@ -271,7 +279,7 @@ where
     ///
     /// `report_filter_bytes` is used to filter the data read from the interupt so
     /// only the relevant byte array is returned.
-    pub(crate) async fn poll_keyboard(&self) -> Option<[u8; 32]> {
+    pub async fn poll_keyboard(&self) -> Option<[u8; 32]> {
         let mut buf = [0u8; 32];
         match unsafe { self.handle.as_ref() }.read_interrupt(
             self.endpoint,
@@ -299,7 +307,7 @@ where
 /// Because we're holding a pointer to something that *may* go out of scope while the
 /// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
 /// that may cause invalididated pointer to cause the program to panic rather than continue.
-pub(crate) struct LedWriter<'d, C: 'd>
+pub struct LedWriter<'d, C: 'd>
 where
     C: rusb::UsbContext,
 {
@@ -326,7 +334,8 @@ where
         }
     }
 
-    async fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
+    /// Should only be used if the bytes you are writing are verified correct
+    pub async fn aura_write(&mut self, message: &[u8]) -> Result<(), AuraError> {
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
@@ -384,7 +393,8 @@ where
         Ok(())
     }
 
-    pub(crate) async fn aura_set_and_save(
+    /// Used to set a builtin mode and save the settings for it
+    pub async fn aura_set_and_save(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         bytes: &[u8],
@@ -405,7 +415,7 @@ where
         Err(AuraError::NotSupported)
     }
 
-    pub(crate) async fn aura_bright_inc(
+    pub async fn aura_bright_inc(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         max_bright: u8,
@@ -423,7 +433,7 @@ where
         Ok(())
     }
 
-    pub(crate) async fn aura_bright_dec(
+    pub async fn aura_bright_dec(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         min_bright: u8,
@@ -444,7 +454,7 @@ where
     /// Select next Aura effect
     ///
     /// If the current effect is the last one then the effect selected wraps around to the first.
-    pub(crate) async fn aura_mode_next(
+    pub async fn aura_mode_next(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         config: &mut Config,
@@ -471,7 +481,7 @@ where
     /// Select previous Aura effect
     ///
     /// If the current effect is the first one then the effect selected wraps around to the last.
-    pub(crate) async fn aura_mode_prev(
+    pub async fn aura_mode_prev(
         &mut self,
         supported_modes: &[BuiltInModeByte],
         config: &mut Config,
@@ -493,33 +503,6 @@ where
             .await?;
         info!("Switched LED mode to {:#?}", supported_modes[idx_next]);
         Ok(())
-    }
-}
-
-#[derive(Debug, Options)]
-pub struct LedBrightness {
-    level: u8,
-}
-impl LedBrightness {
-    pub fn level(&self) -> u8 {
-        self.level
-    }
-}
-impl FromStr for LedBrightness {
-    type Err = AuraError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.to_lowercase();
-        match s.as_str() {
-            "off" => Ok(LedBrightness { level: 0x00 }),
-            "low" => Ok(LedBrightness { level: 0x01 }),
-            "med" => Ok(LedBrightness { level: 0x02 }),
-            "high" => Ok(LedBrightness { level: 0x03 }),
-            _ => {
-                println!("Missing required argument, must be one of:\noff,low,med,high\n");
-                Err(AuraError::ParseBrightness)
-            }
-        }
     }
 }
 

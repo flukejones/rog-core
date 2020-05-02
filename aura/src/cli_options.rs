@@ -3,6 +3,33 @@ use gumdrop::Options;
 use std::fmt::Debug;
 use std::str::FromStr;
 
+#[derive(Debug, Options)]
+pub struct LedBrightness {
+    level: u8,
+}
+impl LedBrightness {
+    pub fn level(&self) -> u8 {
+        self.level
+    }
+}
+impl FromStr for LedBrightness {
+    type Err = AuraError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_lowercase();
+        match s.as_str() {
+            "off" => Ok(LedBrightness { level: 0x00 }),
+            "low" => Ok(LedBrightness { level: 0x01 }),
+            "med" => Ok(LedBrightness { level: 0x02 }),
+            "high" => Ok(LedBrightness { level: 0x03 }),
+            _ => {
+                println!("Missing required argument, must be one of:\noff,low,med,high\n");
+                Err(AuraError::ParseBrightness)
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Colour(pub u8, pub u8, pub u8);
 impl Default for Colour {

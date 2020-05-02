@@ -1,7 +1,11 @@
+/// Configuration loading, saving
 mod config;
 /// The core module which allows writing to LEDs or polling the
 /// laptop keyboard attached devices
-pub mod core;
+mod core;
+/// Start the daemon loop
 pub mod daemon;
-pub mod laptops;
+/// Laptop matching to determine capabilities
+mod laptops;
+/// A virtual "consumer device" to help emit the correct key codes
 mod virt_device;

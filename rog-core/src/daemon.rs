@@ -5,7 +5,7 @@ use dbus::{
 };
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_aura::{DBUS_IFACE, DBUS_PATH};
+use rog_aura::{BuiltInModeByte, DBUS_IFACE, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -25,7 +25,8 @@ type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
-    let mut config = Config::default().read();
+    let mut config = Config::default().load();
+    info!("Config loaded");
 
     let mut rogcore = RogCore::new(
         laptop.usb_vendor(),
@@ -42,14 +43,22 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             daemon
         },
     );
+
     // Reload settings
     rogcore.reload(&mut config).await?;
+    let mut led_writer = LedWriter::new(rogcore.get_raw_device_handle(), laptop.led_endpoint());
+    {
+        let mode_curr = config.current_mode[3];
+        let mode = config
+            .builtin_modes
+            .get_field_from(BuiltInModeByte::from(mode_curr).into())
+            .unwrap()
+            .to_owned();
+        led_writer.aura_write(&mode).await?;
+    }
 
     // Set up the mutexes
-    let led_writer = Arc::new(Mutex::new(LedWriter::new(
-        rogcore.get_raw_device_handle(),
-        laptop.led_endpoint(),
-    )));
+    let led_writer = Arc::new(Mutex::new(led_writer));
     let config = Arc::new(Mutex::new(config));
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {

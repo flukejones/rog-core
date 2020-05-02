@@ -1,8 +1,11 @@
-use daemon::{core::LedBrightness, daemon::start_daemon};
+use daemon::daemon::start_daemon;
 use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
-use rog_aura::{cli_options::SetAuraBuiltin, AuraDbusWriter, LED_MSG_LEN};
+use rog_aura::{
+    cli_options::{LedBrightness, SetAuraBuiltin},
+    AuraDbusWriter, LED_MSG_LEN,
+};
 
 static VERSION: &'static str = "0.8.0";
 

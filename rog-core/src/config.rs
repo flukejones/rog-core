@@ -11,10 +11,13 @@ pub struct Config {
     pub brightness: u8,
     pub current_mode: [u8; 4],
     pub builtin_modes: BuiltInModeBytes,
+    pub mode_performance: FanModeSettings,
 }
 
 impl Config {
-    pub fn read(mut self) -> Self {
+    /// `load` will attempt to read the config, but if it is not found it
+    /// will create a new default config and write that out.
+    pub fn load(mut self) -> Self {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -33,10 +36,28 @@ impl Config {
                     .expect("Writing default config failed");
                 self = c;
             } else {
-                self = toml::from_str(&buf).unwrap();
+                self =
+                    toml::from_str(&buf).expect(&format!("Could not deserialise {}", CONFIG_PATH));
             }
         }
         self
+    }
+
+    pub fn read(&mut self) {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(&CONFIG_PATH)
+            .expect("config file error");
+        let mut buf = String::new();
+        if let Ok(l) = file.read_to_string(&mut buf) {
+            if l == 0 {
+                panic!("Missing {}", CONFIG_PATH);
+            } else {
+                let x: Config =
+                    toml::from_str(&buf).expect(&format!("Could not deserialise {}", CONFIG_PATH));
+                *self = x;
+            }
+        }
     }
 
     pub fn write(&self) {
@@ -52,6 +73,30 @@ impl Config {
         } else if bytes[0] == 0x5d && bytes[1] == 0xb3 {
             self.current_mode.copy_from_slice(&bytes[0..4]);
             self.builtin_modes.set_field_from(bytes);
+        }
+    }
+}
+
+#[derive(Default, Deserialize, Serialize)]
+pub struct FanModeSettings {
+    pub normal: IntelPState,
+    pub boost: IntelPState,
+    pub silent: IntelPState,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct IntelPState {
+    pub min_percentage: u8,
+    pub max_percentage: u8,
+    pub no_turbo: bool,
+}
+
+impl Default for IntelPState {
+    fn default() -> Self {
+        IntelPState {
+            min_percentage: 0,
+            max_percentage: 100,
+            no_turbo: false,
         }
     }
 }
