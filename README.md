@@ -23,6 +23,8 @@ $ sudo systemctl start rog-core.service
 $ sudo systemctl enable rog-core.service
 ```
 
+You may also need to activate the service for debian install. If running Pop!_OS, I suggest disabling `system76-power` gnome-shell extension, or at least limiting use of the power-management parts as `rog-core` lets you set the same things (one or the other will overwrite pstates). I will create a shell extension at some point similar to system76, but using the rog-core parts. It is safe to leave `system76-power.service` enabled and use for switching between graphics modes.
+
 ## Updating
 
 Occasionally I might break things for you by tweaking or changing the config file layout. Usually this will mean you need to remove `/etc/rog-core.toml' and restart the daemon to create a new one. You *can* back up the old one and copy settings back over (then restart daemon again).

@@ -1,0 +1,23 @@
+Source: rog-core
+Section: admin
+Priority: optional
+Maintainer: Luke Jones <luke@ljones.dev>
+Build-Depends:
+  debhelper (>=9),
+  cargo,
+  dh-systemd,
+  libusb-1.0-0-dev,
+  libdbus-1-dev,
+  pkg-config
+Standards-Version: 4.1.1
+Homepage: https://github.com/flukejones/rog-core
+
+Package: rog-core
+Architecture: amd64
+Depends:
+  dbus,
+  systemd,
+  libusb-1.0-0,
+  ${misc:Depends},
+  ${shlib:Depends}
+Description: ASUS ROG Laptop Management

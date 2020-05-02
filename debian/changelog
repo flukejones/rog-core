@@ -1,0 +1,5 @@
+rog-core (0.9.0) focal; urgency=medium
+
+  * Initial packaging
+
+ -- Luke Jones <luke@ljones.dev>  Sat, 02 May 2020 20:17:12 +1200
