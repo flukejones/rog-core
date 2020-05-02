@@ -1,7 +1,6 @@
 // Return show-stopping errors, otherwise map error to a log level
 
 use crate::{config::Config, virt_device::VirtKeys};
-use gumdrop::Options;
 use log::{debug, error, info, warn};
 use rog_aura::{aura_brightness_bytes, error::AuraError, BuiltInModeByte};
 use rusb::DeviceHandle;
