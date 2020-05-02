@@ -79,6 +79,23 @@ Currently the last used brightness and builtin mode will be saved when set, and 
 
 Fan mode toggling requires a newer kernel. I'm unsure when the patches required for it got merged - I've tested with the 5.6.6 kernel only.
 
+## Ubuntu PPA
+
+```
+sudo add-apt-repository ppa:lukedjones/rog-core
+sudo apt-get update
+sudo install rog-core
+```
+
+and if the service isn't enabled:
+
+```
+sudo systemctl start rog-core.service
+sudo systemctl enable rog-core.service
+```
+
+I can't guarantee stability of updating via PPA yet.
+
 ## Other Laptops
 
 **Supported:**
@@ -92,11 +109,11 @@ Fan mode toggling requires a newer kernel. I'm unsure when the patches required 
 
 If the USB product ID is 0x1866 or 0x1869 then the per-key profile with hotkeys *should* work - 0x1866 is tested as this is what I have.
 
-## Wireshark captures
+### Wireshark captures
 
 TODO: see `./wireshark_data/` for some captures.
 
-## Supporting more laptops
+### Supporting more laptops
 
 At a minimum it probably needs to be a Zephyrus laptop. If there is enough interest I will remove the restriction on board names so that anyone can try the app.
 

@@ -11,7 +11,6 @@ use std::marker::{PhantomData, PhantomPinned};
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
-use std::str::FromStr;
 use std::time::Duration;
 
 static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
