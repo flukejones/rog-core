@@ -1,13 +1,14 @@
 use crate::{config::Config, core::*, laptops::match_laptop};
 use dbus::{
+    channel::Sender,
     nonblock::Process,
-    tree::{Factory, MTSync, Method, MethodErr, Tree},
+    tree::{Factory, MTSync, Method, MethodErr, Signal, Tree},
 };
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_aura::{BuiltInModeByte, DBUS_IFACE, DBUS_PATH};
+use rog_aura::{DBUS_IFACE, DBUS_PATH};
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
@@ -46,19 +47,17 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     // Reload settings
     rogcore.reload(&mut config).await?;
-    let mut led_writer = LedWriter::new(rogcore.get_raw_device_handle(), laptop.led_endpoint());
-    {
-        let mode_curr = config.current_mode[3];
-        let mode = config
-            .builtin_modes
-            .get_field_from(BuiltInModeByte::from(mode_curr).into())
-            .unwrap()
-            .to_owned();
-        led_writer.aura_write(&mode).await?;
-    }
+    let mut led_writer = LedWriter::new(
+        rogcore.get_raw_device_handle(),
+        laptop.led_endpoint(),
+        (laptop.min_led_bright(), laptop.max_led_bright()),
+        laptop.supported_modes().to_owned(),
+    );
+    led_writer
+        .do_command(AuraCommand::ReloadLast, &mut config)
+        .await?;
 
     // Set up the mutexes
-    let led_writer = Arc::new(Mutex::new(led_writer));
     let config = Arc::new(Mutex::new(config));
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
@@ -70,12 +69,11 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .request_name(DBUS_IFACE, false, true, true)
         .await?;
 
-    let (tree, input, effect) = dbus_create_tree();
+    let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
+
+    let (tree, input, effect, effect_cancel_signal) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
-
-    let supported = Vec::from(laptop.supported_modes());
-    let led_endpoint = laptop.led_endpoint();
 
     // Keyboard reader goes in separate task because we want a high interrupt timeout
     // and don't want that to hold up other tasks, or miss keystrokes
@@ -85,15 +83,15 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.key_filter().to_owned(),
     );
 
-    let led_writer1 = led_writer.clone();
     let config1 = config.clone();
     // start the keyboard reader and laptop-action loop
     let key_read_handle = tokio::spawn(async move {
         loop {
+            let acs = aura_command_send.clone();
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
                 laptop
-                    .run(&mut rogcore, &led_writer1, &config1, bytes)
+                    .run(&mut rogcore, &config1, bytes, acs)
                     .await
                     .map_err(|err| warn!("{:?}", err))
                     .unwrap();
@@ -107,32 +105,60 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         loop {
             connection.process_all();
 
-            let led_writer = led_writer.clone();
-            if let Ok(mut lock) = input.try_lock() {
-                if let Some(bytes) = lock.take() {
-                    let mut led_writer = led_writer.lock().await;
-                    let mut config = config.lock().await;
-                    led_writer
-                        .aura_set_and_save(&supported, &bytes, &mut config)
-                        .await
-                        .map_err(|err| warn!("{:?}", err))
-                        .unwrap();
-                    time_mark = Instant::now();
-                }
-            }
+            let res = aura_command_recv.recv_timeout(Duration::from_micros(50));
+            if let Ok(command) = res {
+                let mut config = config.lock().await;
+                led_writer
+                    .do_command(command, &mut config)
+                    .await
+                    .map_err(|err| warn!("{:?}", err))
+                    .unwrap();
 
-            // Write a colour block
-            let led_writer = led_writer.clone();
-            if let Ok(mut lock) = effect.try_lock() {
-                // Spawn a writer
-                if let Some(stuff) = lock.take() {
-                    let led_writer = led_writer.lock().await;
-                    led_writer
-                        .async_write_effect(led_endpoint, stuff)
-                        .await
-                        .map_err(|err| warn!("{:?}", err))
-                        .unwrap();
-                    time_mark = Instant::now();
+                connection
+                    .send(
+                        effect_cancel_signal
+                            .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                            .append1(true),
+                    )
+                    .unwrap();
+                // Clear any possible queued effect
+                let mut effect = effect.lock().await;
+                *effect = None;
+                time_mark = Instant::now();
+            } else {
+                if let Ok(mut lock) = input.try_lock() {
+                    if let Some(bytes) = lock.take() {
+                        if bytes.len() > 8 {
+                            let mut config = config.lock().await;
+                            led_writer
+                                .do_command(AuraCommand::WriteBytes(bytes), &mut config)
+                                .await
+                                .map_err(|err| warn!("{:?}", err))
+                                .unwrap();
+                            // Also cancel any effect client
+                            connection
+                                .send(
+                                    effect_cancel_signal.msg(&DBUS_PATH.into(), &DBUS_IFACE.into()),
+                                )
+                                .unwrap();
+                            time_mark = Instant::now();
+                        }
+                    }
+                }
+                // Write a colour block
+                if let Ok(mut effect_lock) = effect.try_lock() {
+                    // Spawn a writer
+                    if let Some(stuff) = effect_lock.take() {
+                        if stuff.len() == 10 {
+                            let mut config = config.lock().await;
+                            led_writer
+                                .do_command(AuraCommand::WriteEffect(stuff), &mut config)
+                                .await
+                                .map_err(|err| warn!("{:?}", err))
+                                .unwrap();
+                            time_mark = Instant::now();
+                        }
+                    }
                 }
             }
 
@@ -158,7 +184,7 @@ fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
-        .method("ledmessage", (), {
+        .method("LedWriteBytes", (), {
             move |m| {
                 let bytes: Vec<u8> = m.msg.read1()?;
                 if let Ok(mut lock) = msg.try_lock() {
@@ -181,7 +207,7 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
-        .method("ledeffect", (), {
+        .method("LedWriteEffect", (), {
             move |m| {
                 if let Ok(mut lock) = effect.try_lock() {
                     let mut iter = m.msg.iter_init();
@@ -219,18 +245,20 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
-fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType) {
-    let input: LedMsgType = Arc::new(Mutex::new(None));
-    let effect: EffectType = Arc::new(Mutex::new(None));
+fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType, Arc<Signal<()>>) {
+    let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
+    let input_effect: EffectType = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
+    let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
     let tree = factory.tree(()).add(
         factory.object_path(DBUS_PATH, ()).add(
             factory
                 .interface(DBUS_IFACE, ())
-                .add_m(dbus_create_ledmsg_method(input.clone()))
-                .add_m(dbus_create_ledeffect_method(effect.clone())),
+                .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
+                .add_m(dbus_create_ledeffect_method(input_effect.clone()))
+                .add_s(effect_cancel_sig.clone()),
         ),
     );
-    (tree, input, effect)
+    (tree, input_bytes, input_effect, effect_cancel_sig)
 }

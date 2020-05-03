@@ -44,7 +44,7 @@ impl BuiltInModeBytes {
     }
 
     #[inline]
-    pub fn get_field_from(&mut self, byte: u8) -> Option<&[u8]> {
+    pub fn get_field_from(&self, byte: u8) -> Option<&[u8]> {
         let bytes = match BuiltInModeByte::from(byte) {
             BuiltInModeByte::Single => &self.stable,
             BuiltInModeByte::Breathing => &self.breathe,

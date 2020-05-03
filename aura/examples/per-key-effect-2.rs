@@ -1,7 +1,7 @@
 use rog_aura::{AuraDbusWriter, Key, KeyColourArray};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let writer = AuraDbusWriter::new()?;
+    let mut writer = AuraDbusWriter::new()?;
 
     let mut per_key_led = Vec::new();
     let mut key_colours = KeyColourArray::new();

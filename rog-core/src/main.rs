@@ -40,9 +40,12 @@ struct LedModeCommand {
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = Builder::new();
-    builder.target(Target::Stdout);
-    builder.format_timestamp(None);
-    builder.filter(None, LevelFilter::Info).init();
+    builder
+        .target(Target::Stdout)
+        .format_module_path(false)
+        .format_timestamp(None)
+        .filter(None, LevelFilter::Info)
+        .init();
 
     let parsed = CLIStart::parse_args_default_or_exit();
     if parsed.daemon {

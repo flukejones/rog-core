@@ -1,20 +1,26 @@
 use super::*;
-use dbus::{ffidisp::Connection, Message};
+use dbus::blocking::BlockingSender;
+use dbus::channel::Sender;
+use dbus::{blocking::Connection, Message};
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
 /// Simplified way to write a effect block
 pub struct AuraDbusWriter {
-    connection: Connection,
+    connection: Box<Connection>,
     block_time: u64,
+    stop: Arc<Mutex<bool>>,
 }
 
 impl AuraDbusWriter {
     #[inline]
     pub fn new() -> Result<Self, Box<dyn Error>> {
+        let connection = Connection::new_system()?;
         Ok(AuraDbusWriter {
-            connection: Connection::new_system()?,
+            connection: Box::new(connection),
             block_time: 10,
+            stop: Arc::new(Mutex::new(false)),
         })
     }
 
@@ -22,7 +28,23 @@ impl AuraDbusWriter {
     /// the keyboard LED EC in the correct mode
     #[inline]
     pub fn init_effect(&self) -> Result<(), Box<dyn Error>> {
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledmessage")?
+        let match_rule = dbus::message::MatchRule::new_signal(DBUS_IFACE, "LedCancelEffect");
+        let stopper = self.stop.clone();
+        self.connection
+            .add_match(match_rule, move |_: (), _, msg| {
+                println!("GOT {:?}", msg);
+                if let Ok(stop) = msg.read1::<bool>() {
+                    if stop {
+                        if let Ok(mut lock) = stopper.lock() {
+                            println!("SHOULD STOP");
+                            *lock = true;
+                        }
+                    }
+                }
+                true
+            })?;
+
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteBytes")?
             .append1(KeyColourArray::get_init_msg());
         self.connection.send(msg).unwrap();
         Ok(())
@@ -34,11 +56,13 @@ impl AuraDbusWriter {
     /// be written to the keyboard EC. This should not be async.
     #[inline]
     pub fn write_colour_block(
-        &self,
+        &mut self,
         key_colour_array: &KeyColourArray,
     ) -> Result<(), Box<dyn Error>> {
+        self.connection.process(Duration::from_micros(300))?;
+
         let group = key_colour_array.get();
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledeffect")?
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
             .append1(&group[0].to_vec())
             .append1(&group[1].to_vec())
             .append1(&group[2].to_vec())
@@ -51,14 +75,21 @@ impl AuraDbusWriter {
             .append1(&group[9].to_vec());
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_millis(self.block_time));
+        if let Ok(lock) = self.stop.try_lock() {
+            if *lock {
+                panic!("Stopping!");
+            }
+        }
         Ok(())
     }
 
     #[inline]
     pub fn write_bytes(&self, bytes: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ledmessage")?
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteBytes")?
             .append1(bytes.to_vec());
-        let r = self.connection.send_with_reply_and_block(msg, 5000)?;
+        let r = self
+            .connection
+            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
         if let Some(reply) = r.get1::<&str>() {
             return Ok(reply.to_owned());
         }
