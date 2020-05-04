@@ -1,3 +1,9 @@
+rog-core (0.9.3) focal; urgency=medium
+
+  * Fixes to rog-core client functionality
+
+ -- Luke Jones <luke@ljones.dev>  Mon, 04 May 2020 15:35:15 +1200
+
 rog-core (0.9.2) focal; urgency=medium
 
   * Internal fixes to prevent deadlocks on mutexes
