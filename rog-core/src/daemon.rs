@@ -128,7 +128,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             } else {
                 if let Ok(mut lock) = input.try_lock() {
                     if let Some(bytes) = lock.take() {
-                        if bytes.len() > 8 {
+                        if bytes.len() > 0 {
                             let mut config = config.lock().await;
                             led_writer
                                 .do_command(AuraCommand::WriteBytes(bytes), &mut config)
@@ -148,11 +148,11 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 // Write a colour block
                 if let Ok(mut effect_lock) = effect.try_lock() {
                     // Spawn a writer
-                    if let Some(stuff) = effect_lock.take() {
-                        if stuff.len() == 10 {
+                    if let Some(effect) = effect_lock.take() {
+                        if effect.len() == 10 {
                             let mut config = config.lock().await;
                             led_writer
-                                .do_command(AuraCommand::WriteEffect(stuff), &mut config)
+                                .do_command(AuraCommand::WriteEffect(effect), &mut config)
                                 .await
                                 .map_err(|err| warn!("{:?}", err))
                                 .unwrap();

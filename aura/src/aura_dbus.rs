@@ -36,7 +36,6 @@ impl AuraDbusWriter {
                 if let Ok(stop) = msg.read1::<bool>() {
                     if stop {
                         if let Ok(mut lock) = stopper.lock() {
-                            println!("SHOULD STOP");
                             *lock = true;
                         }
                     }
@@ -77,7 +76,7 @@ impl AuraDbusWriter {
         thread::sleep(Duration::from_millis(self.block_time));
         if let Ok(lock) = self.stop.try_lock() {
             if *lock {
-                panic!("Stopping!");
+                panic!("Go signal to stop!");
             }
         }
         Ok(())

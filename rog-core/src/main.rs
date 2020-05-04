@@ -7,7 +7,7 @@ use rog_aura::{
     AuraDbusWriter, LED_MSG_LEN,
 };
 
-static VERSION: &'static str = "0.9.2";
+static VERSION: &'static str = "0.9.3";
 
 #[derive(Debug, Options)]
 struct CLIStart {
@@ -64,17 +64,24 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 SetAuraBuiltin::MultiStatic(_) => {
                     let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
                     for arr in byte_arr.iter() {
-                        writer.write_bytes(arr)?;
+                        match writer.write_bytes(arr) {
+                            Ok(msg) => println!("Response: {}", msg),
+                            Err(err) => println!("Error: {}", err),
+                        }
                     }
                 }
-                _ => {
-                    writer.write_builtin_mode(&command)?;
-                }
+                _ => match writer.write_builtin_mode(&command) {
+                    Ok(msg) => println!("Response: {}", msg),
+                    Err(err) => println!("Error: {}", err),
+                },
             }
         }
     }
     if let Some(brightness) = parsed.bright {
-        writer.write_brightness(brightness.level())?;
+        match writer.write_brightness(brightness.level()) {
+            Ok(msg) => println!("Response: {}", msg),
+            Err(err) => println!("Error: {}", err),
+        }
     }
     Ok(())
 }

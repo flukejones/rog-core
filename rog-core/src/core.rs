@@ -414,7 +414,7 @@ where
                 };
                 self.set_builtin(config, idx_next).await?;
             }
-            AuraCommand::WriteBytes(bytes) => self.write_bytes(&bytes).await?,
+            AuraCommand::WriteBytes(bytes) => self.set_and_save(&bytes, config).await?,
             AuraCommand::WriteEffect(effect) => self.write_effect(effect).await?,
             AuraCommand::ReloadLast => self.reload_last_builtin(&config).await?,
         }
@@ -426,7 +426,7 @@ where
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
-            Duration::from_millis(2),
+            Duration::from_millis(5),
         ) {
             Ok(_) => {}
             Err(err) => match err {

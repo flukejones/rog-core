@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2020-05-04
+### Changed
+- Fixed return of rog-core in client mode
+- Fixed writing of customised builtin LED modes
+
 ## [0.9.2] - 2020-05-04
 ### Added
 - Begin keeping a Changelog
