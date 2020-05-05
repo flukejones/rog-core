@@ -53,7 +53,13 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     );
 
     // Reload settings
-    rogcore.fan_mode_reload(&mut config).await?;
+    let fan_mode_reload_ok = rogcore.fan_mode_reload(&mut config).await;
+
+    match fan_mode_reload_ok{
+        Ok(()) => (),
+        Err(e) => info!("Warning, failed reloading fan mode: {:?}", e),
+    };
+
     let mut led_writer = LedWriter::new(
         rogcore.get_raw_device_handle(),
         laptop.led_endpoint(),
