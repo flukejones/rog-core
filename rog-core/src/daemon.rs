@@ -156,7 +156,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 if let Ok(mut effect_lock) = effect.try_lock() {
                     // Spawn a writer
                     if let Some(effect) = effect_lock.take() {
-                        if effect.len() == 10 {
+                        if effect.len() == 11 {
                             let mut config = config.lock().await;
                             led_writer
                                 .do_command(AuraCommand::WriteEffect(effect), &mut config)
@@ -229,8 +229,8 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
                         iter.read()?,
                         iter.read()?,
                         iter.read()?,
+                        iter.read()?,
                     ];
-
                     *lock = Some(byte_array);
                     let mret = m.msg.method_return().append1(&format!("Got effect part"));
                     Ok(vec![mret])
@@ -240,6 +240,7 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
             }
         })
         .outarg::<&str, _>("reply")
+        .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")

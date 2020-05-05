@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Flip writing order of effect colour blocks every other block write to try
+  and even out. Previously the bottom rows were always last to be written.
 
 ## [0.9.4] - 2020-05-05
 ### Changed

@@ -71,7 +71,8 @@ impl AuraDbusWriter {
             .append1(&group[6].to_vec())
             .append1(&group[7].to_vec())
             .append1(&group[8].to_vec())
-            .append1(&group[9].to_vec());
+            .append1(&group[9].to_vec())
+            .append1(&group[10].to_vec());
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_millis(self.block_time));
         if let Ok(lock) = self.stop.try_lock() {

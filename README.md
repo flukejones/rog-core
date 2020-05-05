@@ -13,7 +13,7 @@ captures from others with different ROG laptops then I should be able to add the
 
 I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
 
-## Requirements
+## Requirements for compiling
 
 - `rustc` + `cargo` + `make`
 - `libusb-1.0-0-dev`
@@ -58,7 +58,7 @@ I can't guarantee stability of updating via PPA yet.
 ## Updating
 
 Occasionally I might break things for you by tweaking or changing the config file layout. Usually this will mean you
-need to remove `/etc/rog-core.toml' and restart the daemon to create a new one. You *can* back up the old one and copy
+need to remove `/etc/rog-core.conf' and restart the daemon to create a new one. You *can* back up the old one and copy
 settings back over (then restart daemon again).
 
 ## Use

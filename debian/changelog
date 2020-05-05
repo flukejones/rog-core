@@ -1,3 +1,9 @@
+rog-core (0.9.4) focal; urgency=medium
+
+  * Fix reloading last keyboard brightness on boot
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 05 May 2020 14:24:46 +1200
+
 rog-core (0.9.3) focal; urgency=medium
 
   * Fixes to rog-core client functionality

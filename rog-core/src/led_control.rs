@@ -40,6 +40,7 @@ where
     supported_modes: Vec<BuiltInModeByte>,
     led_endpoint: u8,
     initialised: bool,
+    flip_effect_write: bool,
     _phantom: PhantomData<&'d DeviceHandle<C>>,
 }
 
@@ -63,6 +64,7 @@ where
             bright_min_max,
             supported_modes,
             initialised: false,
+            flip_effect_write: false,
             _phantom: PhantomData,
         }
     }
@@ -138,11 +140,11 @@ where
     }
 
     /// Should only be used if the bytes you are writing are verified correct
-    async fn write_bytes(&mut self, message: &[u8]) -> Result<(), AuraError> {
+    async fn write_bytes(&self, message: &[u8]) -> Result<(), AuraError> {
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
-            Duration::from_millis(5),
+            Duration::from_millis(10),
         ) {
             Ok(_) => {}
             Err(err) => match err {
@@ -153,7 +155,7 @@ where
         Ok(())
     }
 
-    async fn write_array_of_bytes(&mut self, messages: &[&[u8]]) -> Result<(), AuraError> {
+    async fn write_array_of_bytes(&self, messages: &[&[u8]]) -> Result<(), AuraError> {
         for message in messages {
             self.write_bytes(*message).await?;
             self.write_bytes(&LED_SET).await?;
@@ -166,25 +168,22 @@ where
     /// Write an effect block
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
-    async fn write_effect(&self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
-        for row in effect.iter() {
-            match unsafe { self.handle.as_ref() }.write_interrupt(
-                self.led_endpoint,
-                row,
-                Duration::from_millis(1),
-            ) {
-                Ok(_) => {}
-                Err(err) => match err {
-                    rusb::Error::Timeout => {}
-                    _ => error!("Failed to write LED interrupt: {:?}", err),
-                },
+    async fn write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
+        if self.flip_effect_write {
+            for row in effect.iter().rev() {
+                self.write_bytes(row).await?;
+            }
+        } else {
+            for row in effect.iter() {
+                self.write_bytes(row).await?;
             }
         }
+        self.flip_effect_write = !self.flip_effect_write;
         Ok(())
     }
 
     /// Used to set a builtin mode and save the settings for it
-    async fn set_and_save(&mut self, bytes: &[u8], config: &mut Config) -> Result<(), AuraError> {
+    async fn set_and_save(&self, bytes: &[u8], config: &mut Config) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
         // safety pass-through of possible effect write
         if bytes[1] == 0xbc {
@@ -202,7 +201,7 @@ where
     }
 
     /// Used to set a builtin mode and save the settings for it
-    async fn reload_last_builtin(&mut self, config: &Config) -> Result<(), AuraError> {
+    async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
         let mode_curr = config.current_mode[3];
         let mode = config
             .builtin_modes
@@ -221,7 +220,7 @@ where
     /// Select next Aura effect
     ///
     /// If the current effect is the last one then the effect selected wraps around to the first.
-    async fn set_builtin(&mut self, config: &mut Config, index: usize) -> Result<(), AuraError> {
+    async fn set_builtin(&self, config: &mut Config, index: usize) -> Result<(), AuraError> {
         let mode_next = config
             .builtin_modes
             .get_field_from(self.supported_modes[index].into())

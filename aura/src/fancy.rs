@@ -3,13 +3,17 @@
 ///
 /// Each row of the internal array is a full HID packet that can be sent
 /// to the keyboard EC. One row controls one group of keys, these keys are not
-/// neccessarily all on the same row of the keyboard, with some splitting between
+/// necessarily all on the same row of the keyboard, with some splitting between
 /// two rows.
-#[derive(Clone)]
-pub struct KeyColourArray([[u8; 64]; 10]);
+pub struct KeyColourArray([[u8; 64]; 11]);
+impl Default for KeyColourArray {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl KeyColourArray {
     pub fn new() -> Self {
-        let mut set = [[0u8; 64]; 10];
+        let mut set = [[0u8; 64]; 11];
         for (count, row) in set.iter_mut().enumerate() {
             row[0] = 0x5d; // Report ID
             row[1] = 0xbc; // Mode = custom??, 0xb3 is builtin
@@ -18,9 +22,10 @@ impl KeyColourArray {
             row[4] = 0x01; // ??, 4,5,6 are normally RGB for builtin mode colours
             row[5] = 0x01; // ??
             row[6] = (count as u8) << 4; // Key group
-            row[7] = 0x10; // 0b00010000 addressing? flips for group a0
-            if count == 9 {
+            if count == 10 {
                 row[7] = 0x08; // 0b00001000
+            } else {
+                row[7] = 0x10; // 0b00010000 addressing? flips for group a0
             }
             row[8] = 0x00;
         }
@@ -49,8 +54,8 @@ impl KeyColourArray {
     pub fn key(&mut self, key: Key) -> (&mut u8, &mut u8, &mut u8) {
         // Tuples are indexes in to array
         let (row, col) = match key {
-            Key::VolUp => (0, 15),
-            Key::VolDown => (0, 18),
+            Key::VolDown => (0, 15),
+            Key::VolUp => (0, 18),
             Key::MicMute => (0, 21),
             Key::ROG => (0, 24),
             //
@@ -168,11 +173,12 @@ impl KeyColourArray {
     }
 
     #[inline]
-    pub fn get(&self) -> &[[u8; 64]; 10] {
+    pub fn get(&self) -> &[[u8; 64]; 11] {
         &self.0
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum Key {
     VolUp,
     VolDown,
@@ -271,4 +277,129 @@ pub enum Key {
     Left,
     Right,
     RFn,
+}
+
+pub trait KeyLayout {
+    fn get_rows(&self) -> &Vec<Vec<Key>>;
+}
+
+pub struct GX502Layout(Vec<Vec<Key>>);
+
+impl KeyLayout for GX502Layout {
+    fn get_rows(&self) -> &Vec<Vec<Key>> {
+        &self.0
+    }
+}
+
+impl Default for GX502Layout {
+    fn default() -> Self {
+        GX502Layout(vec![
+            vec![Key::VolDown, Key::VolUp, Key::MicMute, Key::ROG],
+            vec![
+                Key::Esc,
+                Key::F1,
+                Key::F2,
+                Key::F3,
+                Key::F4,
+                Key::F5,
+                Key::F6,
+                Key::F7,
+                Key::F8,
+                Key::F9,
+                Key::F10,
+                Key::F11,
+                Key::F12,
+                Key::Del,
+            ],
+            vec![
+                Key::Tilde,
+                Key::N1,
+                Key::N2,
+                Key::N3,
+                Key::N4,
+                Key::N5,
+                Key::N6,
+                Key::N7,
+                Key::N8,
+                Key::N9,
+                Key::N0,
+                Key::Hyphen,
+                Key::Equals,
+                Key::BkSpc1,
+                Key::BkSpc2,
+                Key::BkSpc3,
+                Key::Home,
+            ],
+            vec![
+                Key::Tab,
+                Key::Q,
+                Key::W,
+                Key::E,
+                Key::R,
+                Key::T,
+                Key::Y,
+                Key::U,
+                Key::I,
+                Key::O,
+                Key::P,
+                Key::LBracket,
+                Key::RBracket,
+                Key::BackSlash,
+                Key::PgUp,
+            ],
+            vec![
+                Key::Caps,
+                Key::A,
+                Key::S,
+                Key::D,
+                Key::F,
+                Key::G,
+                Key::H,
+                Key::J,
+                Key::K,
+                Key::L,
+                Key::SemiColon,
+                Key::Quote,
+                //
+                Key::Ret1,
+                Key::Ret2,
+                Key::Ret3,
+                Key::PgDn,
+            ],
+            vec![
+                Key::LShift,
+                Key::Z,
+                Key::X,
+                Key::C,
+                Key::V,
+                Key::B,
+                Key::N,
+                Key::M,
+                Key::Comma,
+                Key::Period,
+                Key::FwdSlash,
+                Key::Rshift1,
+                Key::Rshift2,
+                Key::Rshift3,
+                Key::End,
+            ],
+            vec![
+                Key::LCtrl,
+                Key::LFn,
+                //
+                Key::Meta,
+                Key::LAlt,
+                Key::Space1,
+                Key::Space2,
+                Key::Space3,
+                Key::Space4,
+                Key::RAlt,
+                Key::PrtSc,
+                Key::RCtrl,
+                Key::Up,
+                Key::RFn,
+            ],
+            vec![Key::Left, Key::Down, Key::Right],
+        ])
+    }
 }
