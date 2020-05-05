@@ -7,5 +7,7 @@ mod core;
 pub mod daemon;
 /// Laptop matching to determine capabilities
 mod laptops;
+///
+mod led_control;
 /// A virtual "consumer device" to help emit the correct key codes
 mod virt_device;

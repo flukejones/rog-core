@@ -1,9 +1,16 @@
-use crate::{config::Config, core::*, laptops::match_laptop};
+use crate::{
+    config::Config,
+    core::*,
+    laptops::match_laptop,
+    led_control::{AuraCommand, LedWriter},
+};
+
 use dbus::{
     channel::Sender,
     nonblock::Process,
     tree::{Factory, MTSync, Method, MethodErr, Signal, Tree},
 };
+
 use dbus_tokio::connection;
 use log::{error, info, warn};
 use rog_aura::{DBUS_IFACE, DBUS_PATH};
@@ -46,7 +53,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     );
 
     // Reload settings
-    rogcore.reload(&mut config).await?;
+    rogcore.fan_mode_reload(&mut config).await?;
     let mut led_writer = LedWriter::new(
         rogcore.get_raw_device_handle(),
         laptop.led_endpoint(),

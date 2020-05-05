@@ -1,5 +1,4 @@
-use crate::config::Config;
-use crate::core::{AuraCommand, RogCore};
+use crate::{config::Config, core::RogCore, led_control::AuraCommand};
 use rog_aura::{error::AuraError, BuiltInModeByte};
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;

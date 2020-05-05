@@ -1,3 +1,10 @@
+/// A `KeyColourArray` contains all data to change the full set of keyboard
+/// key colours individually.
+///
+/// Each row of the internal array is a full HID packet that can be sent
+/// to the keyboard EC. One row controls one group of keys, these keys are not
+/// neccessarily all on the same row of the keyboard, with some splitting between
+/// two rows.
 #[derive(Clone)]
 pub struct KeyColourArray([[u8; 64]; 10]);
 impl KeyColourArray {
@@ -37,6 +44,8 @@ impl KeyColourArray {
         *bb = b;
     }
 
+    /// Indexes in to `KeyColourArray` at the correct row and column
+    /// to set a series of three bytes to the chosen R,G,B values
     pub fn key(&mut self, key: Key) -> (&mut u8, &mut u8, &mut u8) {
         // Tuples are indexes in to array
         let (row, col) = match key {
