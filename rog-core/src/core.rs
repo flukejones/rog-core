@@ -97,7 +97,11 @@ impl RogCore {
     pub async fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = RogCore::get_fan_path()?;
         let mut file = OpenOptions::new().write(true).open(path)?;
-        file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())?;
+        file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
+            .map_err(|err| {
+                error!("Could not write fan mode: {:?}", err);
+            })
+            .unwrap();
         self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
         info!("Reloaded last saved settings");
         Ok(())
