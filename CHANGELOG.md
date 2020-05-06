@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Flip writing order of effect colour blocks every other block write to try
   and even out. Previously the bottom rows were always last to be written.
+- Add more examples: ball, comet, pulser.
+- Refine the keyboard layout grid for GX502.
 
 ## [0.9.4] - 2020-05-05
 ### Changed

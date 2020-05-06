@@ -52,6 +52,7 @@ impl<'d, C> LedWriter<'d, C>
 where
     C: rusb::UsbContext,
 {
+    #[inline]
     pub fn new(
         device_handle: NonNull<DeviceHandle<C>>,
         led_endpoint: u8,
@@ -140,11 +141,12 @@ where
     }
 
     /// Should only be used if the bytes you are writing are verified correct
+    #[inline]
     async fn write_bytes(&self, message: &[u8]) -> Result<(), AuraError> {
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
-            Duration::from_millis(10),
+            Duration::from_millis(2),
         ) {
             Ok(_) => {}
             Err(err) => match err {
@@ -155,6 +157,7 @@ where
         Ok(())
     }
 
+    #[inline]
     async fn write_array_of_bytes(&self, messages: &[&[u8]]) -> Result<(), AuraError> {
         for message in messages {
             self.write_bytes(*message).await?;
@@ -168,6 +171,7 @@ where
     /// Write an effect block
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
+    #[inline]
     async fn write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
         if self.flip_effect_write {
             for row in effect.iter().rev() {
@@ -179,10 +183,12 @@ where
             }
         }
         self.flip_effect_write = !self.flip_effect_write;
+        let now = std::time::Instant::now();
         Ok(())
     }
 
     /// Used to set a builtin mode and save the settings for it
+    #[inline]
     async fn set_and_save(&self, bytes: &[u8], config: &mut Config) -> Result<(), AuraError> {
         let mode = BuiltInModeByte::from(bytes[3]);
         // safety pass-through of possible effect write
@@ -201,6 +207,7 @@ where
     }
 
     /// Used to set a builtin mode and save the settings for it
+    #[inline]
     async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
         let mode_curr = config.current_mode[3];
         let mode = config
@@ -220,6 +227,7 @@ where
     /// Select next Aura effect
     ///
     /// If the current effect is the last one then the effect selected wraps around to the first.
+    #[inline]
     async fn set_builtin(&self, config: &mut Config, index: usize) -> Result<(), AuraError> {
         let mode_next = config
             .builtin_modes

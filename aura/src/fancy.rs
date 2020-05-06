@@ -5,6 +5,7 @@
 /// to the keyboard EC. One row controls one group of keys, these keys are not
 /// necessarily all on the same row of the keyboard, with some splitting between
 /// two rows.
+#[derive(Clone)]
 pub struct KeyColourArray([[u8; 64]; 11]);
 impl Default for KeyColourArray {
     fn default() -> Self {
@@ -43,15 +44,16 @@ impl KeyColourArray {
 
     #[inline]
     pub fn set(&mut self, key: Key, r: u8, g: u8, b: u8) {
-        let (rr, gg, bb) = self.key(key);
-        *rr = r;
-        *gg = g;
-        *bb = b;
+        if let Some((rr, gg, bb)) = self.key(key) {
+            *rr = r;
+            *gg = g;
+            *bb = b;
+        }
     }
 
     /// Indexes in to `KeyColourArray` at the correct row and column
     /// to set a series of three bytes to the chosen R,G,B values
-    pub fn key(&mut self, key: Key) -> (&mut u8, &mut u8, &mut u8) {
+    pub fn key(&mut self, key: Key) -> Option<(&mut u8, &mut u8, &mut u8)> {
         // Tuples are indexes in to array
         let (row, col) = match key {
             Key::VolDown => (0, 15),
@@ -161,14 +163,15 @@ impl KeyColourArray {
             //
             Key::Down => (10, 9),
             Key::Right => (10, 12),
+            Key::None => return None,
         };
         // LOLOLOLOLOLOLOL! Look it's safe okay
         unsafe {
-            (
+            Some((
                 &mut *(&mut self.0[row][col] as *mut u8),
                 &mut *(&mut self.0[row][col + 1] as *mut u8),
                 &mut *(&mut self.0[row][col + 2] as *mut u8),
-            )
+            ))
         }
     }
 
@@ -178,7 +181,7 @@ impl KeyColourArray {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Key {
     VolUp,
     VolDown,
@@ -277,16 +280,17 @@ pub enum Key {
     Left,
     Right,
     RFn,
+    None,
 }
 
 pub trait KeyLayout {
-    fn get_rows(&self) -> &Vec<Vec<Key>>;
+    fn get_rows(&self) -> &Vec<[Key; 17]>;
 }
 
-pub struct GX502Layout(Vec<Vec<Key>>);
+pub struct GX502Layout(Vec<[Key; 17]>);
 
 impl KeyLayout for GX502Layout {
-    fn get_rows(&self) -> &Vec<Vec<Key>> {
+    fn get_rows(&self) -> &Vec<[Key; 17]> {
         &self.0
     }
 }
@@ -294,24 +298,45 @@ impl KeyLayout for GX502Layout {
 impl Default for GX502Layout {
     fn default() -> Self {
         GX502Layout(vec![
-            vec![Key::VolDown, Key::VolUp, Key::MicMute, Key::ROG],
-            vec![
+            [
+                Key::None,
+                Key::None,
+                Key::VolDown,
+                Key::VolUp,
+                Key::MicMute,
+                Key::ROG,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+            ],
+            [
                 Key::Esc,
+                Key::None,
                 Key::F1,
                 Key::F2,
                 Key::F3,
                 Key::F4,
+                Key::None, // not sure which key to put here
                 Key::F5,
                 Key::F6,
                 Key::F7,
                 Key::F8,
+                Key::F9,
                 Key::F9,
                 Key::F10,
                 Key::F11,
                 Key::F12,
                 Key::Del,
             ],
-            vec![
+            [
                 Key::Tilde,
                 Key::N1,
                 Key::N2,
@@ -330,7 +355,7 @@ impl Default for GX502Layout {
                 Key::BkSpc3,
                 Key::Home,
             ],
-            vec![
+            [
                 Key::Tab,
                 Key::Q,
                 Key::W,
@@ -345,9 +370,11 @@ impl Default for GX502Layout {
                 Key::LBracket,
                 Key::RBracket,
                 Key::BackSlash,
+                Key::BackSlash,
+                Key::BackSlash,
                 Key::PgUp,
             ],
-            vec![
+            [
                 Key::Caps,
                 Key::A,
                 Key::S,
@@ -360,13 +387,14 @@ impl Default for GX502Layout {
                 Key::L,
                 Key::SemiColon,
                 Key::Quote,
-                //
+                Key::Quote,
                 Key::Ret1,
                 Key::Ret2,
                 Key::Ret3,
                 Key::PgDn,
             ],
-            vec![
+            [
+                Key::LShift,
                 Key::LShift,
                 Key::Z,
                 Key::X,
@@ -378,28 +406,50 @@ impl Default for GX502Layout {
                 Key::Comma,
                 Key::Period,
                 Key::FwdSlash,
+                Key::FwdSlash,
                 Key::Rshift1,
                 Key::Rshift2,
                 Key::Rshift3,
                 Key::End,
             ],
-            vec![
+            [
                 Key::LCtrl,
                 Key::LFn,
-                //
                 Key::Meta,
                 Key::LAlt,
                 Key::Space1,
                 Key::Space2,
                 Key::Space3,
                 Key::Space4,
+                Key::Space4,
                 Key::RAlt,
                 Key::PrtSc,
                 Key::RCtrl,
+                Key::RCtrl,
+                Key::Left,
                 Key::Up,
+                Key::Right,
                 Key::RFn,
             ],
-            vec![Key::Left, Key::Down, Key::Right],
+            [
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::None,
+                Key::Left,
+                Key::Down,
+                Key::Right,
+                Key::None,
+            ],
         ])
     }
 }

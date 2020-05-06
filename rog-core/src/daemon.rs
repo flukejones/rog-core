@@ -157,18 +157,16 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 // Write a colour block
-                if let Ok(mut effect_lock) = effect.try_lock() {
-                    // Spawn a writer
-                    if let Some(effect) = effect_lock.take() {
-                        if effect.len() == 11 {
-                            let mut config = config.lock().await;
-                            led_writer
-                                .do_command(AuraCommand::WriteEffect(effect), &mut config)
-                                .await
-                                .map_err(|err| warn!("{:?}", err))
-                                .unwrap();
-                            time_mark = Instant::now();
-                        }
+                let mut effect_lock = effect.lock().await;
+                if let Some(effect) = effect_lock.take() {
+                    if effect.len() == 11 {
+                        let mut config = config.lock().await;
+                        led_writer
+                            .do_command(AuraCommand::WriteEffect(effect), &mut config)
+                            .await
+                            .map_err(|err| warn!("{:?}", err))
+                            .unwrap();
+                        time_mark = Instant::now();
                     }
                 }
             }

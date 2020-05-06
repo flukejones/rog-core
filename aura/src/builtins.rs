@@ -60,7 +60,7 @@ impl BuiltInModeBytes {
             BuiltInModeByte::WideZoomy => &self.widezoomy,
             _ => return None,
         };
-        return Some(bytes);
+        Some(bytes)
     }
 }
 impl Default for BuiltInModeBytes {

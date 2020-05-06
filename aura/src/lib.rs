@@ -1,6 +1,6 @@
-pub static DBUS_NAME: &'static str = "org.rogcore.Daemon";
-pub static DBUS_PATH: &'static str = "/org/rogcore/Daemon";
-pub static DBUS_IFACE: &'static str = "org.rogcore.Daemon";
+pub static DBUS_NAME: &str = "org.rogcore.Daemon";
+pub static DBUS_PATH: &str = "/org/rogcore/Daemon";
+pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
 pub const LED_MSG_LEN: usize = 17;
 
 mod builtins;

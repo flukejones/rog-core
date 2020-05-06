@@ -11,29 +11,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         for (r, row) in rows.iter().enumerate() {
             for (k, key) in row.iter().enumerate() {
-                *key_colours.key(*key).0 = 254;
+                if let Some(c) = key_colours.key(*key) {
+                    *c.0 = 255;
+                };
                 // Last key of previous row
                 if k == 0 {
                     if r == 0 {
                         let k = &rows[rows.len() - 1][rows[rows.len() - 1].len() - 1];
-                        *key_colours.key(*k).0 = 0;
+                        if let Some(c) = key_colours.key(*k) {
+                            *c.0 = 0;
+                        };
                     } else {
                         let k = &rows[r - 1][rows[r - 1].len() - 1];
-                        *key_colours.key(*k).0 = 0;
+                        if let Some(c) = key_colours.key(*k) {
+                            *c.0 = 0;
+                        };
                     }
                 } else {
                     let k = &rows[r][k - 1];
-                    *key_colours.key(*k).0 = 0;
+                    if let Some(c) = key_colours.key(*k) {
+                        *c.0 = 0;
+                    };
                 }
-                *key_colours.key(Key::Up).0 = 255;
-                *key_colours.key(Key::Left).0 = 255;
-                *key_colours.key(Key::Right).0 = 255;
-                *key_colours.key(Key::Down).0 = 255;
+                if let Some(c) = key_colours.key(Key::Up) {
+                    *c.0 = 255;
+                };
+                *key_colours.key(Key::Left).unwrap().0 = 255;
+                *key_colours.key(Key::Right).unwrap().0 = 255;
+                *key_colours.key(Key::Down).unwrap().0 = 255;
 
-                *key_colours.key(Key::W).0 = 255;
-                *key_colours.key(Key::A).0 = 255;
-                *key_colours.key(Key::S).0 = 255;
-                *key_colours.key(Key::D).0 = 255;
+                *key_colours.key(Key::W).unwrap().0 = 255;
+                *key_colours.key(Key::A).unwrap().0 = 255;
+                *key_colours.key(Key::S).unwrap().0 = 255;
+                *key_colours.key(Key::D).unwrap().0 = 255;
 
                 writer.write_colour_block(&key_colours)?;
                 std::thread::sleep(std::time::Duration::from_millis(100));

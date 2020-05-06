@@ -3,14 +3,17 @@ use dbus::blocking::BlockingSender;
 use dbus::channel::Sender;
 use dbus::{blocking::Connection, Message};
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::{thread, time::Duration};
 
 /// Simplified way to write a effect block
 pub struct AuraDbusWriter {
     connection: Box<Connection>,
     block_time: u64,
-    stop: Arc<Mutex<bool>>,
+    stop: Arc<AtomicBool>,
 }
 
 impl AuraDbusWriter {
@@ -20,7 +23,7 @@ impl AuraDbusWriter {
         Ok(AuraDbusWriter {
             connection: Box::new(connection),
             block_time: 10,
-            stop: Arc::new(Mutex::new(false)),
+            stop: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -35,9 +38,7 @@ impl AuraDbusWriter {
                 println!("GOT {:?}", msg);
                 if let Ok(stop) = msg.read1::<bool>() {
                     if stop {
-                        if let Ok(mut lock) = stopper.lock() {
-                            *lock = true;
-                        }
+                        stopper.store(true, Ordering::Relaxed);
                     }
                 }
                 true
@@ -75,10 +76,8 @@ impl AuraDbusWriter {
             .append1(&group[10].to_vec());
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_millis(self.block_time));
-        if let Ok(lock) = self.stop.try_lock() {
-            if *lock {
-                panic!("Go signal to stop!");
-            }
+        if self.stop.load(Ordering::Relaxed) {
+            panic!("Go signal to stop!");
         }
         Ok(())
     }

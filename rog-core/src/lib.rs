@@ -1,3 +1,4 @@
+#![deny(unused_must_use)]
 /// Configuration loading, saving
 mod config;
 /// The core module which allows writing to LEDs or polling the

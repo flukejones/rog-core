@@ -1,5 +1,4 @@
-use rog_aura::{AuraDbusWriter, GX502Layout, Key, KeyColourArray, KeyLayout};
-use std::ops::Sub;
+use rog_aura::{AuraDbusWriter, GX502Layout, KeyColourArray, KeyLayout};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = AuraDbusWriter::new()?;
@@ -10,12 +9,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.init_effect()?;
     let rows = layout.get_rows();
 
-    let mut fade = 50;
+    let mut fade = 17;
     let mut flip = false;
     loop {
         for row in rows {
             for (k, key) in row.iter().enumerate() {
-                *key_colours.key(*key).1 = 255 / fade / (k + 1) as u8;
+                if let Some(c) = key_colours.key(*key) {
+                    *c.0 = 255 / fade / (k + 1) as u8;
+                };
             }
         }
 
@@ -27,10 +28,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 flip = !flip;
             }
-        } else if fade < 50 {
+        } else if fade < 17 {
             fade += 1;
         } else {
             flip = !flip;
         }
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }

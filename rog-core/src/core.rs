@@ -35,7 +35,7 @@ impl RogCore {
         let mut dev_handle = RogCore::get_device(vendor, product)?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
-        let dev_config = dev_handle.device().config_descriptor(0).unwrap();
+        let dev_config = dev_handle.device().config_descriptor(0)?;
         // Interface with outputs
         let mut interface = 0;
         for iface in dev_config.interfaces() {
@@ -54,7 +54,7 @@ impl RogCore {
             }
         }
 
-        dev_handle.set_auto_detach_kernel_driver(true).unwrap();
+        dev_handle.set_auto_detach_kernel_driver(true)?;
         dev_handle.claim_interface(interface)?;
 
         Ok(RogCore {
@@ -98,12 +98,9 @@ impl RogCore {
         let path = RogCore::get_fan_path()?;
         let mut file = OpenOptions::new().write(true).open(path)?;
         file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
-            .map_err(|err| {
-                error!("Could not write fan mode: {:?}", err);
-            })
-            .unwrap();
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
         self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
-        info!("Reloaded last saved settings");
+        info!("Reloaded fan mode: {:?}", FanLevel::from(config.fan_mode));
         Ok(())
     }
 
@@ -122,7 +119,9 @@ impl RogCore {
                 n = 0;
             }
             info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
-            fan_ctrl.write_all(format!("{:?}\n", n).as_bytes())?;
+            fan_ctrl
+                .write_all(format!("{:?}\n", config.fan_mode).as_bytes())
+                .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
             self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
             config.fan_mode = n;
             config.write();
