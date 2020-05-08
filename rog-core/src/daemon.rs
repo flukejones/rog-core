@@ -175,11 +175,11 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             // Cool-down steps
             // This block is to prevent the loop spooling as fast as possible and saturating the CPU
             if now.duration_since(time_mark).as_millis() > 500 {
-                std::thread::sleep(Duration::from_millis(200));
+                tokio::time::delay_for(Duration::from_millis(200)).await;
             } else if now.duration_since(time_mark).as_millis() > 100 {
-                std::thread::sleep(Duration::from_millis(50));
+                tokio::time::delay_for(Duration::from_millis(50)).await;
             } else {
-                std::thread::sleep(Duration::from_micros(300));
+                tokio::time::delay_for(Duration::from_micros(300)).await;
             }
         }
     });
