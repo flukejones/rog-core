@@ -9,35 +9,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
         let device_desc = device.device_descriptor().unwrap();
         if device_desc.vendor_id() == 0x0b05 {
             match device_desc.product_id() {
-                0x1869 | 0x1866 => {
-                    info!("Found GX502 or similar");
-                    return LaptopBase {
-                        usb_vendor: 0x0B05,
-                        usb_product: 0x1866,
-                        report_filter_bytes: vec![0x5a, 0x02],
-                        min_led_bright: 0x00,
-                        max_led_bright: 0x03,
-                        //from `lsusb -vd 0b05:1866`
-                        led_endpoint: 0x04,
-                        //from `lsusb -vd 0b05:1866`
-                        key_endpoint: 0x83,
-                        supported_modes: vec![
-                            BuiltInModeByte::Single,
-                            BuiltInModeByte::Breathing,
-                            BuiltInModeByte::Cycle,
-                            BuiltInModeByte::Rainbow,
-                            BuiltInModeByte::Rain,
-                            BuiltInModeByte::Random,
-                            BuiltInModeByte::Highlight,
-                            BuiltInModeByte::Laser,
-                            BuiltInModeByte::Ripple,
-                            BuiltInModeByte::Pulse,
-                            BuiltInModeByte::ThinZoomy,
-                            BuiltInModeByte::WideZoomy,
-                        ],
-                        //backlight: Backlight::new("intel_backlight").unwrap(),
-                    };
-                }
+                0x1869 | 0x1866 => return choose_1866_device(),
                 0x1854 => {
                     info!("Found GL753 or similar");
                     return LaptopBase {
@@ -63,6 +35,54 @@ pub(crate) fn match_laptop() -> LaptopBase {
         }
     }
     panic!("could not match laptop");
+}
+
+fn choose_1866_device() -> LaptopBase {
+    let dmi = sysfs_class::DmiId::default();
+    let board_name = dmi.board_name().expect("Could not get board_name");
+    let mut laptop = LaptopBase {
+        usb_vendor: 0x0B05,
+        usb_product: 0x1866,
+        report_filter_bytes: vec![0x5a, 0x02],
+        min_led_bright: 0x00,
+        max_led_bright: 0x03,
+        //from `lsusb -vd 0b05:1866`
+        led_endpoint: 0x04,
+        //from `lsusb -vd 0b05:1866`
+        key_endpoint: 0x83,
+        supported_modes: vec![],
+        //backlight: Backlight::new("intel_backlight").unwrap(),
+    };
+    match &board_name.as_str()[..5] {
+        "GX502" | "GA502" => {
+            info!("Found GX502 or GA502 series");
+            laptop.supported_modes = vec![
+                BuiltInModeByte::Single,
+                BuiltInModeByte::Breathing,
+                BuiltInModeByte::Cycle,
+                BuiltInModeByte::Rainbow,
+                BuiltInModeByte::Rain,
+                BuiltInModeByte::Random,
+                BuiltInModeByte::Highlight,
+                BuiltInModeByte::Laser,
+                BuiltInModeByte::Ripple,
+                BuiltInModeByte::Pulse,
+                BuiltInModeByte::ThinZoomy,
+                BuiltInModeByte::WideZoomy,
+            ];
+        }
+        "GM501" => {
+            info!("Found GM501 series");
+            laptop.supported_modes = vec![
+                BuiltInModeByte::Single,
+                BuiltInModeByte::Breathing,
+                BuiltInModeByte::Cycle,
+                BuiltInModeByte::Rainbow,
+            ];
+        }
+        _ => panic!("Unsupported laptop: {}, please request support at https://github.com/flukejones/rog-core", board_name),
+    }
+    laptop
 }
 
 pub(super) struct LaptopBase {

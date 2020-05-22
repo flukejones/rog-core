@@ -114,6 +114,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         loop {
             connection.process_all();
 
+            // Check if a key press issued a command
             let res = aura_command_recv.recv_timeout(Duration::from_micros(50));
             if let Ok(command) = res {
                 let mut config = config.lock().await;
@@ -134,6 +135,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 *effect = None;
                 time_mark = Instant::now();
             } else {
+                // Check if single mode
                 if let Ok(mut lock) = input.try_lock() {
                     if let Some(bytes) = lock.take() {
                         if bytes.len() > 0 {
@@ -157,10 +159,17 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 if let Some(effect) = effect_lock.take() {
                     if effect.len() == 11 {
                         let mut config = config.lock().await;
-                        led_writer
-                            .do_command(AuraCommand::WriteEffect(effect), &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{:?}", err));
+                        if effect.len() > 4 {
+                            led_writer
+                                .do_command(AuraCommand::WriteEffect(effect), &mut config)
+                                .await
+                                .unwrap_or_else(|err| warn!("{:?}", err));
+                        } else {
+                            led_writer
+                                .do_command(AuraCommand::WriteMultizone(effect), &mut config)
+                                .await
+                                .unwrap_or_else(|err| warn!("{:?}", err));
+                        }
                         time_mark = Instant::now();
                     }
                 }
@@ -204,6 +213,31 @@ fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
             }
         })
         .outarg::<&str, _>("reply")
+        .inarg::<Vec<u8>, _>("bytearray")
+}
+
+fn dbus_create_ledmultizone_method(effect: EffectType) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        // method for ledmessage
+        .method("LedWriteMultizone", (), {
+            move |m| {
+                if let Ok(mut lock) = effect.try_lock() {
+                    let mut iter = m.msg.iter_init();
+                    let byte_array: Vec<Vec<u8>> =
+                        vec![iter.read()?, iter.read()?, iter.read()?, iter.read()?];
+                    *lock = Some(byte_array);
+                    let mret = m.msg.method_return().append1(&format!("Got effect part"));
+                    Ok(vec![mret])
+                } else {
+                    Err(MethodErr::failed("Could not lock daemon for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("reply")
+        .inarg::<Vec<u8>, _>("bytearray")
+        .inarg::<Vec<u8>, _>("bytearray")
+        .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
@@ -261,6 +295,7 @@ fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType, Arc<Signal<(
             factory
                 .interface(DBUS_IFACE, ())
                 .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
+                .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
                 .add_m(dbus_create_ledeffect_method(input_effect.clone()))
                 .add_s(effect_cancel_sig.clone()),
         ),

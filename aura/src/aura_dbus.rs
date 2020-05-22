@@ -83,6 +83,26 @@ impl AuraDbusWriter {
     }
 
     #[inline]
+    pub fn write_multizone(
+        &mut self,
+        group: &[[u8; LED_MSG_LEN]; 4],
+    ) -> Result<(), Box<dyn Error>> {
+        self.connection.process(Duration::from_micros(300))?;
+
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
+            .append1(&group[0].to_vec())
+            .append1(&group[1].to_vec())
+            .append1(&group[2].to_vec())
+            .append1(&group[3].to_vec());
+        self.connection.send(msg).unwrap();
+        thread::sleep(Duration::from_millis(self.block_time));
+        if self.stop.load(Ordering::Relaxed) {
+            panic!("Go signal to stop!");
+        }
+        Ok(())
+    }
+
+    #[inline]
     pub fn write_bytes(&self, bytes: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteBytes")?
             .append1(bytes.to_vec());

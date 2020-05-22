@@ -53,7 +53,9 @@ sudo systemctl start rog-core.service
 sudo systemctl enable rog-core.service
 ```
 
-I can't guarantee stability of updating via PPA yet.
+### Gentoo ebuild
+
+Thanks to @aspann you can grab it here [sys-power/rog-core](https://lab.retarded.farm/zappel/zGentoo/-/tree/master/sys-power/rog-core)
 
 ## Updating
 
@@ -130,6 +132,12 @@ with the Aura keys will use the settings that were used via CLI.
 **Supported:**
 
 - GX502 (product 0x1866) (Tested on GX502GW)
+
+**Partial/Inprogress:**
+- GM501
+- G14
+
+Both of these laptops appear to have the same USB device ID as the GX502, but with different features enabled.
 
 **Please help test or provide info for:**
 

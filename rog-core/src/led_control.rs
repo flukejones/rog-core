@@ -24,6 +24,7 @@ pub enum AuraCommand {
     WriteBytes(Vec<u8>),
     WriteEffect(Vec<Vec<u8>>),
     ReloadLast,
+    WriteMultizone(Vec<Vec<u8>>),
 }
 
 /// UNSAFE: Must live as long as RogCore
@@ -136,6 +137,7 @@ where
                 }
             }
             AuraCommand::WriteBytes(bytes) => self.set_and_save(&bytes, config).await?,
+            AuraCommand::WriteMultizone(effect) => self.write_multizone(effect).await?,
             AuraCommand::WriteEffect(effect) => self.write_effect(effect).await?,
             AuraCommand::ReloadLast => self.reload_last_builtin(&config).await?,
         }
@@ -185,6 +187,16 @@ where
             }
         }
         self.flip_effect_write = !self.flip_effect_write;
+        Ok(())
+    }
+
+    #[inline]
+    async fn write_multizone(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
+        for row in effect.iter() {
+            self.write_bytes(row).await?;
+        }
+        self.write_bytes(&LED_SET).await?;
+        self.write_bytes(&LED_APPLY).await?;
         Ok(())
     }
 

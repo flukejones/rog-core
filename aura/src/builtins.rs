@@ -107,6 +107,7 @@ pub enum BuiltInModeByte {
     Pulse = 0x0a,
     ThinZoomy = 0x0b,
     WideZoomy = 0x0c,
+    MultiStatic,
     None,
 }
 impl Default for BuiltInModeByte {
@@ -160,6 +161,7 @@ impl From<BuiltInModeByte> for u8 {
             BuiltInModeByte::Pulse => 0x0a,
             BuiltInModeByte::ThinZoomy => 0x0b,
             BuiltInModeByte::WideZoomy => 0x0c,
+            BuiltInModeByte::MultiStatic => 0x00,
             BuiltInModeByte::None => 0xff,
         }
     }

@@ -55,7 +55,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Version: {}", VERSION);
     }
 
-    let writer = AuraDbusWriter::new()?;
+    let mut writer = AuraDbusWriter::new()?;
 
     if let Some(Command::LedMode(mode)) = parsed.command {
         if let Some(command) = mode.command {
@@ -63,12 +63,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match command {
                 SetAuraBuiltin::MultiStatic(_) => {
                     let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
-                    for arr in byte_arr.iter() {
-                        match writer.write_bytes(arr) {
-                            Ok(msg) => println!("Response: {}", msg),
-                            Err(err) => println!("Error: {}", err),
-                        }
-                    }
+                    writer.write_multizone(&byte_arr)?;
                 }
                 _ => match writer.write_builtin_mode(&command) {
                     Ok(msg) => println!("Response: {}", msg),
