@@ -108,30 +108,32 @@ where
             AuraCommand::BuiltinNext => {
                 // TODO: different path for multi-zone (byte 2 controlled, non-zero)
                 let mode_curr = config.current_mode[3];
-                let idx = self
-                    .supported_modes
-                    .binary_search(&mode_curr.into())
-                    .unwrap();
-                let idx_next = if idx < self.supported_modes.len() - 1 {
-                    idx + 1
+                if let Ok(idx) = self.supported_modes.binary_search(&mode_curr.into()) {
+                    let idx_next = if idx < self.supported_modes.len() - 1 {
+                        idx + 1
+                    } else {
+                        0
+                    };
+                    self.set_builtin(config, idx_next).await?;
                 } else {
-                    0
-                };
-                self.set_builtin(config, idx_next).await?;
+                    warn!("Tried to step to next LED mode while in non-supported mode");
+                    self.set_builtin(config, 0).await?;
+                }
             }
             AuraCommand::BuiltinPrev => {
                 // TODO: different path for multi-zone (byte 2 controlled, non-zero)
                 let mode_curr = config.current_mode[3];
-                let idx = self
-                    .supported_modes
-                    .binary_search(&mode_curr.into())
-                    .unwrap();
-                let idx_next = if idx > 0 {
-                    idx - 1
+                if let Ok(idx) = self.supported_modes.binary_search(&mode_curr.into()) {
+                    let idx_next = if idx > 0 {
+                        idx - 1
+                    } else {
+                        self.supported_modes.len() - 1
+                    };
+                    self.set_builtin(config, idx_next).await?;
                 } else {
-                    self.supported_modes.len() - 1
-                };
-                self.set_builtin(config, idx_next).await?;
+                    warn!("Tried to step to next LED mode while in non-supported mode");
+                    self.set_builtin(config, 0).await?;
+                }
             }
             AuraCommand::WriteBytes(bytes) => self.set_and_save(&bytes, config).await?,
             AuraCommand::WriteEffect(effect) => self.write_effect(effect).await?,
@@ -183,7 +185,6 @@ where
             }
         }
         self.flip_effect_write = !self.flip_effect_write;
-        let now = std::time::Instant::now();
         Ok(())
     }
 
@@ -206,14 +207,13 @@ where
         Err(AuraError::NotSupported)
     }
 
-    /// Used to set a builtin mode and save the settings for it
     #[inline]
     async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
         let mode_curr = config.current_mode[3];
         let mode = config
             .builtin_modes
             .get_field_from(mode_curr)
-            .unwrap()
+            .ok_or(AuraError::NotSupported)?
             .to_owned();
         self.write_bytes(&mode).await?;
         // Reload brightness too
@@ -224,15 +224,12 @@ where
         Ok(())
     }
 
-    /// Select next Aura effect
-    ///
-    /// If the current effect is the last one then the effect selected wraps around to the first.
     #[inline]
     async fn set_builtin(&self, config: &mut Config, index: usize) -> Result<(), AuraError> {
         let mode_next = config
             .builtin_modes
             .get_field_from(self.supported_modes[index].into())
-            .unwrap()
+            .ok_or(AuraError::NotSupported)?
             .to_owned();
         println!("{:X?}", &mode_next);
         self.set_and_save(&mode_next, config).await?;

@@ -31,6 +31,7 @@ impl Config {
                 let mut c = Config::default();
                 c.current_mode[0] = 0x5d;
                 c.current_mode[1] = 0xb3;
+                // Should be okay to unwrap this as is since it is a Default
                 let toml = toml::to_string(&c).unwrap();
                 file.write_all(toml.as_bytes())
                     .expect("Writing default config failed");

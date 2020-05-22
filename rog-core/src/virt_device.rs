@@ -1,3 +1,4 @@
+use log::error;
 use uhid_virt::{Bus, CreateParams, UHIDDevice};
 
 /// Create a virtual device to emit key-presses
@@ -91,7 +92,8 @@ impl VirtKeys {
                 ]
                 .to_vec(),
             })
-            .unwrap(),
+            .map_err(|err| error!("Could not create virtual device: {:?}", err))
+            .expect("Could not create virtual device"),
         }
     }
 

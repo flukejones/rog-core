@@ -56,8 +56,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     rogcore
         .fan_mode_reload(&mut config)
         .await
-        .map_err(|err| warn!("Fan mode: {}", err))
-        .unwrap();
+        .unwrap_or_else(|err| warn!("Fan mode: {}", err));
     let mut led_writer = LedWriter::new(
         rogcore.get_raw_device_handle(),
         laptop.led_endpoint(),
@@ -104,8 +103,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 laptop
                     .run(&mut rogcore, &config1, bytes, acs)
                     .await
-                    .map_err(|err| warn!("{:?}", err))
-                    .unwrap();
+                    .unwrap_or_else(|err| warn!("{:?}", err));
             }
         }
     });
@@ -122,8 +120,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 led_writer
                     .do_command(command, &mut config)
                     .await
-                    .map_err(|err| warn!("{:?}", err))
-                    .unwrap();
+                    .unwrap_or_else(|err| warn!("{:?}", err));
 
                 connection
                     .send(
@@ -131,7 +128,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                             .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
                             .append1(true),
                     )
-                    .unwrap();
+                    .unwrap_or_else(|_| 0);
                 // Clear any possible queued effect
                 let mut effect = effect.lock().await;
                 *effect = None;
@@ -144,8 +141,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                             led_writer
                                 .do_command(AuraCommand::WriteBytes(bytes), &mut config)
                                 .await
-                                .map_err(|err| warn!("{:?}", err))
-                                .unwrap();
+                                .unwrap_or_else(|err| warn!("{:?}", err));
                             // Also cancel any effect client
                             connection
                                 .send(
@@ -164,8 +160,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         led_writer
                             .do_command(AuraCommand::WriteEffect(effect), &mut config)
                             .await
-                            .map_err(|err| warn!("{:?}", err))
-                            .unwrap();
+                            .unwrap_or_else(|err| warn!("{:?}", err));
                         time_mark = Instant::now();
                     }
                 }

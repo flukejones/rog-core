@@ -72,8 +72,8 @@ impl RogCore {
         vendor: u16,
         product: u16,
     ) -> Result<DeviceHandle<rusb::GlobalContext>, rusb::Error> {
-        for device in rusb::devices().unwrap().iter() {
-            let device_desc = device.device_descriptor().unwrap();
+        for device in rusb::devices()?.iter() {
+            let device_desc = device.device_descriptor()?;
             if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
                 return device.open();
             }
