@@ -138,7 +138,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 // Check if single mode
                 if let Ok(mut lock) = input.try_lock() {
                     if let Some(bytes) = lock.take() {
-                        if bytes.len() > 0 {
+                        if !bytes.is_empty() {
                             let mut config = config.lock().await;
                             led_writer
                                 .do_command(AuraCommand::WriteBytes(bytes), &mut config)

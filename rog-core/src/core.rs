@@ -32,10 +32,16 @@ pub struct RogCore {
 
 impl RogCore {
     pub fn new(vendor: u16, product: u16, led_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
-        let mut dev_handle = RogCore::get_device(vendor, product)?;
+        let mut dev_handle = RogCore::get_device(vendor, product).map_err(|err| {
+            error!("Could not get device handle: {:?}", err);
+            err
+        })?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
-        let dev_config = dev_handle.device().config_descriptor(0)?;
+        let dev_config = dev_handle.device().config_descriptor(0).map_err(|err| {
+            error!("Could not get device config: {:?}", err);
+            err
+        })?;
         // Interface with outputs
         let mut interface = 0;
         for iface in dev_config.interfaces() {
@@ -54,8 +60,16 @@ impl RogCore {
             }
         }
 
-        dev_handle.set_auto_detach_kernel_driver(true)?;
-        dev_handle.claim_interface(interface)?;
+        dev_handle
+            .set_auto_detach_kernel_driver(true)
+            .map_err(|err| {
+                error!("Auto-detach kernel driver failed: {:?}", err);
+                err
+            })?;
+        dev_handle.claim_interface(interface).map_err(|err| {
+            error!("Could not claim device interface: {:?}", err);
+            err
+        })?;
 
         Ok(RogCore {
             handle: dev_handle,
