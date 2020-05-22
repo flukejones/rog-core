@@ -80,7 +80,11 @@ fn choose_1866_device() -> LaptopBase {
                 BuiltInModeByte::Rainbow,
             ];
         }
-        _ => panic!("Unsupported laptop: {}, please request support at https://github.com/flukejones/rog-core", board_name),
+        "GA401" => {
+            // Has no RGB control
+            info!("Found GA401 series");
+        }
+        _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
     laptop
 }

@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Start differentiating between models using the 0x1866 USB device
-- Refactor how to send multizone over dbus
+- Refactor how to send multizone over dbus, and how to write it (write 4 packets before writing SET/APPLY)
+- Begin implementing profiles per board_name
 
 ## [0.9.6] - 2020-22-05
 ### Changed
