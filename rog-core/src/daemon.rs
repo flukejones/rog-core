@@ -1,8 +1,8 @@
 use crate::{
     config::Config,
-    core::*,
     laptops::match_laptop,
     led_control::{AuraCommand, LedWriter},
+    rogcore::*,
 };
 
 use dbus::{

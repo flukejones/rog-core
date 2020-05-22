@@ -13,6 +13,47 @@ captures from others with different ROG laptops then I should be able to add the
 
 I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
 
+## Implemented
+
+- [X] Setting/modifying built-in LED modes
+- [X] Per-key LED setting (PARTIALLY COMPLETE)
+- [ ] Fancy LED modes (custom programs)
+- [X] Daemon mode
+- [X] Saving settings for reload
+- [ ] System control
+  + [X] Sleep
+  + [X] Airplane mode
+  + [X] Screen off? Now mapped to a keycode but has no effect
+  + [X] Screen brightness up/down
+  + [ ] ROG key custom mapping (Can be done in source)
+  + [X] Fan/Performance mode
+  + [ ] Screen off??
+  + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
+- [X] Capture and use hotkeys **Partially completed: aura keys work**
+  + [X] Aura control by Aura keys
+  + [X] Volume + media controls work
+- [X] Logging - required for journalctl
+
+## Other Laptops
+
+**Supported:**
+
+- GX502 (product 0x1866) (Tested on GX502GW)
+
+**Partial/Inprogress:**
+- GM501 (multizone needs testing)
+- G14 (no Lid LED support, all other functions appear to work)
+
+Both of these laptops appear to have the same USB device ID as the GX502, but with different features enabled.
+
+**Please help test or provide info for:**
+
+- GL703(0x1869), GA502 (attempts to use same profile as GX502GW)
+- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
+
+If the USB product ID is 0x1866 or 0x1869 then the per-key profile with hotkeys *should* work - 0x1866 is tested as this
+is what I have.
+
 ## Requirements for compiling
 
 - `rustc` + `cargo` + `make`
@@ -46,7 +87,7 @@ sudo apt-get update
 sudo install rog-core
 ```
 
-and if the service isn't enabled:
+enable and start the service:
 
 ```
 sudo systemctl start rog-core.service
@@ -105,47 +146,6 @@ If the daemon service is enabled then on boot the following will be reloaded fro
 
 The daemon also saves the settings per mode as the keyboard does not do this itself - this means cycling through modes
 with the Aura keys will use the settings that were used via CLI.
-
-## Implemented
-
-- [X] Setting/modifying built-in LED modes
-- [X] Per-key LED setting (PARTIALLY COMPLETE)
-- [ ] Fancy LED modes (custom programs)
-- [X] Daemon mode
-- [X] Saving settings for reload
-- [ ] System control
-  + [X] Sleep
-  + [X] Airplane mode
-  + [X] Screen off? Now mapped to a keycode but has no effect
-  + [X] Screen brightness up/down
-  + [ ] ROG key custom mapping (Can be done in source)
-  + [X] Fan/Performance mode
-  + [ ] Screen off??
-  + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
-- [X] Capture and use hotkeys **Partially completed: aura keys work**
-  + [X] Aura control by Aura keys
-  + [X] Volume + media controls work
-- [X] Logging - required for journalctl
-
-## Other Laptops
-
-**Supported:**
-
-- GX502 (product 0x1866) (Tested on GX502GW)
-
-**Partial/Inprogress:**
-- GM501
-- G14
-
-Both of these laptops appear to have the same USB device ID as the GX502, but with different features enabled.
-
-**Please help test or provide info for:**
-
-- GL703(0x1869), GA502 (attempts to use same profile as GX502GW)
-- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
-
-If the USB product ID is 0x1866 or 0x1869 then the per-key profile with hotkeys *should* work - 0x1866 is tested as this
-is what I have.
 
 ### Wireshark captures
 

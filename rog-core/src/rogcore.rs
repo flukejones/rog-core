@@ -304,7 +304,7 @@ where
 }
 
 #[derive(Debug)]
-enum FanLevel {
+pub enum FanLevel {
     Normal,
     Boost,
     Silent,

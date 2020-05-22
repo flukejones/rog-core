@@ -1,4 +1,5 @@
 use daemon::daemon::start_daemon;
+use daemon::rogcore::FanLevel;
 use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
@@ -19,6 +20,8 @@ struct CLIStart {
     daemon: bool,
     #[options(meta = "VAL", help = "<off, low, med, high>")]
     bright: Option<LedBrightness>,
+    #[options(meta = "FAN", help = "<off, low, med, high>")]
+    fan_mode: Option<FanLevel>,
     #[options(command)]
     command: Option<Command>,
 }
