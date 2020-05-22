@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2020-22-05
+### Changed
+- Fix  needing to double-tap fan-mode to change mode
+
 ## [0.9.5] - 2020-22-05
 ### Changed
 - Flip writing order of effect colour blocks every other block write to try

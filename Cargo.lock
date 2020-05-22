@@ -667,7 +667,7 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 
 [[package]]
 name = "rog-aura"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "dbus",
  "gumdrop",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "rog-daemon"
-version = "0.9.4"
+version = "0.9.6"
 dependencies = [
  "dbus",
  "dbus-tokio",

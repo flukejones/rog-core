@@ -108,24 +108,22 @@ impl RogCore {
         let path = RogCore::get_fan_path()?;
         let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
 
-        let mut buf = String::new();
-        if let Ok(_) = fan_ctrl.read_to_string(&mut buf) {
-            let mut n = u8::from_str_radix(&buf.trim_end(), 10)?;
-            info!("Current fan mode: {:#?}", FanLevel::from(n));
-            // wrap around the step number
-            if n < 2 {
-                n += 1;
-            } else {
-                n = 0;
-            }
-            info!("Fan mode stepped to: {:#?}", FanLevel::from(n));
-            fan_ctrl
-                .write_all(format!("{:?}\n", config.fan_mode).as_bytes())
-                .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
-            self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
-            config.fan_mode = n;
-            config.write();
+        let mut n = config.fan_mode;
+        info!("Current fan mode: {:?}", FanLevel::from(n));
+        // wrap around the step number
+        if n < 2 {
+            n += 1;
+        } else {
+            n = 0;
         }
+        info!("Fan mode stepped to: {:?}", FanLevel::from(n));
+        fan_ctrl
+            .write_all(format!("{:?}", config.fan_mode).as_bytes())
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
+        self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
+        config.fan_mode = n;
+        config.write();
+
         Ok(())
     }
 
