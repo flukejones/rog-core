@@ -1,3 +1,9 @@
+rog-core (0.9.8) focal; urgency=medium
+
+  * Fix fan-mode cli help
+
+ -- Luke Jones <luke@ljones.dev>  Sat, 23 May 2020 18:08:18 +1200
+
 rog-core (0.9.7) focal; urgency=medium
 
   * Start differentiating between models using the 0x1866 USB device

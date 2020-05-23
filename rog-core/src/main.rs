@@ -8,7 +8,7 @@ use rog_aura::{
     AuraDbusWriter, LED_MSG_LEN,
 };
 
-static VERSION: &'static str = "0.9.7";
+static VERSION: &'static str = "0.9.8";
 
 #[derive(Debug, Options)]
 struct CLIStart {
@@ -20,7 +20,7 @@ struct CLIStart {
     daemon: bool,
     #[options(meta = "VAL", help = "<off, low, med, high>")]
     bright: Option<LedBrightness>,
-    #[options(meta = "FAN", help = "<off, low, med, high>")]
+    #[options(meta = "FAN", help = "<silent, normal, boost>")]
     fan_mode: Option<FanLevel>,
     #[options(command)]
     command: Option<Command>,
