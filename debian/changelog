@@ -1,3 +1,12 @@
+rog-core (0.9.7) focal; urgency=medium
+
+  * Start differentiating between models using the 0x1866 USB device
+  * Refactor how to send multizone over dbus, and how to write it (write 4 packets before writing SET/APPLY)
+  * Begin implementing profiles per board_name
+  * Boost toggle for AMD (not freq adjustment yet)
+
+ -- Luke Jones <luke@ljones.dev>  Sat, 23 May 2020 14:38:57 +1200
+
 rog-core (0.9.6) focal; urgency=medium
 
   * Fix needing to double-tap fan-mode to change mode

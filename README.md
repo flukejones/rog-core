@@ -149,6 +149,14 @@ with the Aura keys will use the settings that were used via CLI.
 
 ### DBUS Input
 
+Paths:
+
+```rust
+pub static DBUS_NAME: &str = "org.rogcore.Daemon";
+pub static DBUS_PATH: &str = "/org/rogcore/Daemon";
+pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
+```
+
 Commands: `FanMode`, `LedWriteBytes`, `LedWriteMultizone`, `LedWriteEffect`
 
 TODO: fill in this info

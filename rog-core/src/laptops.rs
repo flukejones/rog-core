@@ -9,7 +9,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
         let device_desc = device.device_descriptor().unwrap();
         if device_desc.vendor_id() == 0x0b05 {
             match device_desc.product_id() {
-                0x1869 | 0x1866 => return choose_1866_device(),
+                0x1869 | 0x1866 => return choose_1866_device(device_desc.product_id()),
                 0x1854 => {
                     info!("Found GL753 or similar");
                     return LaptopBase {
@@ -37,12 +37,12 @@ pub(crate) fn match_laptop() -> LaptopBase {
     panic!("could not match laptop");
 }
 
-fn choose_1866_device() -> LaptopBase {
+fn choose_1866_device(prod: u16) -> LaptopBase {
     let dmi = sysfs_class::DmiId::default();
     let board_name = dmi.board_name().expect("Could not get board_name");
     let mut laptop = LaptopBase {
         usb_vendor: 0x0B05,
-        usb_product: 0x1866,
+        usb_product: prod,
         report_filter_bytes: vec![0x5a, 0x02],
         min_led_bright: 0x00,
         max_led_bright: 0x03,
