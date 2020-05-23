@@ -124,13 +124,13 @@ impl RogCore {
         let path = RogCore::get_fan_path()?;
         let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
 
-        info!("Fan mode set to: {:?}", FanLevel::from(n));
         config.fan_mode = n;
-        fan_ctrl
-            .write_all(format!("{:?}", config.fan_mode).as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
-        self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
         config.write();
+        fan_ctrl
+            .write_all(format!("{:?}\n", config.fan_mode).as_bytes())
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
+        info!("Fan mode set to: {:?}", FanLevel::from(config.fan_mode));
+        self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
         Ok(())
     }
 

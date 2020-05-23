@@ -17,7 +17,7 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
 
 - [X] Setting/modifying built-in LED modes
 - [X] Per-key LED setting (PARTIALLY COMPLETE)
-- [ ] Fancy LED modes (custom programs)
+- [X] Fancy LED modes (See examples)
 - [X] Daemon mode
 - [X] Saving settings for reload
 - [ ] System control
@@ -148,6 +148,14 @@ The daemon also saves the settings per mode as the keyboard does not do this its
 with the Aura keys will use the settings that were used via CLI.
 
 ### DBUS Input
+
+Paths:
+
+```rust
+pub static DBUS_NAME: &str = "org.rogcore.Daemon";
+pub static DBUS_PATH: &str = "/org/rogcore/Daemon";
+pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
+```
 
 Commands: `FanMode`, `LedWriteBytes`, `LedWriteMultizone`, `LedWriteEffect`
 
