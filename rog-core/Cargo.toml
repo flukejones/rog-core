@@ -43,3 +43,5 @@ intel-pstate = "^0.2.1"
 # virtualisation of HID, mainly for outputting consumer key codes
 uhid-virt = "^0.0.4"
 #keycode = "0.3"
+
+thiserror = "^1.0.15"

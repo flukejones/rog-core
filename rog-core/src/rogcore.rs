@@ -1,6 +1,6 @@
 // Return show-stopping errors, otherwise map error to a log level
 
-use crate::{config::Config, virt_device::VirtKeys};
+use crate::{config::Config, error::RogError, virt_device::VirtKeys};
 use log::{error, info, warn};
 use rusb::DeviceHandle;
 use std::error::Error;
@@ -10,6 +10,7 @@ use std::marker::{PhantomData, PhantomPinned};
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
+use std::str::FromStr;
 use std::time::Duration;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
@@ -118,10 +119,21 @@ impl RogCore {
         Ok(())
     }
 
-    pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+    pub fn fan_mode_set(&mut self, n: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = RogCore::get_fan_path()?;
         let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
 
+        info!("Fan mode set to: {:?}", FanLevel::from(n));
+        config.fan_mode = n;
+        fan_ctrl
+            .write_all(format!("{:?}", config.fan_mode).as_bytes())
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
+        self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
+        config.write();
+        Ok(())
+    }
+
+    pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let mut n = config.fan_mode;
         info!("Current fan mode: {:?}", FanLevel::from(n));
         // wrap around the step number
@@ -130,15 +142,7 @@ impl RogCore {
         } else {
             n = 0;
         }
-        info!("Fan mode stepped to: {:?}", FanLevel::from(n));
-        fan_ctrl
-            .write_all(format!("{:?}", config.fan_mode).as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
-        self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
-        config.fan_mode = n;
-        config.write();
-
-        Ok(())
+        self.fan_mode_set(n, config)
     }
 
     fn set_pstate_for_fan_mode(
@@ -308,6 +312,19 @@ pub enum FanLevel {
     Normal,
     Boost,
     Silent,
+}
+
+impl FromStr for FanLevel {
+    type Err = RogError;
+
+    fn from_str(s: &str) -> Result<Self, RogError> {
+        match s.to_lowercase().as_str() {
+            "normal" => Ok(FanLevel::Normal),
+            "boost" => Ok(FanLevel::Boost),
+            "silent" => Ok(FanLevel::Silent),
+            _ => Err(RogError::ParseFanLevel),
+        }
+    }
 }
 
 impl From<u8> for FanLevel {

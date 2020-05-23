@@ -19,6 +19,7 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+type FanModeType = Arc<Mutex<Option<u8>>>;
 type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
 type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 
@@ -81,7 +82,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
 
-    let (tree, input, effect, effect_cancel_signal) = dbus_create_tree();
+    let (tree, input, effect, fan_mode, effect_cancel_signal) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -97,6 +98,15 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // start the keyboard reader and laptop-action loop
     let key_read_handle = tokio::spawn(async move {
         loop {
+            // Fan mode
+            if let Ok(mut lock) = fan_mode.try_lock() {
+                if let Some(n) = lock.take() {
+                    let mut config = config1.lock().await;
+                    rogcore
+                        .fan_mode_set(n, &mut config)
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+            }
             let acs = aura_command_send.clone();
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
@@ -227,7 +237,10 @@ fn dbus_create_ledmultizone_method(effect: EffectType) -> Method<MTSync, ()> {
                     let byte_array: Vec<Vec<u8>> =
                         vec![iter.read()?, iter.read()?, iter.read()?, iter.read()?];
                     *lock = Some(byte_array);
-                    let mret = m.msg.method_return().append1(&format!("Got effect part"));
+                    let mret = m
+                        .msg
+                        .method_return()
+                        .append1(&"Got effect part".to_string());
                     Ok(vec![mret])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
@@ -263,14 +276,12 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
                         iter.read()?,
                     ];
                     *lock = Some(byte_array);
-                    let mret = m.msg.method_return().append1(&format!("Got effect part"));
-                    Ok(vec![mret])
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
-        .outarg::<&str, _>("reply")
         .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")
         .inarg::<Vec<u8>, _>("bytearray")
@@ -284,9 +295,40 @@ fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
-fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType, Arc<Signal<()>>) {
+fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        // method for ledmessage
+        .method("FanMode", (), {
+            move |m| {
+                if let Ok(mut lock) = fan_mode.try_lock() {
+                    let mut iter = m.msg.iter_init();
+                    let byte: u8 = iter.read()?;
+                    *lock = Some(byte);
+                    let mret = m
+                        .msg
+                        .method_return()
+                        .append1(format!("Fan level set to {:?}", FanLevel::from(byte)));
+                    Ok(vec![mret])
+                } else {
+                    Err(MethodErr::failed("Could not lock daemon for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("reply")
+        .inarg::<u8, _>("byte")
+}
+
+fn dbus_create_tree() -> (
+    Tree<MTSync, ()>,
+    LedMsgType,
+    EffectType,
+    FanModeType,
+    Arc<Signal<()>>,
+) {
     let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
     let input_effect: EffectType = Arc::new(Mutex::new(None));
+    let fan_mode: FanModeType = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
     let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
@@ -297,8 +339,9 @@ fn dbus_create_tree() -> (Tree<MTSync, ()>, LedMsgType, EffectType, Arc<Signal<(
                 .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
                 .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
                 .add_m(dbus_create_ledeffect_method(input_effect.clone()))
+                .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
                 .add_s(effect_cancel_sig.clone()),
         ),
     );
-    (tree, input_bytes, input_effect, effect_cancel_sig)
+    (tree, input_bytes, input_effect, fan_mode, effect_cancel_sig)
 }

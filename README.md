@@ -147,6 +147,12 @@ If the daemon service is enabled then on boot the following will be reloaded fro
 The daemon also saves the settings per mode as the keyboard does not do this itself - this means cycling through modes
 with the Aura keys will use the settings that were used via CLI.
 
+### DBUS Input
+
+Commands: `FanMode`, `LedWriteBytes`, `LedWriteMultizone`, `LedWriteEffect`
+
+TODO: fill in this info
+
 ### Wireshark captures
 
 TODO: see `./wireshark_data/` for some captures.

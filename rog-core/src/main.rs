@@ -69,7 +69,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     writer.write_multizone(&byte_arr)?;
                 }
                 _ => match writer.write_builtin_mode(&command) {
-                    Ok(msg) => println!("Response: {}", msg),
+                    Ok(msg) => println!("Daemon response: {}", msg),
                     Err(err) => println!("Error: {}", err),
                 },
             }
@@ -77,7 +77,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(brightness) = parsed.bright {
         match writer.write_brightness(brightness.level()) {
-            Ok(msg) => println!("Response: {}", msg),
+            Ok(msg) => println!("Daemon response: {}", msg),
+            Err(err) => println!("Error: {}", err),
+        }
+    }
+    if let Some(fan_level) = parsed.fan_mode {
+        match writer.write_fan_mode(fan_level.into()) {
+            Ok(msg) => println!("Daemon response: {}", msg),
             Err(err) => println!("Error: {}", err),
         }
     }

@@ -12,3 +12,5 @@ mod led_control;
 pub mod rogcore;
 /// A virtual "consumer device" to help emit the correct key codes
 mod virt_device;
+
+mod error;

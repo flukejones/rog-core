@@ -89,7 +89,7 @@ impl AuraDbusWriter {
     ) -> Result<(), Box<dyn Error>> {
         self.connection.process(Duration::from_micros(300))?;
 
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
             .append1(&group[0].to_vec())
             .append1(&group[1].to_vec())
             .append1(&group[2].to_vec())
@@ -106,6 +106,19 @@ impl AuraDbusWriter {
     pub fn write_bytes(&self, bytes: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteBytes")?
             .append1(bytes.to_vec());
+        let r = self
+            .connection
+            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
+        if let Some(reply) = r.get1::<&str>() {
+            return Ok(reply.to_owned());
+        }
+        Err(Box::new(dbus::Error::new_custom("name", "message")))
+    }
+
+    #[inline]
+    pub fn write_fan_mode(&self, level: u8) -> Result<String, Box<dyn std::error::Error>> {
+        let msg =
+            Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "FanMode")?.append1(level);
         let r = self
             .connection
             .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
