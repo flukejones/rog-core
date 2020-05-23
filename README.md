@@ -147,6 +147,9 @@ If the daemon service is enabled then on boot the following will be reloaded fro
 The daemon also saves the settings per mode as the keyboard does not do this itself - this means cycling through modes
 with the Aura keys will use the settings that were used via CLI.
 
+Daemon mode creates a config file at `/etc/rogcore.conf` which you can edit a little of. Most parts will be byte arrays,
+but you can adjust things like `mode_performance`.
+
 ### DBUS Input
 
 Paths:
