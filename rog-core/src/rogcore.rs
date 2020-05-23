@@ -15,6 +15,7 @@ use std::time::Duration;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
 static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
+static AMD_BOOST_APTH: &str = "/sys/devices/system/cpu/cpufreq/boost";
 
 /// ROG device controller
 ///
@@ -150,10 +151,11 @@ impl RogCore {
         mode: FanLevel,
         config: &mut Config,
     ) -> Result<(), Box<dyn Error>> {
+        // re-read the config here in case a user changed the pstate settings
+        config.read();
         // Set CPU pstate
         if let Ok(pstate) = intel_pstate::PState::new() {
-            // re-read the config here in case a user changed the pstate settings
-            config.read();
+            info!("Setting pstate for Intel CPU");
             match mode {
                 FanLevel::Normal => {
                     pstate.set_min_perf_pct(config.mode_performance.normal.min_percentage)?;
@@ -187,6 +189,33 @@ impl RogCore {
                         config.mode_performance.silent.max_percentage,
                         !config.mode_performance.silent.no_turbo
                     );
+                }
+            }
+        } else {
+            info!("Setting pstate for AMD CPU");
+            // must be AMD CPU
+            let mut file = OpenOptions::new().write(true).open(AMD_BOOST_APTH)?;
+            match mode {
+                FanLevel::Normal => {
+                    let boost = !config.mode_performance.normal.no_turbo as u8; // opposite of Intel
+                    file.write_all(&[boost]).unwrap_or_else(|err| {
+                        error!("Could not write to {}, {:?}", AMD_BOOST_APTH, err)
+                    });
+                    info!("CPU Power: turbo: {:?}", boost);
+                }
+                FanLevel::Boost => {
+                    let boost = !config.mode_performance.boost.no_turbo as u8; // opposite of Intel
+                    file.write_all(&[boost]).unwrap_or_else(|err| {
+                        error!("Could not write to {}, {:?}", AMD_BOOST_APTH, err)
+                    });
+                    info!("CPU Power: turbo: {:?}", boost);
+                }
+                FanLevel::Silent => {
+                    let boost = !config.mode_performance.silent.no_turbo as u8; // opposite of Intel
+                    file.write_all(&[boost]).unwrap_or_else(|err| {
+                        error!("Could not write to {}, {:?}", AMD_BOOST_APTH, err)
+                    });
+                    info!("CPU Power: turbo: {:?}", boost);
                 }
             }
         }
