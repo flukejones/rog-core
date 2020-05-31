@@ -5,7 +5,7 @@ use log::{error, info, warn};
 use rusb::DeviceHandle;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::marker::{PhantomData, PhantomPinned};
 use std::path::Path;
 use std::process::Command;

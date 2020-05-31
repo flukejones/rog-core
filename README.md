@@ -212,5 +212,10 @@ Mozilla Public License 2 (MPL-2.0)
 
 - [flukejones](https://github.com/flukejones/), project maintainer.
 - [tuxuser](https://github.com/tuxuser/)
+<<<<<<< HEAD
 - [aspann](https://github.com/aspann)
+=======
+- ZappeL, `TODO: link, any details`
+- dragonn, `TODO: link, any details`
+>>>>>>> Initial groundwork of animatrix
 - Anyone missed? Please contact me

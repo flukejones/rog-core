@@ -147,7 +147,6 @@ where
     /// Should only be used if the bytes you are writing are verified correct
     #[inline]
     async fn write_bytes(&self, message: &[u8]) -> Result<(), AuraError> {
-        let prev_time = std::time::Instant::now();
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
@@ -159,10 +158,6 @@ where
                 _ => error!("Failed to write to led interrupt: {:?}", err),
             },
         }
-        println!(
-            "Took: {:?}",
-            std::time::Instant::now().duration_since(prev_time)
-        );
         Ok(())
     }
 

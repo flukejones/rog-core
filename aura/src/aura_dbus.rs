@@ -59,7 +59,7 @@ impl AuraDbusWriter {
         &mut self,
         key_colour_array: &KeyColourArray,
     ) -> Result<(), Box<dyn Error>> {
-        self.connection.process(Duration::from_micros(300))?;
+        //        self.connection.process(Duration::from_micros(300))?;
 
         let group = key_colour_array.get();
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?

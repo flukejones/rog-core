@@ -15,6 +15,9 @@ pub use aura_dbus::*;
 
 pub use fancy::*;
 
+mod animatrix_dbus;
+pub use animatrix_dbus::*;
+
 pub mod error;
 use crate::cli_options::*;
 

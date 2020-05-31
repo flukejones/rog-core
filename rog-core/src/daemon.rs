@@ -1,15 +1,13 @@
 use crate::{
+    animatrix_control::{AnimatrixCommand, AnimatrixWriter},
     config::Config,
     laptops::match_laptop,
     led_control::{AuraCommand, LedWriter},
+    rog_dbus::dbus_create_tree,
     rogcore::*,
 };
 
-use dbus::{
-    channel::Sender,
-    nonblock::Process,
-    tree::{Factory, MTSync, Method, MethodErr, Signal, Tree},
-};
+use dbus::{channel::Sender, nonblock::Process};
 
 use dbus_tokio::connection;
 use log::{error, info, warn};
@@ -19,9 +17,9 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-type FanModeType = Arc<Mutex<Option<u8>>>;
-type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
-type EffectType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
+pub(super) type FanModeType = Arc<Mutex<Option<u8>>>;
+pub(super) type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
+pub(super) type NestedVecType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -68,6 +66,13 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .do_command(AuraCommand::ReloadLast, &mut config)
         .await?;
 
+    // Possible Animatrix
+    let mut animatrix_writer = None;
+    if laptop.support_animatrix() {
+        animatrix_writer = Some(AnimatrixWriter::new()?);
+        info!("Device has an AniMatrix display");
+    }
+
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
     let (resource, connection) = connection::new_system_sync()?;
@@ -82,7 +87,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
 
-    let (tree, input, effect, fan_mode, effect_cancel_signal) = dbus_create_tree();
+    let (tree, input, effect, animatrix_img, fan_mode, effect_cancel_signal) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -185,6 +190,17 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 }
             }
 
+            // If animatrix is supported, try doing a write
+            if let Some(writer) = animatrix_writer.as_mut() {
+                let mut image_lock = animatrix_img.lock().await;
+                if let Some(image) = image_lock.take() {
+                    writer
+                        .do_command(AnimatrixCommand::WriteImage(image))
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+            }
+
             let now = Instant::now();
             // Cool-down steps
             // This block is to prevent the loop spooling as fast as possible and saturating the CPU
@@ -201,147 +217,4 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     led_write_handle.await?;
     key_read_handle.await?;
     Ok(())
-}
-
-fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("LedWriteBytes", (), {
-            move |m| {
-                let bytes: Vec<u8> = m.msg.read1()?;
-                if let Ok(mut lock) = msg.try_lock() {
-                    *lock = Some(bytes.to_vec());
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(&format!("Wrote {:x?}", bytes));
-                    Ok(vec![mret])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .outarg::<&str, _>("reply")
-        .inarg::<Vec<u8>, _>("bytearray")
-}
-
-fn dbus_create_ledmultizone_method(effect: EffectType) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("LedWriteMultizone", (), {
-            move |m| {
-                if let Ok(mut lock) = effect.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte_array: Vec<Vec<u8>> =
-                        vec![iter.read()?, iter.read()?, iter.read()?, iter.read()?];
-                    *lock = Some(byte_array);
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(&"Got effect part".to_string());
-                    Ok(vec![mret])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .outarg::<&str, _>("reply")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-}
-
-fn dbus_create_ledeffect_method(effect: EffectType) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("LedWriteEffect", (), {
-            move |m| {
-                if let Ok(mut lock) = effect.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte_array: Vec<Vec<u8>> = vec![
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                    ];
-                    *lock = Some(byte_array);
-                    Ok(vec![])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-        .inarg::<Vec<u8>, _>("bytearray")
-}
-
-fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("FanMode", (), {
-            move |m| {
-                if let Ok(mut lock) = fan_mode.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte: u8 = iter.read()?;
-                    *lock = Some(byte);
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(format!("Fan level set to {:?}", FanLevel::from(byte)));
-                    Ok(vec![mret])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .outarg::<&str, _>("reply")
-        .inarg::<u8, _>("byte")
-}
-
-fn dbus_create_tree() -> (
-    Tree<MTSync, ()>,
-    LedMsgType,
-    EffectType,
-    FanModeType,
-    Arc<Signal<()>>,
-) {
-    let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
-    let input_effect: EffectType = Arc::new(Mutex::new(None));
-    let fan_mode: FanModeType = Arc::new(Mutex::new(None));
-
-    let factory = Factory::new_sync::<()>();
-    let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
-    let tree = factory.tree(()).add(
-        factory.object_path(DBUS_PATH, ()).add(
-            factory
-                .interface(DBUS_IFACE, ())
-                .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
-                .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
-                .add_m(dbus_create_ledeffect_method(input_effect.clone()))
-                .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
-                .add_s(effect_cancel_sig.clone()),
-        ),
-    );
-    (tree, input_bytes, input_effect, fan_mode, effect_cancel_sig)
 }

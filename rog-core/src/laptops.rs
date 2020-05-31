@@ -27,6 +27,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
                             BuiltInModeByte::Breathing,
                             BuiltInModeByte::Cycle,
                         ],
+                        support_animatrix: false,
                         // backlight: Backlight::new("intel_backlight").unwrap(),
                     };
                 }
@@ -51,6 +52,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         //from `lsusb -vd 0b05:1866`
         key_endpoint: 0x83,
         supported_modes: vec![],
+        support_animatrix: false,
         //backlight: Backlight::new("intel_backlight").unwrap(),
     };
     match &board_name.as_str()[..5] {
@@ -83,6 +85,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         "GA401" => {
             // Has no RGB control
             info!("Found GA401 series");
+            laptop.support_animatrix = true;
         }
         _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
@@ -98,6 +101,7 @@ pub(super) struct LaptopBase {
     led_endpoint: u8,
     key_endpoint: u8,
     supported_modes: Vec<BuiltInModeByte>,
+    support_animatrix: bool,
     //backlight: Backlight,
 }
 
@@ -149,6 +153,9 @@ impl LaptopBase {
     }
     pub(super) fn supported_modes(&self) -> &[BuiltInModeByte] {
         &self.supported_modes
+    }
+    pub(super) fn support_animatrix(&self) -> bool {
+        self.support_animatrix
     }
 
     // 0x1866, per-key LEDs, media-keys split from vendor specific
