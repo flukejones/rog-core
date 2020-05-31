@@ -211,7 +211,7 @@ Mozilla Public License 2 (MPL-2.0)
 # Credits
 
 - [flukejones](https://github.com/flukejones/), project maintainer.
+- [tuxuser](https://github.com/tuxuser/)
 - ZappeL, `TODO: link, any details`
 - dragonn, `TODO: link, any details`
-- xboxuser, `TODO: link, any details`
 - Anyone missed? Please contact me
