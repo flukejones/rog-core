@@ -212,6 +212,5 @@ Mozilla Public License 2 (MPL-2.0)
 
 - [flukejones](https://github.com/flukejones/), project maintainer.
 - [tuxuser](https://github.com/tuxuser/)
-- [dragonn](https://github.com/dragonn)
 - [aspann](https://github.com/aspann)
 - Anyone missed? Please contact me

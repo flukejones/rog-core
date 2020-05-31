@@ -22,7 +22,7 @@ impl AuraDbusWriter {
         let connection = Connection::new_system()?;
         Ok(AuraDbusWriter {
             connection: Box::new(connection),
-            block_time: 10,
+            block_time: 20,
             stop: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -63,17 +63,10 @@ impl AuraDbusWriter {
 
         let group = key_colour_array.get();
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
-            .append1(&group[0].to_vec())
-            .append1(&group[1].to_vec())
-            .append1(&group[2].to_vec())
-            .append1(&group[3].to_vec())
-            .append1(&group[4].to_vec())
-            .append1(&group[5].to_vec())
-            .append1(&group[6].to_vec())
-            .append1(&group[7].to_vec())
-            .append1(&group[8].to_vec())
-            .append1(&group[9].to_vec())
-            .append1(&group[10].to_vec());
+            .append3(&group[0].to_vec(), &group[1].to_vec(), &group[2].to_vec())
+            .append3(&group[3].to_vec(), &group[4].to_vec(), &group[5].to_vec())
+            .append3(&group[6].to_vec(), &group[7].to_vec(), &group[8].to_vec())
+            .append2(&group[9].to_vec(), &group[10].to_vec());
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_millis(self.block_time));
         if self.stop.load(Ordering::Relaxed) {
