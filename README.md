@@ -33,6 +33,7 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
 - [X] Logging - required for journalctl
+- [ ] AniMatrix display on G14 models (IN PROGRESS)
 
 ## Other Laptops
 
@@ -206,3 +207,11 @@ Also required (for my book-keeping of data):
 ## License
 
 Mozilla Public License 2 (MPL-2.0)
+
+# Credits
+
+- [flukejones](https://github.com/flukejones/), project maintainer.
+- ZappeL, `TODO: link, any details`
+- dragonn, `TODO: link, any details`
+- xboxuser, `TODO: link, any details`
+- Anyone missed? Please contact me
