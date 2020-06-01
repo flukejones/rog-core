@@ -21,7 +21,7 @@ impl AnimatrixDbusWriter {
         let connection = Connection::new_system()?;
         Ok(AnimatrixDbusWriter {
             connection: Box::new(connection),
-            block_time: 100,
+            block_time: 25,
             stop: Arc::new(AtomicBool::new(false)),
         })
     }
