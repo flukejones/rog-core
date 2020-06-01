@@ -22,7 +22,7 @@ impl AuraDbusWriter {
         let connection = Connection::new_system()?;
         Ok(AuraDbusWriter {
             connection: Box::new(connection),
-            block_time: 20,
+            block_time: 50,
             stop: Arc::new(AtomicBool::new(false)),
         })
     }

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer.init_effect()?;
     let rows = layout.get_rows();
 
-    let mut fade = 17;
+    let mut fade = 50;
     let mut flip = false;
     loop {
         for row in rows {
@@ -33,6 +33,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             flip = !flip;
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }
