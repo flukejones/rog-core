@@ -33,7 +33,7 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
 - [X] Logging - required for journalctl
-- [ ] AniMatrix display on G14 models (IN PROGRESS)
+- [X] AniMatrix display on G14 models (Functional. Needs testing)
 
 ## Other Laptops
 
@@ -212,10 +212,5 @@ Mozilla Public License 2 (MPL-2.0)
 
 - [flukejones](https://github.com/flukejones/), project maintainer.
 - [tuxuser](https://github.com/tuxuser/)
-<<<<<<< HEAD
 - [aspann](https://github.com/aspann)
-=======
-- ZappeL, `TODO: link, any details`
-- dragonn, `TODO: link, any details`
->>>>>>> Initial groundwork of animatrix
 - Anyone missed? Please contact me
