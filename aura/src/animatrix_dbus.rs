@@ -57,8 +57,9 @@ impl AniMeDbusWriter {
             image[1][..7].copy_from_slice(&ANIME_PANE2_PREFIX);
         }
 
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "AnimatrixWrite")?
+        let mut msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "AnimatrixWrite")?
             .append2(image[0].to_vec(), image[1].to_vec());
+        msg.set_no_reply(true);
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_millis(self.block_time));
         if self.stop.load(Ordering::Relaxed) {

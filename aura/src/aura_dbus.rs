@@ -30,7 +30,7 @@ impl AuraDbusWriter {
     /// This method must always be called before the very first write to initialise
     /// the keyboard LED EC in the correct mode
     #[inline]
-    pub fn init_effect(&self) -> Result<(), Box<dyn Error>> {
+    pub fn init_effect(&self) -> Result<String, Box<dyn std::error::Error>> {
         let match_rule = dbus::message::MatchRule::new_signal(DBUS_IFACE, "LedCancelEffect");
         let stopper = self.stop.clone();
         self.connection
@@ -46,8 +46,13 @@ impl AuraDbusWriter {
 
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteBytes")?
             .append1(KeyColourArray::get_init_msg());
-        self.connection.send(msg).unwrap();
-        Ok(())
+        let r = self
+            .connection
+            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
+        if let Some(reply) = r.get1::<&str>() {
+            return Ok(reply.to_owned());
+        }
+        Err(Box::new(dbus::Error::new_custom("name", "message")))
     }
 
     /// Write a single colour block.
@@ -62,11 +67,12 @@ impl AuraDbusWriter {
         //        self.connection.process(Duration::from_micros(300))?;
 
         let group = key_colour_array.get();
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
+        let mut msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
             .append3(&group[0].to_vec(), &group[1].to_vec(), &group[2].to_vec())
             .append3(&group[3].to_vec(), &group[4].to_vec(), &group[5].to_vec())
             .append3(&group[6].to_vec(), &group[7].to_vec(), &group[8].to_vec())
             .append2(&group[9].to_vec(), &group[10].to_vec());
+        msg.set_no_reply(true);
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_micros(self.block_time));
         if self.stop.load(Ordering::Relaxed) {
@@ -79,7 +85,7 @@ impl AuraDbusWriter {
     pub fn write_multizone(
         &mut self,
         group: &[[u8; LED_MSG_LEN]; 4],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         self.connection.process(Duration::from_micros(300))?;
 
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
@@ -87,12 +93,13 @@ impl AuraDbusWriter {
             .append1(&group[1].to_vec())
             .append1(&group[2].to_vec())
             .append1(&group[3].to_vec());
-        self.connection.send(msg).unwrap();
-        thread::sleep(Duration::from_millis(self.block_time));
-        if self.stop.load(Ordering::Relaxed) {
-            panic!("Go signal to stop!");
+        let r = self
+            .connection
+            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
+        if let Some(reply) = r.get1::<&str>() {
+            return Ok(reply.to_owned());
         }
-        Ok(())
+        Err(Box::new(dbus::Error::new_custom("name", "message")))
     }
 
     #[inline]
