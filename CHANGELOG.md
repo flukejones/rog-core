@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.9] - 2020-23-05
+## [0.10.0] - 2020-23-05
 ### Changed
 - Correctly set AMD boost
 - Add animatrix support for G14 laptops

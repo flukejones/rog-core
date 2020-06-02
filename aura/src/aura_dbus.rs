@@ -22,7 +22,7 @@ impl AuraDbusWriter {
         let connection = Connection::new_system()?;
         Ok(AuraDbusWriter {
             connection: Box::new(connection),
-            block_time: 50,
+            block_time: 33333,
             stop: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -68,7 +68,7 @@ impl AuraDbusWriter {
             .append3(&group[6].to_vec(), &group[7].to_vec(), &group[8].to_vec())
             .append2(&group[9].to_vec(), &group[10].to_vec());
         self.connection.send(msg).unwrap();
-        thread::sleep(Duration::from_millis(self.block_time));
+        thread::sleep(Duration::from_micros(self.block_time));
         if self.stop.load(Ordering::Relaxed) {
             panic!("Go signal to stop!");
         }

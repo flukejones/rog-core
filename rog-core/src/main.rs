@@ -8,7 +8,7 @@ use rog_aura::{
     AuraDbusWriter, LED_MSG_LEN,
 };
 
-static VERSION: &str = "0.9.9";
+static VERSION: &str = "0.10.0";
 
 #[derive(Debug, Options)]
 struct CLIStart {

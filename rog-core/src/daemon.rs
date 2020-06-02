@@ -1,5 +1,5 @@
 use crate::{
-    animatrix_control::{AnimatrixCommand, AnimatrixWriter},
+    animatrix_control::{AniMeWriter, AnimatrixCommand},
     config::Config,
     laptops::match_laptop,
     led_control::{AuraCommand, LedWriter},
@@ -69,8 +69,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // Possible Animatrix
     let mut animatrix_writer = None;
     if laptop.support_animatrix() {
-        animatrix_writer = Some(AnimatrixWriter::new()?);
-        info!("Device has an AniMatrix display");
+        animatrix_writer = Some(AniMeWriter::new()?);
+        info!("Device has an AniMe Matrix display");
     }
 
     // Set up the mutexes

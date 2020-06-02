@@ -23,16 +23,16 @@ pub enum AnimatrixCommand {
     //ReloadLast,
 }
 
-pub struct AnimatrixWriter {
+pub struct AniMeWriter {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
 }
 
-impl AnimatrixWriter {
+impl AniMeWriter {
     #[inline]
-    pub fn new() -> Result<AnimatrixWriter, Box<dyn Error>> {
+    pub fn new() -> Result<AniMeWriter, Box<dyn Error>> {
         // We don't expect this ID to ever change
-        let mut dev_handle = AnimatrixWriter::get_device(0x0b05, 0x193b).map_err(|err| {
+        let mut dev_handle = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
             error!("Could not get device handle: {:?}", err);
             err
         })?;
@@ -53,7 +53,7 @@ impl AnimatrixWriter {
             err
         })?;
 
-        Ok(AnimatrixWriter {
+        Ok(AniMeWriter {
             handle: dev_handle,
             initialised: false,
         })

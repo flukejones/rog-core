@@ -1,3 +1,10 @@
+rog-core (0.10.0) focal; urgency=medium
+
+  * Correctly set AMD boost
+  * Add animatrix support for G14 laptops
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 02 Jun 2020 20:11:53 +1200
+
 rog-core (0.9.9) focal; urgency=medium
 
   * Correctly set AMD boost
