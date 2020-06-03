@@ -4,6 +4,7 @@ pub type AniMeBufferType = [[u8; WIDTH]; HEIGHT];
 pub type AniMePacketType = [[u8; 640]; 2];
 const BLOCK_START: usize = 7;
 const BLOCK_END: usize = 634;
+use yansi_term::Colour::RGB;
 
 pub struct AniMeMatrix(AniMeBufferType);
 
@@ -27,6 +28,60 @@ impl AniMeMatrix {
             }
         }
     }
+
+    pub fn debug_print(&self) {
+        // this is the index from right. It is used to progressively shorten rows
+        let mut prog_row_len = WIDTH - 2;
+
+        for (count, row) in self.0.iter().enumerate() {
+            // Write the top block of LEDs (first 7 rows)
+            if count < 6 {
+                if count % 2 != 0 {
+                    print!("     ");
+                } else if count == 0 {
+                    print!("  ");
+                } else {
+                    print!("  ");
+                }
+                let tmp = if count == 0 || count == 1 || count == 3 || count == 5 {
+                    row[1..].iter()
+                } else {
+                    row.iter()
+                };
+                for x in tmp {
+                    print!(" {}", RGB(*x, *x, *x).paint(&format!("{:#04X}", x)));
+                }
+
+                print!("\n");
+            } else {
+                // Switch to next block (looks like )
+                if count % 2 != 0 {
+                    // Row after 6 is only 1 less, then rows after 7 follow pattern
+                    if count == 7 {
+                        prog_row_len -= 1;
+                    } else {
+                        prog_row_len -= 2;
+                    }
+                } else {
+                    prog_row_len += 1; // if count 6, 0
+                }
+
+                let index = row.len() - prog_row_len;
+
+                if count % 2 == 0 {
+                    print!("   ");
+                }
+                for (i, x) in row.iter().enumerate() {
+                    if i >= index {
+                        print!(" {}", RGB(*x, *x, *x).paint(&format!("{:#04X}", x)));
+                    } else {
+                        print!("     ");
+                    }
+                }
+                print!("\n");
+            }
+        }
+    }
 }
 
 impl From<AniMeMatrix> for AniMePacketType {
@@ -39,32 +94,38 @@ impl From<AniMeMatrix> for AniMePacketType {
         let mut write_index = BLOCK_START;
         let mut write_block = &mut buffers[0];
         let mut block1_done = false;
-        let mut phys_row_len = WIDTH - 1; // not taking in to account starting at 0
+
+        // this is the index from right. It is used to progressively shorten rows
+        let mut prog_row_len = WIDTH - 2;
 
         for (count, row) in anime.0.iter().enumerate() {
             // Write the top block of LEDs (first 7 rows)
             if count < 6 {
-                for x in row.iter() {
-                    write_block[write_index] = *x;
+                for (i, x) in row.iter().enumerate() {
+                    // Rows 0, 1, 3, 5 are short and misaligned
+                    if count == 0 || count == 1 || count == 3 || count == 5 {
+                        if i > 0 {
+                            write_block[write_index - 1] = *x;
+                        }
+                    } else {
+                        write_block[write_index] = *x;
+                    }
                     write_index += 1;
                 }
             } else {
-                // Two offsets to correct the below with
-                if count == 6 {
-                    phys_row_len -= 1;
-                }
-                if count == 7 {
-                    phys_row_len += 1;
-                }
-
                 // Switch to next block (looks like )
                 if count % 2 != 0 {
-                    phys_row_len -= 2; // if count 7, -= 1
+                    // Row after 6 is only 1 less, then rows after 7 follow pattern
+                    if count == 7 {
+                        prog_row_len -= 1;
+                    } else {
+                        prog_row_len -= 2;
+                    }
                 } else {
-                    phys_row_len += 1; // if count 6, 0
+                    prog_row_len += 1; // if count 6, 0
                 }
 
-                let index = row.len() - phys_row_len;
+                let index = row.len() - prog_row_len;
                 for n in index..row.len() {
                     // Require a special case to catch the correct end-of-packet which is
                     // 6 bytes from the end
@@ -81,5 +142,89 @@ impl From<AniMeMatrix> for AniMePacketType {
             }
         }
         buffers
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{AniMeMatrix, AniMePacketType};
+
+    #[test]
+    fn check_data_alignment() {
+        let mut matrix = AniMeMatrix::new();
+        {
+            let tmp = matrix.get_mut();
+            for row in tmp.iter_mut() {
+                row[row.len() - 1] = 0xff;
+            }
+        }
+
+        let matrix: AniMePacketType = AniMePacketType::from(matrix);
+
+        // The bytes at the right of the initial AniMeMatrix should always end up aligned in the
+        // same place after conversion to data packets
+
+        // Check against manually worked out right align
+        assert_eq!(
+            matrix[0].to_vec(),
+            [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            ]
+            .to_vec()
+        );
+        assert_eq!(
+            matrix[1].to_vec(),
+            [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0,
+                0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0,
+                0, 0, 0, 0
+            ]
+            .to_vec()
+        );
     }
 }

@@ -680,6 +680,8 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror",
+ "tinybmp",
+ "yansi-term",
 ]
 
 [[package]]
@@ -886,6 +888,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinybmp"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "781e52493917138f60c3b98b95e39967eafd28d3c470d0d35ae020b47f011b5d"
+dependencies = [
+ "nom",
+]
+
+[[package]]
 name = "tokio"
 version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1041,4 +1052,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "244c3741f4240ef46274860397c7c74e50eb23624996930e484c16679633a54c"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "yansi-term"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe5c30ade05e61656247b2e334a031dfd0cc466fadef865bdcdea8d537951bf1"
+dependencies = [
+ "winapi 0.3.8",
 ]
