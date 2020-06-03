@@ -1,4 +1,4 @@
-pub const WIDTH: usize = 34;
+pub const WIDTH: usize = 34; // Width is definitely 34 items
 pub const HEIGHT: usize = 56;
 pub type AniMeBufferType = [[u8; WIDTH]; HEIGHT];
 pub type AniMePacketType = [[u8; 640]; 2];
@@ -41,25 +41,27 @@ impl From<AniMeMatrix> for AniMePacketType {
         let mut block1_done = false;
         let mut phys_row_len = WIDTH - 1; // not taking in to account starting at 0
 
-        let mut total = 0;
         for (count, row) in anime.0.iter().enumerate() {
             // Write the top block of LEDs (first 7 rows)
-            if count <= 6 {
+            if count < 6 {
                 for x in row.iter() {
                     write_block[write_index] = *x;
                     write_index += 1;
-                    total += 1;
                 }
-                println!("{:X?}", row.to_vec());
             } else {
-                if count == 7 {
+                // Two offsets to correct the below with
+                if count == 6 {
                     phys_row_len -= 1;
                 }
+                if count == 7 {
+                    phys_row_len += 1;
+                }
+
                 // Switch to next block (looks like )
                 if count % 2 != 0 {
-                    phys_row_len -= 2;
+                    phys_row_len -= 2; // if count 7, -= 1
                 } else {
-                    phys_row_len += 1;
+                    phys_row_len += 1; // if count 6, 0
                 }
 
                 let index = row.len() - phys_row_len;
@@ -71,16 +73,13 @@ impl From<AniMeMatrix> for AniMePacketType {
                         write_block = &mut buffers[1];
                         write_index = BLOCK_START;
                     }
-                    total += 1;
 
                     //println!("{:?}", write_block.to_vec());
                     write_block[write_index] = row[n];
                     write_index += 1;
                 }
-                println!("{:X?}", row[index..].to_vec());
             }
         }
-        dbg!(total);
         buffers
     }
 }
