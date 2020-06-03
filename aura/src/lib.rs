@@ -18,6 +18,9 @@ pub use fancy::*;
 mod animatrix_dbus;
 pub use animatrix_dbus::*;
 
+mod anime_matrix;
+pub use anime_matrix::*;
+
 pub mod error;
 use crate::cli_options::*;
 

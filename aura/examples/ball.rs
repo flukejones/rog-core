@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let layout = GX502Layout::default();
 
-    let mut balls = [Ball::new(2, 1, 8), Ball::new(4, 6, 6), Ball::new(12, 3, 4)];
+    let mut balls = [Ball::new(2, 1, 12), Ball::new(4, 6, 12)];
 
     writer.init_effect()?;
 
