@@ -44,7 +44,7 @@ impl From<AniMeMatrix> for AniMePacketType {
         let mut total = 0;
         for (count, row) in anime.0.iter().enumerate() {
             // Write the top block of LEDs (first 7 rows)
-            if count <= 7 {
+            if count <= 6 {
                 for x in row.iter() {
                     write_block[write_index] = *x;
                     write_index += 1;
@@ -63,7 +63,7 @@ impl From<AniMeMatrix> for AniMePacketType {
                 }
 
                 let index = row.len() - phys_row_len;
-                for n in index..row.len() - 1 {
+                for n in index..row.len() {
                     // Require a special case to catch the correct end-of-packet which is
                     // 6 bytes from the end
                     if write_index == BLOCK_END && !block1_done {

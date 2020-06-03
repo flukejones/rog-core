@@ -20,17 +20,9 @@ fn main() {
     // Try an outline, top and right
     let mut matrix = AniMeMatrix::new();
     {
-        let mut tmp = matrix.get_mut();
-        let mut first_row_done = false;
+        let tmp = matrix.get_mut();
         for row in tmp.iter_mut() {
-            if !first_row_done {
-                for c in row.iter_mut() {
-                    *c = 0xff;
-                }
-                first_row_done = true;
-            } else {
-                row[row.len() - 1] = 0xff;
-            }
+            row[row.len() - 1] = 0xff;
         }
     }
 
