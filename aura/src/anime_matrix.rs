@@ -69,7 +69,7 @@ impl AniMeMatrix {
                 let index = row.len() - prog_row_len;
 
                 if count % 2 == 0 {
-                    print!("   ");
+                    print!("  ");
                 }
                 for (i, x) in row.iter().enumerate() {
                     if i >= index {
