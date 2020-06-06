@@ -11,7 +11,7 @@ use dbus::{channel::Sender, nonblock::Process};
 
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_aura::{DBUS_IFACE, DBUS_PATH};
+use rog_aura::{DBUS_NAME, DBUS_IFACE, DBUS_PATH};
 use std::error::Error;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
@@ -82,7 +82,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     });
 
     connection
-        .request_name(DBUS_IFACE, false, true, true)
+        .request_name(DBUS_NAME, false, true, true)
         .await?;
 
     let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
