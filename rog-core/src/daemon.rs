@@ -89,7 +89,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
 
-    let (tree, input, effect, animatrix_img, fan_mode, effect_cancel_signal) = dbus_create_tree();
+    let (tree, input, effect, mut animatrix_recv, fan_mode, effect_cancel_signal) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -192,17 +192,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            // If animatrix is supported, try doing a write
-            if let Some(writer) = animatrix_writer.as_mut() {
-                let mut image_lock = animatrix_img.lock().await;
-                if let Some(image) = image_lock.take() {
-                    writer
-                        .do_command(AnimatrixCommand::WriteImage(image))
-                        .await
-                        .unwrap_or_else(|err| warn!("{:?}", err));
-                }
-            }
-
             let now = Instant::now();
             // Cool-down steps
             // This block is to prevent the loop spooling as fast as possible and saturating the CPU
@@ -216,6 +205,20 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    // If animatrix is supported, try doing a write
+    let animatrix_write_handle = tokio::spawn(async move {
+        if let Some(writer) = animatrix_writer.as_mut() {
+            while let Some(image) = animatrix_recv.recv().await {
+                writer
+                    .do_command(AnimatrixCommand::WriteImage(image))
+                    .await
+                    .unwrap_or_else(|err| warn!("{:?}", err));
+
+            }
+        }
+    });
+
+    animatrix_write_handle.await?;
     led_write_handle.await?;
     key_read_handle.await?;
     Ok(())

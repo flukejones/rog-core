@@ -99,16 +99,17 @@ pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSy
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_animatrix_method(effect: NestedVecType) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_animatrix_method(sender: Arc<Mutex<tokio::sync::mpsc::Sender<Vec<Vec<u8>>>>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("AnimatrixWrite", (), {
             move |m| {
-                if let Ok(mut lock) = effect.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte_array: Vec<Vec<u8>> = vec![iter.read()?, iter.read()?];
-                    *lock = Some(byte_array);
+                let mut iter = m.msg.iter_init();
+                let byte_array: Vec<Vec<u8>> = vec![iter.read()?, iter.read()?];
+                if let Ok(mut lock) = sender.try_lock() {
+                    // Ignore errors if the channel is already full
+                    lock.try_send(byte_array).unwrap_or_else(|_err| {});
                     Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
@@ -148,13 +149,13 @@ pub(super) fn dbus_create_tree() -> (
     Tree<MTSync, ()>,
     LedMsgType,
     NestedVecType,
-    NestedVecType,
+    tokio::sync::mpsc::Receiver<Vec<Vec<u8>>>,
     FanModeType,
     Arc<Signal<()>>,
 ) {
     let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
     let input_effect: NestedVecType = Arc::new(Mutex::new(None));
-    let animatrix_img: NestedVecType = Arc::new(Mutex::new(None));
+    let (animatrix_send, animatrix_recv) = tokio::sync::mpsc::channel::<Vec<Vec<u8>>>(1);
     let fan_mode: FanModeType = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
@@ -168,7 +169,7 @@ pub(super) fn dbus_create_tree() -> (
                     .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
                     .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
                     .add_m(dbus_create_ledeffect_method(input_effect.clone()))
-                    .add_m(dbus_create_animatrix_method(animatrix_img.clone()))
+                    .add_m(dbus_create_animatrix_method(Arc::new(Mutex::new(animatrix_send))))
                     .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
                     .add_s(effect_cancel_sig.clone()),
             ),
@@ -178,7 +179,7 @@ pub(super) fn dbus_create_tree() -> (
         tree,
         input_bytes,
         input_effect,
-        animatrix_img,
+        animatrix_recv,
         fan_mode,
         effect_cancel_sig,
     )
