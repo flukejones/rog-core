@@ -99,6 +99,10 @@ sudo systemctl enable rog-core.service
 
 Thanks to @aspann you can grab it here [sys-power/rog-core](https://lab.retarded.farm/zappel/zGentoo/-/tree/master/sys-power/rog-core)
 
+### Arch AUR
+
+You can find the thingimajig [here](https://aur.archlinux.org/packages/rog-core/)
+
 ## Updating
 
 Occasionally I might break things for you by tweaking or changing the config file layout. Usually this will mean you

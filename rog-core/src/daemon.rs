@@ -69,8 +69,10 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // Possible Animatrix
     let mut animatrix_writer = None;
     if laptop.support_animatrix() {
-        animatrix_writer = Some(AniMeWriter::new()?);
-        info!("Device has an AniMe Matrix display");
+        if let Ok(dev) = AniMeWriter::new() {
+            animatrix_writer = Some(dev);
+            info!("Device has an AniMe Matrix display");
+        }
     }
 
     // Set up the mutexes

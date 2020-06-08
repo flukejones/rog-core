@@ -33,7 +33,7 @@ impl AniMeWriter {
     pub fn new() -> Result<AniMeWriter, Box<dyn Error>> {
         // We don't expect this ID to ever change
         let mut dev_handle = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
-            error!("Could not get device handle: {:?}", err);
+            error!("Could not get AniMe display handle: {:?}", err);
             err
         })?;
         // This config seems to be the required device config for writing
