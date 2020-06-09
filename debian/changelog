@@ -1,3 +1,16 @@
+rog-core (0.11.0) focal; urgency=medium
+
+  * BREAKING CHANGE:
+    Many of the RGB built-in modes have been renamed to match Armory-Crate names,
+    this means that the `/etc/rogcore.conf` needs to be removed so it can be
+    regenerated using the updated names.
+  * Add better examples for AniMe display, and fix many small issues
+  * Don't halt app iff AniMe display not found when running on GA14/GA15 laptops
+  * Rename client crate to better suit
+  * Added a device reset for both keyboard and AniMe devices before configuring them
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 09 Jun 2020 20:46:45 +1200
+
 rog-core (0.10.0) focal; urgency=medium
 
   * Correctly set AMD boost
