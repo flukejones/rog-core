@@ -6,6 +6,9 @@ const BLOCK_START: usize = 7;
 const BLOCK_END: usize = 634;
 use yansi_term::Colour::RGB;
 
+/// Helper structure for writing images.
+///
+///  See the examples for ways to write an image to `AniMeMatrix` format.
 pub struct AniMeMatrix(AniMeBufferType);
 
 impl AniMeMatrix {
@@ -38,8 +41,6 @@ impl AniMeMatrix {
             if count < 6 {
                 if count % 2 != 0 {
                     print!("     ");
-                } else if count == 0 {
-                    print!("  ");
                 } else {
                     print!("  ");
                 }
@@ -52,7 +53,7 @@ impl AniMeMatrix {
                     print!(" {}", RGB(*x, *x, *x).paint(&format!("{:#04X}", x)));
                 }
 
-                print!("\n");
+                println!();
             } else {
                 // Switch to next block (looks like )
                 if count % 2 != 0 {
@@ -78,7 +79,7 @@ impl AniMeMatrix {
                         print!("     ");
                     }
                 }
-                print!("\n");
+                println!();
             }
         }
     }

@@ -28,7 +28,7 @@ use crate::cli_options::*;
 ///
 /// The HID descriptor looks like:
 ///
-/// ```
+/// ```ignore
 /// 0x06, 0x31, 0xFF,  // Usage Page (Vendor Defined 0xFF31)
 /// 0x09, 0x76,        // Usage (0x76)
 /// 0xA1, 0x01,        // Collection (Application)
@@ -60,7 +60,7 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 ///
 /// Byte structure:
 ///
-/// ```
+/// ```ignore
 /// | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10| 11| 12|
 /// |---|---|---|---|---|---|---|---|---|---|---|---|---|
 /// |5d |b3 |00 |03 |ff |00 |00 |00 |00 |00 |00 |ff |00 |
@@ -103,7 +103,7 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 /// Bytes 10, 11, 12 are Red, Green, Blue for second colour if mode supports it
 ///
 /// The HID descriptor looks like:
-/// ```
+/// ```ignore
 /// 0x06, 0x31, 0xFF,  // Usage Page (Vendor Defined 0xFF31)
 /// 0x09, 0x79,        // Usage (0x79)
 /// 0xA1, 0x01,        // Collection (Application)

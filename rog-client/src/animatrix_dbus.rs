@@ -16,42 +16,7 @@ pub const ANIME_PANE2_PREFIX: [u8; 7] = [0x5e, 0xc0, 0x02, 0x74, 0x02, 0x73, 0x0
 /// The resolution is 34x56 (1904) but only 1,215 LEDs in the top-left are used.
 /// The display is available only on select GA401 models.
 ///
-/// Amory crate assumes first row is 33 pixels/bytes, this means the actual structure
-/// likely follows this format with every second line offset physically by half.
-/// Even rows (mod 1) are aligned right, odd are offset left by half (`..=` is inclusive)
-///
-/// -   0..=32,  row 0, 33 pixels // len starts at 37 if using formula
-/// -  33..=66,  row 1, 33 pixels
-/// -  68..=101, row 2, 33 pixels
-/// - 101..=134, row 3, 33 pixels
-/// - 135..=168, row 4, 33 pixels
-/// - 169..=202, row 5, 33 pixels // Should be last offset line?
-/// - 203..=236, row 6, 33 pixels
-/// - 237..=268, row 7, 31 pixels -2 px from last
-/// - 269..=301, row 8, 32 pixels +1 px from last
-/// - 302..=332, row 9, 30 pixels -2
-/// - 333..=364, row 10, 31 pixels +1
-/// - 365..=394, row 11, 29 pixels -2
-/// - 395..=425, row 12, 30 pixels +1
-/// - 426..=454, row 13, 28 pixels -2
-/// - 455..=484, row 14, 29 pixels +1
-/// - 485..=512, row 15, 27 pixels -2
-/// - 513..=541, row 16, 28 pixels +1
-/// - 542..=568, row 17, 26 pixels -2
-/// - 569..=596, row 18, 27 pixels +1
-/// - 597..=622, row 19, 25 pixels -2
-/// - BEGIN NEXT BLOCK AT IDX627 (when writing out the one dimensional array)
-/// - 623..=649, row 20, 26 pixels +1
-/// - .. 57 rows (from 0)
-///
-/// Image is 33x56, and
-///
-/// The formula below starts at row 7
-/// ```
-///  if current_row_idx != 0 && current_row_idx.mod(1) == 0
-///  then current_row_len = last_row_len + 1
-///  else current_row_len = last_row_len - 2, // offset left by half
-/// ```
+/// Actual image ration when displayed is stretched width.
 ///
 /// Data structure should be nested array of [[u8; 33]; 56]
 pub struct AniMeDbusWriter {
