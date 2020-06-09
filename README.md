@@ -33,17 +33,16 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
 - [X] Logging - required for journalctl
-- [X] AniMatrix display on G14 models (Functional. Needs testing)
+- [X] AniMatrix display on G14 models that include it
 
-## Other Laptops
-
-**Supported:**
+## SUPPORTED LAPTOPS
 
 - GX502 (product 0x1866) (Tested on GX502GW)
+- GA14 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
 
 **Partial/Inprogress:**
+- GA15 appears to have most things working
 - GM501 (multizone needs testing)
-- G14 (no Lid LED support, all other functions appear to work)
 
 Both of these laptops appear to have the same USB device ID as the GX502, but with different features enabled.
 

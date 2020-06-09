@@ -1,5 +1,5 @@
 [workspace]
-members = ["rog-core", "aura"]
+members = ["rog-core", "rog-client"]
 
 [profile.release]
 lto = true
@@ -9,11 +9,9 @@ panic = "abort"
 
 [profile.dev]
 debug = false
-opt-level = 2
-#panic = "abort"
+opt-level = 1
 
 [profile.bench]
 lto = true
 debug = false
 opt-level = 3
-#panic = "abort"

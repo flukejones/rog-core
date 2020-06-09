@@ -1,4 +1,4 @@
-use rog_aura::{AuraDbusWriter, Key, KeyColourArray};
+use rog_client::{AuraDbusWriter, Key, KeyColourArray};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = AuraDbusWriter::new()?;

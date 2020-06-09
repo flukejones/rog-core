@@ -1,4 +1,4 @@
-use rog_aura::BuiltInModeBytes;
+use rog_client::BuiltInModeBytes;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};

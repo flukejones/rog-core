@@ -74,10 +74,10 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 /// Byte 3 sets the mode type:
 /// - 00 = static
 /// - 01 = breathe (can set two colours)
-/// - 02 = cycle (through all colours)
+/// - 02 = strobe (through all colours)
 /// - 03 = rainbow
-/// - 04 = rain (byte 9 sets random colour)
-/// - 05 = random keys, red, white, turquoise
+/// - 04 = star (byte 9 sets rain colour)
+/// - 05 = rain keys, red, white, turquoise
 /// - 06 = pressed keys light up and fade
 /// - 07 = pressed key emits laser
 /// - 08 = pressed key emits water ripple
@@ -141,16 +141,16 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
         match mode {
             SetAuraBuiltin::Stable(_) => msg[3] = 0x00,
             SetAuraBuiltin::Breathe(_) => msg[3] = 0x01,
-            SetAuraBuiltin::Cycle(_) => msg[3] = 0x02,
+            SetAuraBuiltin::Strobe(_) => msg[3] = 0x02,
             SetAuraBuiltin::Rainbow(_) => msg[3] = 0x03,
-            SetAuraBuiltin::Rain(_) => msg[3] = 0x04,
-            SetAuraBuiltin::Disco(_) => msg[3] = 0x05,
+            SetAuraBuiltin::Star(_) => msg[3] = 0x04,
+            SetAuraBuiltin::Rain(_) => msg[3] = 0x05,
             SetAuraBuiltin::Highlight(_) => msg[3] = 0x06,
             SetAuraBuiltin::Laser(_) => msg[3] = 0x07,
             SetAuraBuiltin::Ripple(_) => msg[3] = 0x08,
             SetAuraBuiltin::Pulse(_) => msg[3] = 0x0a,
-            SetAuraBuiltin::ThinZoomy(_) => msg[3] = 0x0b,
-            SetAuraBuiltin::WideZoomy(_) => msg[3] = 0x0c,
+            SetAuraBuiltin::Comet(_) => msg[3] = 0x0b,
+            SetAuraBuiltin::Flash(_) => msg[3] = 0x0c,
             _ => panic!("Mode not convertable to array"),
         }
 
@@ -159,7 +159,7 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[7] = settings.speed as u8;
                 msg[8] = settings.direction as u8;
             }
-            SetAuraBuiltin::Rain(settings) => {
+            SetAuraBuiltin::Star(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
@@ -175,7 +175,7 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[11] = settings.colour2.1;
                 msg[12] = settings.colour2.2;
             }
-            SetAuraBuiltin::Cycle(settings) | SetAuraBuiltin::Disco(settings) => {
+            SetAuraBuiltin::Strobe(settings) | SetAuraBuiltin::Rain(settings) => {
                 msg[7] = settings.speed as u8;
             }
             SetAuraBuiltin::Highlight(settings)
@@ -188,8 +188,8 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
             }
             SetAuraBuiltin::Stable(settings)
             | SetAuraBuiltin::Pulse(settings)
-            | SetAuraBuiltin::ThinZoomy(settings)
-            | SetAuraBuiltin::WideZoomy(settings) => {
+            | SetAuraBuiltin::Comet(settings)
+            | SetAuraBuiltin::Flash(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;

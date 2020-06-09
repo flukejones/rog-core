@@ -1,5 +1,5 @@
 use crate::{config::Config, led_control::AuraCommand, rogcore::RogCore};
-use rog_aura::{error::AuraError, BuiltInModeByte};
+use rog_client::{error::AuraError, BuiltInModeByte};
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;
 use log::{info, warn};
@@ -25,7 +25,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
                         supported_modes: vec![
                             BuiltInModeByte::Single,
                             BuiltInModeByte::Breathing,
-                            BuiltInModeByte::Cycle,
+                            BuiltInModeByte::Strobe,
                         ],
                         support_animatrix: false,
                         // backlight: Backlight::new("intel_backlight").unwrap(),
@@ -61,16 +61,16 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
             laptop.supported_modes = vec![
                 BuiltInModeByte::Single,
                 BuiltInModeByte::Breathing,
-                BuiltInModeByte::Cycle,
+                BuiltInModeByte::Strobe,
                 BuiltInModeByte::Rainbow,
+                BuiltInModeByte::Star,
                 BuiltInModeByte::Rain,
-                BuiltInModeByte::Random,
                 BuiltInModeByte::Highlight,
                 BuiltInModeByte::Laser,
                 BuiltInModeByte::Ripple,
                 BuiltInModeByte::Pulse,
-                BuiltInModeByte::ThinZoomy,
-                BuiltInModeByte::WideZoomy,
+                BuiltInModeByte::Comet,
+                BuiltInModeByte::Flash,
             ];
         }
         "GM501" => {
@@ -78,7 +78,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
             laptop.supported_modes = vec![
                 BuiltInModeByte::Single,
                 BuiltInModeByte::Breathing,
-                BuiltInModeByte::Cycle,
+                BuiltInModeByte::Strobe,
                 BuiltInModeByte::Rainbow,
             ];
         }

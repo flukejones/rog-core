@@ -9,12 +9,13 @@ const INIT: u8 = 0xc2;
 const APPLY: u8 = 0xc3;
 const SET: u8 = 0xc4;
 
-use log::error;
-use rog_aura::error::AuraError;
+use log::{error, warn};
+use rog_client::error::AuraError;
 use rusb::DeviceHandle;
 use std::error::Error;
 use std::time::Duration;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum AnimatrixCommand {
     Apply,
@@ -33,9 +34,10 @@ impl AniMeWriter {
     pub fn new() -> Result<AniMeWriter, Box<dyn Error>> {
         // We don't expect this ID to ever change
         let mut dev_handle = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
-            error!("Could not get AniMe display handle: {:?}", err);
+            warn!("Could not get AniMe display handle: {:?}", err);
             err
         })?;
+        dev_handle.reset()?;
         // This config seems to be the required device config for writing
         dev_handle.set_active_configuration(1).unwrap_or(());
 

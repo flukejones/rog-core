@@ -1,7 +1,7 @@
 use crate::daemon::{FanModeType, LedMsgType, NestedVecType};
 use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
-use rog_aura::{DBUS_IFACE, DBUS_PATH};
+use rog_client::{DBUS_IFACE, DBUS_PATH};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

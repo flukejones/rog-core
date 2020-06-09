@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2020-09-05
+### BREAKING CHANGE
+- Many of the RGB built-in modes have been renamed to match Armory-Crate names,
+  this means that the `/etc/rogcore.conf` needs to be removed so it can be
+  regenerated using the updated names.
+
+### Changed
+- Add better examples for AniMe display, and fix many small issues
+- Don't halt app iff AniMe display not found when running on GA14/GA15 laptops
+- Rename client crate to better suit
+- Added a device reset for both keyboard and AniMe devices before configuring them
+
 ## [0.10.0] - 2020-23-05
 ### Changed
 - Correctly set AMD boost

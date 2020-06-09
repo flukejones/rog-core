@@ -10,7 +10,7 @@ static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 use crate::config::Config;
 use log::{error, info, warn};
-use rog_aura::{aura_brightness_bytes, error::AuraError, BuiltInModeByte};
+use rog_client::{aura_brightness_bytes, error::AuraError, BuiltInModeByte};
 use rusb::DeviceHandle;
 use std::marker::PhantomData;
 use std::ptr::NonNull;

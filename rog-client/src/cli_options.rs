@@ -181,14 +181,14 @@ pub enum SetAuraBuiltin {
     Stable(SingleColour),
     #[options(help = "pulse between one or two colours")]
     Breathe(TwoColourSpeed),
-    #[options(help = "cycle through all colours")]
-    Cycle(SingleSpeed),
+    #[options(help = "strobe through all colours")]
+    Strobe(SingleSpeed),
     #[options(help = "rainbow cycling in one of four directions")]
     Rainbow(SingleSpeedDirection),
-    #[options(help = "random pattern mimicking raindrops")]
-    Rain(TwoColourSpeed),
-    #[options(help = "random pattern of three preset colours")]
-    Disco(SingleSpeed),
+    #[options(help = "rain pattern mimicking raindrops")]
+    Star(TwoColourSpeed),
+    #[options(help = "rain pattern of three preset colours")]
+    Rain(SingleSpeed),
     #[options(help = "pressed keys are highlighted to fade")]
     Highlight(SingleColourSpeed),
     #[options(help = "pressed keys generate horizontal laser")]
@@ -198,9 +198,9 @@ pub enum SetAuraBuiltin {
     #[options(help = "set a rapid pulse")]
     Pulse(SingleColour),
     #[options(help = "set a vertical line zooming from left")]
-    ThinZoomy(SingleColour),
+    Comet(SingleColour),
     #[options(help = "set a wide vertical line zooming from left")]
-    WideZoomy(SingleColour),
+    Flash(SingleColour),
     #[options(help = "4-zone multi-colour")]
     MultiStatic(MultiColour),
 }

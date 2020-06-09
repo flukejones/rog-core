@@ -1,6 +1,6 @@
 [package]
 name = "rog-daemon"
-version = "0.10.0"
+version = "0.11.0"
 license = "MPL-2.0"
 readme = "README.md"
 authors = ["Luke <luke@ljones.dev>"]
@@ -18,7 +18,7 @@ name = "rog-core"
 path = "src/main.rs"
 
 [dependencies]
-rog-aura = { path = "../aura" }
+rog-client = { path = "../rog-client" }
 rusb = "^0.5.5"
 
 # cli and logging

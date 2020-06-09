@@ -3,12 +3,12 @@ use daemon::rogcore::FanLevel;
 use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
-use rog_aura::{
+use rog_client::{
     cli_options::{LedBrightness, SetAuraBuiltin},
     AuraDbusWriter, LED_MSG_LEN,
 };
 
-static VERSION: &str = "0.10.0";
+static VERSION: &str = "0.11.0";
 
 #[derive(Debug, Options)]
 struct CLIStart {
