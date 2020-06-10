@@ -78,7 +78,7 @@ pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSy
                         iter.read()?,
                     ];
                     *lock = Some(byte_array);
-                    Ok(vec!(m.msg.method_return()))
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
@@ -95,6 +95,7 @@ pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSy
         .inarg::<Vec<u8>, _>("bytearray9")
         .inarg::<Vec<u8>, _>("bytearray10")
         .inarg::<Vec<u8>, _>("bytearray11")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 pub(super) fn dbus_create_animatrix_method(effect: NestedVecType) -> Method<MTSync, ()> {
@@ -107,7 +108,7 @@ pub(super) fn dbus_create_animatrix_method(effect: NestedVecType) -> Method<MTSy
                     let mut iter = m.msg.iter_init();
                     let byte_array: Vec<Vec<u8>> = vec![iter.read()?, iter.read()?];
                     *lock = Some(byte_array);
-                    Ok(vec!(m.msg.method_return()))
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
@@ -115,6 +116,7 @@ pub(super) fn dbus_create_animatrix_method(effect: NestedVecType) -> Method<MTSy
         })
         .inarg::<Vec<u8>, _>("bytearray1")
         .inarg::<Vec<u8>, _>("bytearray2")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 pub(super) fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSync, ()> {
