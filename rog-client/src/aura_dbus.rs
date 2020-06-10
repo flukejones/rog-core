@@ -84,11 +84,12 @@ impl AuraDbusWriter {
         &mut self,
         group: &[[u8; LED_MSG_LEN]; 4],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
-            .append1(&group[0].to_vec())
-            .append1(&group[1].to_vec())
-            .append1(&group[2].to_vec())
-            .append1(&group[3].to_vec());
+        let mut msg =
+            Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
+                .append1(&group[0].to_vec())
+                .append1(&group[1].to_vec())
+                .append1(&group[2].to_vec())
+                .append1(&group[3].to_vec());
         msg.set_no_reply(true);
         self.connection.send(msg).unwrap();
         Ok(())
