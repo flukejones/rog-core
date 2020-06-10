@@ -33,7 +33,7 @@ pub struct RogCore {
 }
 
 impl RogCore {
-    pub fn new(vendor: u16, product: u16, led_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
+    pub fn new(vendor: u16, product: u16, match_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
         let mut dev_handle = RogCore::get_device(vendor, product).map_err(|err| {
             error!("Could not get keyboard device handle: {:?}", err);
             err
@@ -50,12 +50,13 @@ impl RogCore {
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == led_endpoint {
+                    if endpoint.address() == match_endpoint {
                         info!("INTERVAL: {:?}", endpoint.interval());
                         info!("MAX_PKT_SIZE: {:?}", endpoint.max_packet_size());
                         info!("SYNC: {:?}", endpoint.sync_type());
                         info!("TRANSFER_TYPE: {:?}", endpoint.transfer_type());
                         info!("ENDPOINT: {:X?}", endpoint.address());
+                        info!("INTERFACE: {:X?}", desc.interface_number());
                         interface = desc.interface_number();
                         break;
                     }

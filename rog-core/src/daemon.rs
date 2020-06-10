@@ -38,7 +38,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let mut rogcore = RogCore::new(
         laptop.usb_vendor(),
         laptop.usb_product(),
-        laptop.led_endpoint(),
+        laptop.key_endpoint(),
     )
     .map_or_else(
         |err| {
