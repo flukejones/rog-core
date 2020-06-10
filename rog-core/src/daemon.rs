@@ -11,7 +11,7 @@ use dbus::{channel::Sender, nonblock::Process};
 
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_aura::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
