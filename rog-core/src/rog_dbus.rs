@@ -54,6 +54,7 @@ pub(super) fn dbus_create_ledmultizone_method(effect: NestedVecType) -> Method<M
         .inarg::<Vec<u8>, _>("bytearray2")
         .inarg::<Vec<u8>, _>("bytearray3")
         .inarg::<Vec<u8>, _>("bytearray4")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSync, ()> {
@@ -158,18 +159,21 @@ pub(super) fn dbus_create_tree() -> (
 
     let factory = Factory::new_sync::<()>();
     let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
-    let tree = factory.tree(()).add(
-        factory.object_path(DBUS_PATH, ()).introspectable().add(
-            factory
-                .interface(DBUS_IFACE, ())
-                .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
-                .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
-                .add_m(dbus_create_ledeffect_method(input_effect.clone()))
-                .add_m(dbus_create_animatrix_method(animatrix_img.clone()))
-                .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
-                .add_s(effect_cancel_sig.clone()),
-        ),
-    ).add(factory.object_path("/", ()).introspectable());
+    let tree = factory
+        .tree(())
+        .add(
+            factory.object_path(DBUS_PATH, ()).introspectable().add(
+                factory
+                    .interface(DBUS_IFACE, ())
+                    .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
+                    .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
+                    .add_m(dbus_create_ledeffect_method(input_effect.clone()))
+                    .add_m(dbus_create_animatrix_method(animatrix_img.clone()))
+                    .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
+                    .add_s(effect_cancel_sig.clone()),
+            ),
+        )
+        .add(factory.object_path("/", ()).introspectable());
     (
         tree,
         input_bytes,

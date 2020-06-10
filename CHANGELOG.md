@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Use DBUS_NAME instead of DBUS_IFACE when requesting the name
+- Give different names for the bytearray arguments so that pydbus is not confused
+- Add org.freedesktop.DBus.Method.NoReply annotations
+- Remove dbus reply for multizone writes
 
 ## [0.11.0] - 2020-09-05
 ### BREAKING CHANGE

@@ -64,8 +64,6 @@ impl AuraDbusWriter {
         &mut self,
         key_colour_array: &KeyColourArray,
     ) -> Result<(), Box<dyn Error>> {
-        //        self.connection.process(Duration::from_micros(300))?;
-
         let group = key_colour_array.get();
         let mut msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
             .append3(&group[0].to_vec(), &group[1].to_vec(), &group[2].to_vec())
@@ -76,7 +74,7 @@ impl AuraDbusWriter {
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_micros(self.block_time));
         if self.stop.load(Ordering::Relaxed) {
-            panic!("Go signal to stop!");
+            panic!("Got signal to stop!");
         }
         Ok(())
     }
@@ -86,20 +84,14 @@ impl AuraDbusWriter {
         &mut self,
         group: &[[u8; LED_MSG_LEN]; 4],
     ) -> Result<String, Box<dyn std::error::Error>> {
-        self.connection.process(Duration::from_micros(300))?;
-
         let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
             .append1(&group[0].to_vec())
             .append1(&group[1].to_vec())
             .append1(&group[2].to_vec())
             .append1(&group[3].to_vec());
-        let r = self
-            .connection
-            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
-        if let Some(reply) = r.get1::<&str>() {
-            return Ok(reply.to_owned());
-        }
-        Err(Box::new(dbus::Error::new_custom("name", "message")))
+        msg.set_no_reply(true);
+        self.connection.send(msg).unwrap();
+        Ok(())
     }
 
     #[inline]
