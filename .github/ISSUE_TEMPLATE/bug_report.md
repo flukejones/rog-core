@@ -28,7 +28,7 @@ A clear and concise description of what you expected to happen.
  - `cat /sys/class/dmi/id/board_name`:
  - `lsusb |grep 0b05`
    + `sudo lsusb -vd 0b05:<all devices from above> > ~/laptop_info`, and attach to issue.
- - 'sudo journalctl -b --unit rog-core > rog-core.log' and attach to issue.
+ - `sudo journalctl -b --unit rog-core > rog-core.log` and attach to issue.
  - `sudo usbhid-dump > usbhid.log` and attach to issue.
 
 **Additional context**
