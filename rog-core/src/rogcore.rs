@@ -46,7 +46,8 @@ impl RogCore {
             err
         })?;
         // Interface with outputs
-        let mut interface = 0;
+        let mut interface = 2; // The interface with keyboard consumer device and LED control
+                               // is #2 on 0x1866 device at least
         for iface in dev_config.interfaces() {
             for desc in iface.descriptors() {
                 for endpoint in desc.endpoint_descriptors() {
@@ -70,10 +71,25 @@ impl RogCore {
                 error!("Auto-detach kernel driver failed: {:?}", err);
                 err
             })?;
-        dev_handle.claim_interface(interface).map_err(|err| {
-            error!("Could not claim keyboard device interface: {:?}", err);
-            err
-        })?;
+
+        if let Err(err) = dev_handle.claim_interface(interface) {
+            warn!("Could not claim keyboard device interface: {:?}", err);
+            warn!("Trying to detach kernel driver then retry");
+            if let Ok(active) = dev_handle.kernel_driver_active(interface) {
+                if active {
+                    dev_handle.detach_kernel_driver(interface).map_err(|err| {
+                        warn!("Could not detach kernel driver: {:?}", err);
+                        err
+                    })?;
+                } else {
+                    warn!("Kernel driver not active, continue");
+                }
+            }
+            dev_handle.claim_interface(interface).map_err(|err| {
+                error!("Could not claim keyboard device interface: {:?}", err);
+                err
+            })?;
+        }
 
         Ok(RogCore {
             handle: dev_handle,
