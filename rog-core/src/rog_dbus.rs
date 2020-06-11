@@ -3,7 +3,10 @@ use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
 use rog_client::{DBUS_IFACE, DBUS_PATH};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Mutex,
+};
 
 pub(super) fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
@@ -99,7 +102,9 @@ pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSy
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_animatrix_method(sender: Arc<Mutex<tokio::sync::mpsc::Sender<Vec<Vec<u8>>>>>) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_animatrix_method(
+    sender: Mutex<Sender<Vec<Vec<u8>>>>, // need mutex only to get interior mutability in MTSync
+) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -149,13 +154,13 @@ pub(super) fn dbus_create_tree() -> (
     Tree<MTSync, ()>,
     LedMsgType,
     NestedVecType,
-    tokio::sync::mpsc::Receiver<Vec<Vec<u8>>>,
+    Receiver<Vec<Vec<u8>>>,
     FanModeType,
     Arc<Signal<()>>,
 ) {
     let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
     let input_effect: NestedVecType = Arc::new(Mutex::new(None));
-    let (animatrix_send, animatrix_recv) = tokio::sync::mpsc::channel::<Vec<Vec<u8>>>(1);
+    let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
     let fan_mode: FanModeType = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
@@ -169,7 +174,7 @@ pub(super) fn dbus_create_tree() -> (
                     .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
                     .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
                     .add_m(dbus_create_ledeffect_method(input_effect.clone()))
-                    .add_m(dbus_create_animatrix_method(Arc::new(Mutex::new(animatrix_send))))
+                    .add_m(dbus_create_animatrix_method(Mutex::new(animatrix_send)))
                     .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
                     .add_s(effect_cancel_sig.clone()),
             ),

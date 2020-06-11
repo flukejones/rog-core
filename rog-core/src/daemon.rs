@@ -89,7 +89,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
 
-    let (tree, input, effect, mut animatrix_recv, fan_mode, effect_cancel_signal) = dbus_create_tree();
+    let (tree, input, effect, mut animatrix_recv, fan_mode, effect_cancel_signal) =
+        dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -213,7 +214,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                     .do_command(AnimatrixCommand::WriteImage(image))
                     .await
                     .unwrap_or_else(|err| warn!("{:?}", err));
-
             }
         }
     });
