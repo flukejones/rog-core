@@ -211,10 +211,10 @@ impl From<SetAuraBuiltin> for [[u8; LED_MSG_LEN]; 4] {
     #[inline]
     fn from(mode: SetAuraBuiltin) -> Self {
         let mut msg = [[0u8; LED_MSG_LEN]; 4];
-        for i in 0..4 {
-            msg[i][0] = 0x5d;
-            msg[i][1] = 0xb3;
-            msg[i][2] = i as u8 + 1;
+        for (i, row) in msg.iter_mut().enumerate() {
+            row[0] = 0x5d;
+            row[1] = 0xb3;
+            row[2] = i as u8 + 1;
         }
 
         match mode {

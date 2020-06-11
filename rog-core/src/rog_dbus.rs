@@ -1,8 +1,8 @@
-use crate::daemon::{FanModeType, LedMsgType, NestedVecType};
+use crate::daemon::FanModeType;
 use crate::led_control::AuraCommand;
 use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
-use log::{error, info, warn};
+use log::warn;
 use rog_client::{DBUS_IFACE, DBUS_PATH};
 use std::sync::Arc;
 use tokio::sync::{
@@ -162,6 +162,7 @@ pub(super) fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSyn
         .inarg::<u8, _>("byte")
 }
 
+#[allow(clippy::type_complexity)]
 pub(super) fn dbus_create_tree() -> (
     Tree<MTSync, ()>,
     Sender<AuraCommand>,

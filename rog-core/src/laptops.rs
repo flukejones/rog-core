@@ -174,13 +174,13 @@ impl LaptopBase {
                 aura_command
                     .send(AuraCommand::BrightInc)
                     .await
-                    .unwrap_or_else(|_| {});
+                    .unwrap_or_else(|err| warn!("LedBrightUp: {}", err));
             }
             GX502Keys::LedBrightDown => {
                 aura_command
                     .send(AuraCommand::BrightDec)
                     .await
-                    .unwrap_or_else(|_| {});
+                    .unwrap_or_else(|err| warn!("LedBrightDown: {}", err));
             }
             GX502Keys::AuraNext => {
                 aura_command

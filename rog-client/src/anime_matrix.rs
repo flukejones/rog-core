@@ -11,6 +11,12 @@ use yansi_term::Colour::RGB;
 ///  See the examples for ways to write an image to `AniMeMatrix` format.
 pub struct AniMeMatrix(AniMeBufferType);
 
+impl Default for AniMeMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AniMeMatrix {
     pub fn new() -> Self {
         AniMeMatrix([[0u8; WIDTH]; HEIGHT])
@@ -127,7 +133,7 @@ impl From<AniMeMatrix> for AniMePacketType {
                 }
 
                 let index = row.len() - prog_row_len;
-                for n in index..row.len() {
+                for n in row.iter().skip(index) {
                     // Require a special case to catch the correct end-of-packet which is
                     // 6 bytes from the end
                     if write_index == BLOCK_END && !block1_done {
@@ -136,8 +142,7 @@ impl From<AniMeMatrix> for AniMePacketType {
                         write_index = BLOCK_START;
                     }
 
-                    //println!("{:?}", write_block.to_vec());
-                    write_block[write_index] = row[n];
+                    write_block[write_index] = *n;
                     write_index += 1;
                 }
             }

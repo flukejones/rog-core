@@ -23,6 +23,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         writer.write_colour_block(&key_colours)?;
-        std::thread::sleep(std::time::Duration::from_millis(250));
+        std::thread::sleep(std::time::Duration::from_millis(30));
     }
 }

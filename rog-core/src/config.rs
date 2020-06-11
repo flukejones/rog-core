@@ -34,7 +34,7 @@ impl Config {
                 // Should be okay to unwrap this as is since it is a Default
                 let toml = toml::to_string(&c).unwrap();
                 file.write_all(toml.as_bytes())
-                    .expect("Writing default config failed");
+                    .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
                 self = c;
             } else {
                 self =
@@ -54,8 +54,8 @@ impl Config {
             if l == 0 {
                 panic!("Missing {}", CONFIG_PATH);
             } else {
-                let x: Config =
-                    toml::from_str(&buf).expect(&format!("Could not deserialise {}", CONFIG_PATH));
+                let x: Config = toml::from_str(&buf)
+                    .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
                 *self = x;
             }
         }

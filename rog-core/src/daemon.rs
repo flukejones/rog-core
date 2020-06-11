@@ -14,12 +14,9 @@ use log::{error, info, warn};
 use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 pub(super) type FanModeType = Arc<Mutex<Option<u8>>>;
-pub(super) type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
-pub(super) type NestedVecType = Arc<Mutex<Option<Vec<Vec<u8>>>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -108,7 +105,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let config1 = config.clone();
     // start the keyboard reader and laptop-action loop
-    let key_read_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         loop {
             // Fan mode
             if let Ok(mut lock) = fan_mode.try_lock() {
@@ -129,39 +126,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    // start the LED writer loop
-    let led_write_handle = tokio::spawn(async move {
-        loop {
-            //connection.process_all();
-
-            // Check if a key press issued a command
-            while let Some(command) = aura_command_recv.recv().await {
-                let mut config = config.lock().await;
-                match command {
-                    AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
-                        .do_command(command, &mut config)
-                        .await
-                        .unwrap_or_else(|err| warn!("{:?}", err)),
-                    _ => {
-                        led_writer
-                            .do_command(command, &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{:?}", err));
-                        connection
-                            .send(
-                                effect_cancel_signal
-                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                    .append1(true),
-                            )
-                            .unwrap_or_else(|_| 0);
-                    }
-                }
-            }
-        }
-    });
-
     // If animatrix is supported, try doing a write
-    let animatrix_write_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         if let Some(writer) = animatrix_writer.as_mut() {
             while let Some(image) = animatrix_recv.recv().await {
                 writer
@@ -172,8 +138,32 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    animatrix_write_handle.await?;
-    led_write_handle.await?;
-    key_read_handle.await?;
-    Ok(())
+    // start the main loop
+    loop {
+        connection.process_all();
+
+        // Check if a key press issued a command
+        while let Some(command) = aura_command_recv.recv().await {
+            let mut config = config.lock().await;
+            match command {
+                AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
+                    .do_command(command, &mut config)
+                    .await
+                    .unwrap_or_else(|err| warn!("{:?}", err)),
+                _ => {
+                    led_writer
+                        .do_command(command, &mut config)
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                    connection
+                        .send(
+                            effect_cancel_signal
+                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                .append1(true),
+                        )
+                        .unwrap_or_else(|_| 0);
+                }
+            }
+        }
+    }
 }

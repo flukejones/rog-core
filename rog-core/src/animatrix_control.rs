@@ -148,14 +148,14 @@ impl AniMeWriter {
             init[idx + 1] = *byte
         }
         self.write_bytes(&init).await?;
+
         // clear the init array and write other init message
-        for idx in 0..INIT_STR.len() {
-            match idx {
-                0 => init[idx] = DEV_PAGE, // write it to be sure?
-                1 => init[idx] = INIT,
-                _ => init[idx] = 0,
-            }
+        for ch in init.iter_mut() {
+            *ch = 0;
         }
+        init[0] = DEV_PAGE; // write it to be sure?
+        init[1] = INIT;
+
         self.write_bytes(&init).await?;
         self.initialised = true;
         Ok(())

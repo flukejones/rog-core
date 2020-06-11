@@ -29,6 +29,12 @@ pub struct VirtKeys {
     device: UHIDDevice<std::fs::File>,
 }
 
+impl Default for VirtKeys {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VirtKeys {
     pub fn new() -> Self {
         VirtKeys {
