@@ -1,6 +1,8 @@
 use crate::daemon::{FanModeType, LedMsgType, NestedVecType};
+use crate::led_control::AuraCommand;
 use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
+use log::{error, info, warn};
 use rog_client::{DBUS_IFACE, DBUS_PATH};
 use std::sync::Arc;
 use tokio::sync::{
@@ -8,15 +10,17 @@ use tokio::sync::{
     Mutex,
 };
 
-pub(super) fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("LedWriteBytes", (), {
             move |m| {
                 let bytes: Vec<u8> = m.msg.read1()?;
-                if let Ok(mut lock) = msg.try_lock() {
-                    *lock = Some(bytes.to_vec());
+                if let Ok(mut lock) = sender.try_lock() {
+                    let command = AuraCommand::WriteBytes(bytes.to_vec());
+                    lock.try_send(command)
+                        .unwrap_or_else(|err| warn!("LedWriteBytes over mpsc failed: {}", err));
                     let mret = m
                         .msg
                         .method_return()
@@ -31,17 +35,21 @@ pub(super) fn dbus_create_ledmsg_method(msg: LedMsgType) -> Method<MTSync, ()> {
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
-pub(super) fn dbus_create_ledmultizone_method(effect: NestedVecType) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_ledmultizone_method(
+    sender: Mutex<Sender<AuraCommand>>,
+) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("LedWriteMultizone", (), {
             move |m| {
-                if let Ok(mut lock) = effect.try_lock() {
+                if let Ok(mut lock) = sender.try_lock() {
                     let mut iter = m.msg.iter_init();
                     let byte_array: Vec<Vec<u8>> =
                         vec![iter.read()?, iter.read()?, iter.read()?, iter.read()?];
-                    *lock = Some(byte_array);
+                    let command = AuraCommand::WriteMultizone(byte_array);
+                    lock.try_send(command)
+                        .unwrap_or_else(|err| warn!("LedWriteMultizone over mpsc failed: {}", err));
                     let mret = m
                         .msg
                         .method_return()
@@ -60,13 +68,15 @@ pub(super) fn dbus_create_ledmultizone_method(effect: NestedVecType) -> Method<M
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_ledeffect_method(
+    sender: Mutex<Sender<AuraCommand>>,
+) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("LedWriteEffect", (), {
             move |m| {
-                if let Ok(mut lock) = effect.try_lock() {
+                if let Ok(mut lock) = sender.try_lock() {
                     let mut iter = m.msg.iter_init();
                     let byte_array: Vec<Vec<u8>> = vec![
                         iter.read()?,
@@ -81,7 +91,9 @@ pub(super) fn dbus_create_ledeffect_method(effect: NestedVecType) -> Method<MTSy
                         iter.read()?,
                         iter.read()?,
                     ];
-                    *lock = Some(byte_array);
+                    let command = AuraCommand::WriteEffect(byte_array);
+                    lock.try_send(command)
+                        .unwrap_or_else(|err| warn!("LedWriteEffect over mpsc failed: {}", err));
                     Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
@@ -152,14 +164,13 @@ pub(super) fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSyn
 
 pub(super) fn dbus_create_tree() -> (
     Tree<MTSync, ()>,
-    LedMsgType,
-    NestedVecType,
+    Sender<AuraCommand>,
+    Receiver<AuraCommand>,
     Receiver<Vec<Vec<u8>>>,
     FanModeType,
     Arc<Signal<()>>,
 ) {
-    let input_bytes: LedMsgType = Arc::new(Mutex::new(None));
-    let input_effect: NestedVecType = Arc::new(Mutex::new(None));
+    let (aura_command_send, aura_command_recv) = channel::<AuraCommand>(1);
     let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
     let fan_mode: FanModeType = Arc::new(Mutex::new(None));
 
@@ -171,9 +182,15 @@ pub(super) fn dbus_create_tree() -> (
             factory.object_path(DBUS_PATH, ()).introspectable().add(
                 factory
                     .interface(DBUS_IFACE, ())
-                    .add_m(dbus_create_ledmsg_method(input_bytes.clone()))
-                    .add_m(dbus_create_ledmultizone_method(input_effect.clone()))
-                    .add_m(dbus_create_ledeffect_method(input_effect.clone()))
+                    .add_m(dbus_create_ledmsg_method(Mutex::new(
+                        aura_command_send.clone(),
+                    )))
+                    .add_m(dbus_create_ledmultizone_method(Mutex::new(
+                        aura_command_send.clone(),
+                    )))
+                    .add_m(dbus_create_ledeffect_method(Mutex::new(
+                        aura_command_send.clone(),
+                    )))
                     .add_m(dbus_create_animatrix_method(Mutex::new(animatrix_send)))
                     .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
                     .add_s(effect_cancel_sig.clone()),
@@ -182,8 +199,8 @@ pub(super) fn dbus_create_tree() -> (
         .add(factory.object_path("/", ()).introspectable());
     (
         tree,
-        input_bytes,
-        input_effect,
+        aura_command_send,
+        aura_command_recv,
         animatrix_recv,
         fan_mode,
         effect_cancel_sig,

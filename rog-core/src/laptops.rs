@@ -109,8 +109,7 @@ pub(super) struct LaptopBase {
     //backlight: Backlight,
 }
 
-use std::sync::mpsc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 
 impl LaptopBase {
     /// Pass in LedWriter as Mutex so it is only locked when required
@@ -119,7 +118,7 @@ impl LaptopBase {
         rogcore: &mut RogCore,
         config: &Mutex<Config>,
         key_buf: [u8; 32],
-        aura_command: mpsc::SyncSender<AuraCommand>,
+        aura_command: mpsc::Sender<AuraCommand>,
     ) -> Result<(), AuraError> {
         match self.usb_product {
             0x1869 | 0x1866 => {
@@ -168,20 +167,32 @@ impl LaptopBase {
         rogcore: &mut RogCore,
         config: &Mutex<Config>,
         key_buf: [u8; 32],
-        aura_command: mpsc::SyncSender<AuraCommand>,
+        mut aura_command: mpsc::Sender<AuraCommand>,
     ) -> Result<(), AuraError> {
         match GX502Keys::from(key_buf[1]) {
             GX502Keys::LedBrightUp => {
-                aura_command.send(AuraCommand::BrightInc).unwrap();
+                aura_command
+                    .send(AuraCommand::BrightInc)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GX502Keys::LedBrightDown => {
-                aura_command.send(AuraCommand::BrightDec).unwrap();
+                aura_command
+                    .send(AuraCommand::BrightDec)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GX502Keys::AuraNext => {
-                aura_command.send(AuraCommand::BuiltinNext).unwrap();
+                aura_command
+                    .send(AuraCommand::BuiltinNext)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GX502Keys::AuraPrevious => {
-                aura_command.send(AuraCommand::BuiltinPrev).unwrap();
+                aura_command
+                    .send(AuraCommand::BuiltinPrev)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GX502Keys::ScreenBrightUp => {
                 rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())
@@ -231,14 +242,20 @@ impl LaptopBase {
         rogcore: &mut RogCore,
         _config: &Mutex<Config>,
         key_buf: [u8; 32],
-        aura_command: mpsc::SyncSender<AuraCommand>,
+        mut aura_command: mpsc::Sender<AuraCommand>,
     ) -> Result<(), AuraError> {
         match GL753Keys::from(key_buf[1]) {
             GL753Keys::LedBrightUp => {
-                aura_command.send(AuraCommand::BrightInc).unwrap();
+                aura_command
+                    .send(AuraCommand::BrightInc)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GL753Keys::LedBrightDown => {
-                aura_command.send(AuraCommand::BrightDec).unwrap();
+                aura_command
+                    .send(AuraCommand::BrightDec)
+                    .await
+                    .unwrap_or_else(|_| {});
             }
             GL753Keys::ScreenBrightUp => {
                 rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into())

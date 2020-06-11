@@ -13,9 +13,9 @@ use dbus_tokio::connection;
 use log::{error, info, warn};
 use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
-use std::sync::{mpsc, Arc};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 
 pub(super) type FanModeType = Arc<Mutex<Option<u8>>>;
 pub(super) type LedMsgType = Arc<Mutex<Option<Vec<u8>>>>;
@@ -87,10 +87,14 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .request_name(DBUS_NAME, false, true, true)
         .await?;
 
-    let (aura_command_send, aura_command_recv) = mpsc::sync_channel::<AuraCommand>(1);
-
-    let (tree, input, effect, mut animatrix_recv, fan_mode, effect_cancel_signal) =
-        dbus_create_tree();
+    let (
+        tree,
+        aura_command_sender,
+        mut aura_command_recv,
+        mut animatrix_recv,
+        fan_mode,
+        effect_cancel_signal,
+    ) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -115,11 +119,10 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{:?}", err));
                 }
             }
-            let acs = aura_command_send.clone();
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
                 laptop
-                    .run(&mut rogcore, &config1, bytes, acs)
+                    .run(&mut rogcore, &config1, bytes, aura_command_sender.clone())
                     .await
                     .unwrap_or_else(|err| warn!("{:?}", err));
             }
@@ -128,80 +131,31 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     // start the LED writer loop
     let led_write_handle = tokio::spawn(async move {
-        let mut time_mark = Instant::now();
         loop {
-            connection.process_all();
+            //connection.process_all();
 
             // Check if a key press issued a command
-            let res = aura_command_recv.recv_timeout(Duration::from_micros(50));
-            if let Ok(command) = res {
+            while let Some(command) = aura_command_recv.recv().await {
                 let mut config = config.lock().await;
-                led_writer
-                    .do_command(command, &mut config)
-                    .await
-                    .unwrap_or_else(|err| warn!("{:?}", err));
-
-                connection
-                    .send(
-                        effect_cancel_signal
-                            .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                            .append1(true),
-                    )
-                    .unwrap_or_else(|_| 0);
-                // Clear any possible queued effect
-                let mut effect = effect.lock().await;
-                *effect = None;
-                time_mark = Instant::now();
-            } else {
-                // Check if single mode
-                if let Ok(mut lock) = input.try_lock() {
-                    if let Some(bytes) = lock.take() {
-                        if !bytes.is_empty() {
-                            let mut config = config.lock().await;
-                            led_writer
-                                .do_command(AuraCommand::WriteBytes(bytes), &mut config)
-                                .await
-                                .unwrap_or_else(|err| warn!("{:?}", err));
-                            // Also cancel any effect client
-                            connection
-                                .send(
-                                    effect_cancel_signal.msg(&DBUS_PATH.into(), &DBUS_IFACE.into()),
-                                )
-                                .unwrap();
-                            time_mark = Instant::now();
-                        }
+                match command {
+                    AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
+                        .do_command(command, &mut config)
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err)),
+                    _ => {
+                        led_writer
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{:?}", err));
+                        connection
+                            .send(
+                                effect_cancel_signal
+                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                    .append1(true),
+                            )
+                            .unwrap_or_else(|_| 0);
                     }
                 }
-                // Write a colour block
-                let mut effect_lock = effect.lock().await;
-                if let Some(effect) = effect_lock.take() {
-                    if effect.len() == 11 {
-                        let mut config = config.lock().await;
-                        if effect.len() > 4 {
-                            led_writer
-                                .do_command(AuraCommand::WriteEffect(effect), &mut config)
-                                .await
-                                .unwrap_or_else(|err| warn!("{:?}", err));
-                        } else {
-                            led_writer
-                                .do_command(AuraCommand::WriteMultizone(effect), &mut config)
-                                .await
-                                .unwrap_or_else(|err| warn!("{:?}", err));
-                        }
-                        time_mark = Instant::now();
-                    }
-                }
-            }
-
-            let now = Instant::now();
-            // Cool-down steps
-            // This block is to prevent the loop spooling as fast as possible and saturating the CPU
-            if now.duration_since(time_mark).as_millis() > 500 {
-                tokio::time::delay_for(Duration::from_millis(200)).await;
-            } else if now.duration_since(time_mark).as_millis() > 100 {
-                tokio::time::delay_for(Duration::from_millis(50)).await;
-            } else {
-                tokio::time::delay_for(Duration::from_micros(300)).await;
             }
         }
     });
