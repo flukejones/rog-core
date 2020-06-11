@@ -37,8 +37,8 @@ impl Config {
                     .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
                 self = c;
             } else {
-                self =
-                    toml::from_str(&buf).expect(&format!("Could not deserialise {}", CONFIG_PATH));
+                self = toml::from_str(&buf)
+                    .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
             }
         }
         self

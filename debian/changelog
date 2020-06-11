@@ -1,3 +1,15 @@
+rog-core (0.11.1) focal; urgency=medium
+
+  * Use DBUS_NAME instead of DBUS_IFACE when requesting the name
+  * Give different names for the bytearray arguments so that pydbus is not confused
+  * Add org.freedesktop.DBus.Method.NoReply annotations
+  * Remove dbus reply for multizone writes
+  * Move led_writer to a main loop due to strange mpsc behaviour, this combined with
+    mpsc channels offers a more reactive app
+  * Small fix for unreported mode indexing issue
+
+ -- Luke Jones <luke@ljones.dev>  Thu, 11 Jun 2020 20:57:56 +1200
+
 rog-core (0.11.0) focal; urgency=medium
 
   * BREAKING CHANGE:

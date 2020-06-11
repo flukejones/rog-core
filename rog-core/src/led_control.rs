@@ -238,14 +238,17 @@ where
 
     #[inline]
     async fn set_builtin(&self, config: &mut Config, index: usize) -> Result<(), AuraError> {
-        let mode_next = config
-            .builtin_modes
-            .get_field_from(self.supported_modes[index].into())
-            .ok_or(AuraError::NotSupported)?
-            .to_owned();
-        println!("{:X?}", &mode_next);
-        self.set_and_save(&mode_next, config).await?;
-        info!("Switched LED mode to {:#?}", self.supported_modes[index]);
-        Ok(())
+        if let Some(mode) = self.supported_modes.get(index) {
+            let mode_next = config
+                .builtin_modes
+                .get_field_from(mode.to_owned().into())
+                .ok_or(AuraError::NotSupported)?
+                .to_owned();
+            println!("{:X?}", &mode_next);
+            self.set_and_save(&mode_next, config).await?;
+            info!("Switched LED mode to {:#?}", self.supported_modes[index]);
+            return Ok(());
+        }
+        Err(AuraError::NotSupported)
     }
 }

@@ -5,13 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.11.1] - 2020-11-06
 ### Changed
 - Use DBUS_NAME instead of DBUS_IFACE when requesting the name
 - Give different names for the bytearray arguments so that pydbus is not confused
 - Add org.freedesktop.DBus.Method.NoReply annotations
 - Remove dbus reply for multizone writes
+- Move led_writer to a main loop due to strange mpsc behaviour, this combined with
+  mpsc channels offers a more reactive app
+- Small fix for unreported mode indexing issue
 
-## [0.11.0] - 2020-09-05
+## [0.11.0] - 2020-09-06
 ### BREAKING CHANGE
 - Many of the RGB built-in modes have been renamed to match Armory-Crate names,
   this means that the `/etc/rogcore.conf` needs to be removed so it can be
