@@ -64,9 +64,6 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         "GA502" => {
             // Has no RGB control
             info!("Found GA502 series");
-            laptop.supported_modes = vec![
-                BuiltInModeByte::Single,
-            ];
         }
         "GX502" => {
             info!("Found GX502 series");
