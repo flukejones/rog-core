@@ -82,14 +82,14 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
                 BuiltInModeByte::Rainbow,
             ];
         }
-        "GA502" => {
-            // Has no RGB control
-            info!("Found GA502 series");
-        }
         "GA401" => {
             // Has no RGB control
             info!("Found GA401 series");
             laptop.support_animatrix = true;
+        }
+        "GA502" => {
+            // Has no RGB control
+            info!("Found GA502 series");
         }
         _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
