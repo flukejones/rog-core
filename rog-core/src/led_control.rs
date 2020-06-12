@@ -222,6 +222,12 @@ where
 
     #[inline]
     async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
+        // Reload brightness too
+        let bright = config.brightness;
+        let bytes = aura_brightness_bytes(bright);
+        self.write_bytes(&bytes).await?;
+
+        // set current mode
         let mode_curr = config.current_mode[3];
         let mode = config
             .builtin_modes
@@ -229,10 +235,6 @@ where
             .ok_or(AuraError::NotSupported)?
             .to_owned();
         self.write_bytes(&mode).await?;
-        // Reload brightness too
-        let bright = config.brightness;
-        let bytes = aura_brightness_bytes(bright);
-        self.write_bytes(&bytes).await?;
         info!("Reloaded last used mode and brightness");
         Ok(())
     }
