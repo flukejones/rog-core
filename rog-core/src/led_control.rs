@@ -76,14 +76,15 @@ where
         command: AuraCommand,
         config: &mut Config,
     ) -> Result<(), AuraError> {
-        //if !self.initialised {
-        self.write_bytes(&LED_INIT1).await?;
-        self.write_bytes(LED_INIT2.as_bytes()).await?;
-        self.write_bytes(&LED_INIT3).await?;
-        self.write_bytes(LED_INIT4.as_bytes()).await?;
-        self.write_bytes(&LED_INIT5).await?;
-        self.initialised = true;
-        //}
+        if !self.initialised {
+            info!("Initializing LED brightness controller...");
+            self.write_bytes(&LED_INIT1).await?;
+            self.write_bytes(LED_INIT2.as_bytes()).await?;
+            self.write_bytes(&LED_INIT3).await?;
+            self.write_bytes(LED_INIT4.as_bytes()).await?;
+            self.write_bytes(&LED_INIT5).await?;
+            self.initialised = true;
+        }
 
         match command {
             AuraCommand::BrightInc => {
