@@ -77,7 +77,6 @@ where
         config: &mut Config,
     ) -> Result<(), AuraError> {
         if !self.initialised {
-            info!("Initializing LED brightness controller...");
             self.write_bytes(&LED_INIT1).await?;
             self.write_bytes(LED_INIT2.as_bytes()).await?;
             self.write_bytes(&LED_INIT3).await?;
@@ -222,20 +221,23 @@ where
 
     #[inline]
     async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
-        // Reload brightness too
+        // set current mode (if any)
+        if self.supported_modes.len() > 1 {
+            let mode_curr = config.current_mode[3];
+            let mode = config
+                .builtin_modes
+                .get_field_from(mode_curr)
+                .ok_or(AuraError::NotSupported)?
+                .to_owned();
+            self.write_bytes(&mode).await?;
+            info!("Reloaded last used mode");
+        }
+
+        // Reload brightness
         let bright = config.brightness;
         let bytes = aura_brightness_bytes(bright);
         self.write_bytes(&bytes).await?;
-
-        // set current mode
-        let mode_curr = config.current_mode[3];
-        let mode = config
-            .builtin_modes
-            .get_field_from(mode_curr)
-            .ok_or(AuraError::NotSupported)?
-            .to_owned();
-        self.write_bytes(&mode).await?;
-        info!("Reloaded last used mode and brightness");
+        info!("Reloaded last used brightness");
         Ok(())
     }
 
