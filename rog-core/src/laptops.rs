@@ -56,6 +56,15 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         //backlight: Backlight::new("intel_backlight").unwrap(),
     };
     match &board_name.as_str()[..5] {
+        "GA401" => {
+            // Has no RGB control
+            info!("Found GA401 series");
+            laptop.support_animatrix = true;
+        }
+        "GA502" => {
+            // Has no RGB control
+            info!("Found GA502 series");
+        }
         "GX502" => {
             info!("Found GX502 series");
             laptop.supported_modes = vec![
@@ -81,15 +90,6 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
                 BuiltInModeByte::Strobe,
                 BuiltInModeByte::Rainbow,
             ];
-        }
-        "GA502" => {
-            // Has no RGB control
-            info!("Found GA502 series");
-        }
-        "GA401" => {
-            // Has no RGB control
-            info!("Found GA401 series");
-            laptop.support_animatrix = true;
         }
         _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
