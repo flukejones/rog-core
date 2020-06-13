@@ -38,7 +38,6 @@ impl RogCore {
             error!("Could not get keyboard device handle: {:?}", err);
             err
         })?;
-        dev_handle.reset()?;
         dev_handle.set_active_configuration(0).unwrap_or(());
 
         let dev_config = dev_handle.device().config_descriptor(0).map_err(|err| {
@@ -77,6 +76,7 @@ impl RogCore {
             warn!("Trying to detach kernel driver then retry");
             if let Ok(active) = dev_handle.kernel_driver_active(interface) {
                 if active {
+                    dev_handle.reset()?;
                     dev_handle.detach_kernel_driver(interface).map_err(|err| {
                         warn!("Could not detach kernel driver: {:?}", err);
                         err
