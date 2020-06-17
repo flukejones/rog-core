@@ -91,6 +91,16 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
                 BuiltInModeByte::Rainbow,
             ];
         }
+        "GX531" => {
+            info!("Found GX531 series");
+            laptop.supported_modes = vec![
+                BuiltInModeByte::Single,
+                BuiltInModeByte::Breathing,
+                BuiltInModeByte::Strobe,
+                BuiltInModeByte::Rainbow,
+                BuiltInModeByte::Pulse,
+            ];
+        }
         _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
     laptop
