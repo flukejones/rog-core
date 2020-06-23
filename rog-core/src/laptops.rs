@@ -58,15 +58,12 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     match &board_name.as_str()[..5] {
         "GA401" => {
             // Has no RGB control
-            info!("Found GA401 series");
             laptop.support_animatrix = true;
         }
         "GA502" => {
             // Has no RGB control
-            info!("Found GA502 series");
         }
-        "GX502" | "G531G" => {
-            info!("Found {} series", board_name.as_str());
+        "GX502" => {
             laptop.supported_modes = vec![
                 BuiltInModeByte::Single,
                 BuiltInModeByte::Breathing,
@@ -83,7 +80,6 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
             ];
         }
         "GM501" => {
-            info!("Found GM501 series");
             laptop.supported_modes = vec![
                 BuiltInModeByte::Single,
                 BuiltInModeByte::Breathing,
@@ -91,8 +87,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
                 BuiltInModeByte::Rainbow,
             ];
         }
-        "GX531" => {
-            info!("Found GX531 series");
+        "GX531" | "G531G" => {
             laptop.supported_modes = vec![
                 BuiltInModeByte::Single,
                 BuiltInModeByte::Breathing,
@@ -103,6 +98,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         }
         _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
     }
+    info!("Board name: {}", board_name.as_str());
     laptop
 }
 

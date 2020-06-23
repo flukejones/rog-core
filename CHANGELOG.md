@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Add modes for FX531 LEDs
 - Change where USB reset is called
+- Add support for G531GT
 
 ## [0.11.1] - 2020-11-06
 ### Changed

@@ -37,22 +37,19 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
 
 ## SUPPORTED LAPTOPS
 
-- GX502 (product 0x1866) (Tested on GX502GW)
-- GA14 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
-
-**Partial/Inprogress:**
-- GA15 appears to have most things working
 - GM501 (multizone needs testing)
-
-Both of these laptops appear to have the same USB device ID as the GX502, but with different features enabled.
+- GX502
+- GX531
+- G531GT
+- GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
+- GA15/GA502 appears to have most things working
 
 **Please help test or provide info for:**
 
-- GL703(0x1869), GA502 (attempts to use same profile as GX502GW)
+- GL703(0x1869)
 - GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
 
-If the USB product ID is 0x1866 or 0x1869 then the per-key profile with hotkeys *should* work - 0x1866 is tested as this
-is what I have.
+**Laptop support is added on a per-case basis as the EC for the keyboard varies a little between models, e.g, some RGB modes are missing, or it's a single colour**
 
 ## Requirements for compiling
 
