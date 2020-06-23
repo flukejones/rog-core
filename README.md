@@ -13,6 +13,8 @@ captures from others with different ROG laptops then I should be able to add the
 
 I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
 
+## Discord
+
 [Discord server link](https://discord.gg/uKxdua)
 
 ## Implemented
