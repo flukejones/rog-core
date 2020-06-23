@@ -16,6 +16,8 @@
       <sourceFolder url="file://$MODULE_DIR$/rog-lib/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/aura/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/aura/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rog-client/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rog-client/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/rog-core/target" />
       <excludeFolder url="file://$MODULE_DIR$/rog-lib/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
