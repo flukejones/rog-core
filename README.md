@@ -25,17 +25,17 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
 - [X] Daemon mode
 - [X] Saving settings for reload
 - [ ] System control
-  + [X] Sleep
-  + [X] Airplane mode
-  + [X] Screen off? Now mapped to a keycode but has no effect
-  + [X] Screen brightness up/down
   + [ ] ROG key custom mapping (Can be done in source)
   + [X] Fan/Performance mode
-  + [ ] Screen off??
+  + [ ] Screen off? Now mapped to a keycode but has no effect
+  + [X] Screen brightness up/down
   + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
-- [X] Capture and use hotkeys **Partially completed: aura keys work**
+  + [X] Sleep
+  + [X] Airplane mode
+- [X] Capture and use hotkeys
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
+  + [ ] Mic mute - unsure which key should be emitted for this to work. The key by itself emits a code.
 - [X] Logging - required for journalctl
 - [X] AniMatrix display on G14 models that include it
 
