@@ -132,10 +132,10 @@ pub enum ConsumerKeys {
     MediaVolUp = 0xE9,
     MediaVolDown = 0xEA,
 
-    BacklightInc = 0x006F,
-    BacklightDec = 0x0070,
+    BacklightInc = 0x6F,
+    BacklightDec = 0x70,
 
-    BacklightTog = 0x072, // USAGE (Backlight toggle? display toggle?)
+    BacklightTog = 0x72, // USAGE (Backlight toggle? display toggle?)
     BacklightMin = 0x73,
     BacklightMax = 0x74,
 
@@ -149,7 +149,7 @@ pub enum ConsumerKeys {
     LaunchDatabaseEditor = 0x189,
     LaunchEmailApp = 0x18A,
     LaunchNewsReader = 0x18B,
-    LaunchCalendarApp = 0x018e,
+    LaunchCalendarApp = 0x018E,
     LaunchTaskManagementApp = 0x18F,
     LaunchWebBrowser = 0x196,
     ControlPanel = 0x19F,

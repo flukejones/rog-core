@@ -249,7 +249,6 @@ where
                 .get_field_from(mode.to_owned().into())
                 .ok_or(AuraError::NotSupported)?
                 .to_owned();
-            println!("{:X?}", &mode_next);
             self.set_and_save(&mode_next, config).await?;
             info!("Switched LED mode to {:#?}", self.supported_modes[index]);
             return Ok(());
