@@ -147,6 +147,60 @@ Some commands may have subcommands:
 rog-core <command> <subcommand> --help
 ```
 
+### Example
+
+```
+$ rog-core --help
+Usage: rog-core [OPTIONS]
+
+Optional arguments:
+  -h, --help          print help message
+  -v, --version       show program version number
+  -d, --daemon        start daemon
+  -b, --bright VAL    <off, low, med, high>
+  -f, --fan-mode FAN  <silent, normal, boost>
+
+Available commands:
+  led-mode  Set the keyboard lighting from built-in modes
+
+$ rog-core led-mode --help
+Usage: rog-core led-mode [OPTIONS]
+
+Optional arguments:
+  -h, --help  print help message
+
+Available commands:
+  stable        set a single static colour
+  breathe       pulse between one or two colours
+  strobe        strobe through all colours
+  rainbow       rainbow cycling in one of four directions
+  star          rain pattern mimicking raindrops
+  rain          rain pattern of three preset colours
+  highlight     pressed keys are highlighted to fade
+  laser         pressed keys generate horizontal laser
+  ripple        pressed keys ripple outwards like a splash
+  pulse         set a rapid pulse
+  comet         set a vertical line zooming from left
+  flash         set a wide vertical line zooming from left
+  multi-static  4-zone multi-colour
+
+$ rog-core led-mode stable --help
+Usage: rog-core led-mode stable [OPTIONS]
+
+Optional arguments:
+  -h, --help  print help message
+  -c HEX      set the RGB value e.g, ff00ff
+
+$ rog-core led-mode star --help
+Usage: rog-core led-mode star [OPTIONS]
+
+Optional arguments:
+  -h, --help  print help message
+  -c HEX      set the first RGB value e.g, ff00ff
+  -C HEX      set the second RGB value e.g, ff00ff
+  -s SPEED    set the speed: low, med, high
+```
+
 ## Daemon mode
 
 If the daemon service is enabled then on boot the following will be reloaded from save:
