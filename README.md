@@ -115,7 +115,7 @@ Occasionally I might break things for you by tweaking or changing the config fil
 need to remove `/etc/rog-core.conf` and restart the daemon to create a new one. You *can* back up the old one and copy
 settings back over (then restart daemon again).
 
-## Use
+# Usage
 
 **NOTE! Fan mode toggling requires a newer kernel**. I'm unsure when the patches required for it got merged - I've
 tested with the 5.6.6 kernel and above only. To see if the fan-mode changed cat either:
@@ -174,6 +174,10 @@ pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
 Commands: `FanMode`, `LedWriteBytes`, `LedWriteMultizone`, `LedWriteEffect`
 
 TODO: fill in this info
+
+### AniMe input
+
+You will want to look at what MeuMeu has done with [https://github.com/Meumeu/ZephyrusBling/](https://github.com/Meumeu/ZephyrusBling/)
 
 ### Wireshark captures
 
