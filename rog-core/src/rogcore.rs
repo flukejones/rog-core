@@ -16,6 +16,7 @@ use std::time::Duration;
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
 static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
 static AMD_BOOST_PATH: &str = "/sys/devices/system/cpu/cpufreq/boost";
+static BAT_CHARGE_PATH: &str = "/sys/class/power_supply/BAT0/charge_control_end_threshold";
 
 /// ROG device controller
 ///
@@ -128,7 +129,7 @@ impl RogCore {
         }
     }
 
-    pub async fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+    pub fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = RogCore::get_fan_path()?;
         let mut file = OpenOptions::new().write(true).open(path)?;
         file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
@@ -255,6 +256,37 @@ impl RogCore {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub fn bat_charge_limit_reload(&self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        config.read();
+        info!("Reloaded battery charge limit");
+        self.set_charge_limit(config.bat_charge_limit, config)
+    }
+
+    pub fn set_charge_limit(&self, limit: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        if limit < 20 || limit > 100 {
+            warn!(
+                "Unable to set battery charge limit, must be between 20-100: requested {}",
+                limit
+            );
+        }
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(BAT_CHARGE_PATH)
+            .map_err(|err| {
+                warn!("Failed to open battery charge limit path: {:?}", err);
+                err
+            })?;
+        file.write_all(limit.to_string().as_bytes())
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", BAT_CHARGE_PATH, err));
+        info!("Battery charge limit: {}", limit);
+
+        config.bat_charge_limit = limit;
+        config.write();
+
         Ok(())
     }
 

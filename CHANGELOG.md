@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add support for G531GT
 - Remove duplicated code: it looks like there is at least *some* consistency in Consumer-Device keycodes that ASUS uses
 
+### BREAKING CHANGE
+- `bat_charge_limit = 100` must be appended to the top of `/etc/rogcore.conf`
+
 ## [0.11.1] - 2020-11-06
 ### Changed
 - Use DBUS_NAME instead of DBUS_IFACE when requesting the name

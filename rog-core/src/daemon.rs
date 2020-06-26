@@ -51,8 +51,11 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // Reload settings
     rogcore
         .fan_mode_reload(&mut config)
-        .await
         .unwrap_or_else(|err| warn!("Fan mode: {}", err));
+    rogcore
+        .bat_charge_limit_reload(&mut config)
+        .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
+
     let mut led_writer = LedWriter::new(
         rogcore.get_raw_device_handle(),
         laptop.led_endpoint(),

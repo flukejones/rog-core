@@ -8,6 +8,7 @@ pub static CONFIG_PATH: &str = "/etc/rogcore.conf";
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
     pub fan_mode: u8,
+    pub bat_charge_limit: u8,
     pub brightness: u8,
     pub current_mode: [u8; 4],
     pub builtin_modes: BuiltInModeBytes,
@@ -29,6 +30,7 @@ impl Config {
             if l == 0 {
                 // create a default config here
                 let mut c = Config::default();
+                c.bat_charge_limit = 100;
                 c.current_mode[0] = 0x5d;
                 c.current_mode[1] = 0xb3;
                 // Should be okay to unwrap this as is since it is a Default
