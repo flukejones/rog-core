@@ -1,4 +1,4 @@
-use crate::daemon::FanModeType;
+use crate::daemon::DbusU8Type;
 use crate::led_control::AuraCommand;
 use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
@@ -138,13 +138,13 @@ pub(super) fn dbus_create_animatrix_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSync, ()> {
+pub(super) fn dbus_create_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("FanMode", (), {
             move |m| {
-                if let Ok(mut lock) = fan_mode.try_lock() {
+                if let Ok(mut lock) = data.try_lock() {
                     let mut iter = m.msg.iter_init();
                     let byte: u8 = iter.read()?;
                     *lock = Some(byte);
@@ -162,21 +162,49 @@ pub(super) fn dbus_create_fan_mode_method(fan_mode: FanModeType) -> Method<MTSyn
         .inarg::<u8, _>("byte")
 }
 
+pub(super) fn dbus_create_charge_limit_method(data: DbusU8Type) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        // method for ledmessage
+        .method("ChargeLimit", (), {
+            move |m| {
+                if let Ok(mut lock) = data.try_lock() {
+                    let mut iter = m.msg.iter_init();
+                    let byte: u8 = iter.read()?;
+                    *lock = Some(byte);
+                    let mret = m
+                        .msg
+                        .method_return()
+                        .append1(format!("Battery charge limit set to {}", byte));
+                    Ok(vec![mret])
+                } else {
+                    Err(MethodErr::failed("Could not lock daemon for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("reply")
+        .inarg::<u8, _>("byte")
+}
+
 #[allow(clippy::type_complexity)]
 pub(super) fn dbus_create_tree() -> (
     Tree<MTSync, ()>,
     Sender<AuraCommand>,
     Receiver<AuraCommand>,
     Receiver<Vec<Vec<u8>>>,
-    FanModeType,
+    DbusU8Type,
+    DbusU8Type,
     Arc<Signal<()>>,
 ) {
     let (aura_command_send, aura_command_recv) = channel::<AuraCommand>(1);
     let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
-    let fan_mode: FanModeType = Arc::new(Mutex::new(None));
+    let fan_mode: DbusU8Type = Arc::new(Mutex::new(None));
+    let charge_limit: DbusU8Type = Arc::new(Mutex::new(None));
 
     let factory = Factory::new_sync::<()>();
+
     let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
+
     let tree = factory
         .tree(())
         .add(
@@ -194,6 +222,7 @@ pub(super) fn dbus_create_tree() -> (
                     )))
                     .add_m(dbus_create_animatrix_method(Mutex::new(animatrix_send)))
                     .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
+                    .add_m(dbus_create_charge_limit_method(charge_limit.clone()))
                     .add_s(effect_cancel_sig.clone()),
             ),
         )
@@ -204,6 +233,7 @@ pub(super) fn dbus_create_tree() -> (
         aura_command_recv,
         animatrix_recv,
         fan_mode,
+        charge_limit,
         effect_cancel_sig,
     )
 }

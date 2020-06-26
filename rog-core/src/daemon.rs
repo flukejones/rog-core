@@ -16,7 +16,7 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub(super) type FanModeType = Arc<Mutex<Option<u8>>>;
+pub(super) type DbusU8Type = Arc<Mutex<Option<u8>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -93,6 +93,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         mut aura_command_recv,
         mut animatrix_recv,
         fan_mode,
+        charge_limit,
         effect_cancel_signal,
     ) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
@@ -119,6 +120,16 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{:?}", err));
                 }
             }
+            // Charge limit
+            if let Ok(mut lock) = charge_limit.try_lock() {
+                if let Some(n) = lock.take() {
+                    let mut config = config1.lock().await;
+                    rogcore
+                        .set_charge_limit(n, &mut config)
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+            }
+            // Keyboard reads
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
                 laptop

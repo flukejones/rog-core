@@ -22,6 +22,8 @@ struct CLIStart {
     bright: Option<LedBrightness>,
     #[options(meta = "FAN", help = "<silent, normal, boost>")]
     fan_mode: Option<FanLevel>,
+    #[options(meta = "CHRG", help = "<20-100>")]
+    charge_limit: Option<u8>,
     #[options(command)]
     command: Option<Command>,
 }
@@ -83,6 +85,12 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(fan_level) = parsed.fan_mode {
         match writer.write_fan_mode(fan_level.into()) {
+            Ok(msg) => println!("Daemon response: {}", msg),
+            Err(err) => println!("Error: {}", err),
+        }
+    }
+    if let Some(charge_limit) = parsed.charge_limit {
+        match writer.write_charge_limit(charge_limit) {
             Ok(msg) => println!("Daemon response: {}", msg),
             Err(err) => println!("Error: {}", err),
         }

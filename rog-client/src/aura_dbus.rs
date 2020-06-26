@@ -122,6 +122,19 @@ impl AuraDbusWriter {
     }
 
     #[inline]
+    pub fn write_charge_limit(&self, level: u8) -> Result<String, Box<dyn std::error::Error>> {
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ChargeLimit")?
+            .append1(level);
+        let r = self
+            .connection
+            .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
+        if let Some(reply) = r.get1::<&str>() {
+            return Ok(reply.to_owned());
+        }
+        Err(Box::new(dbus::Error::new_custom("name", "message")))
+    }
+
+    #[inline]
     pub fn write_builtin_mode(
         &self,
         mode: &SetAuraBuiltin,
