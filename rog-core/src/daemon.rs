@@ -95,6 +95,8 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         fan_mode,
         charge_limit,
         effect_cancel_signal,
+        fanmode_signal,
+        charge_limit_signal,
     ) = dbus_create_tree();
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
@@ -152,13 +154,12 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    // start the main loop
-    loop {
-        connection.process_all();
-
+    let connection1 = connection.clone();
+    let config1 = config.clone();
+    tokio::spawn(async move {
         // Check if a key press issued a command
         while let Some(command) = aura_command_recv.recv().await {
-            let mut config = config.lock().await;
+            let mut config = config1.lock().await;
             match command {
                 AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
                     .do_command(command, &mut config)
@@ -169,7 +170,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .do_command(command, &mut config)
                         .await
                         .unwrap_or_else(|err| warn!("{:?}", err));
-                    connection
+                    connection1
                         .send(
                             effect_cancel_signal
                                 .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
@@ -178,6 +179,38 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|_| 0);
                 }
             }
+        }
+    });
+
+    // Some small things we need to track, without passing all sorts of stuff around
+    let mut last_fan_mode = config.lock().await.fan_mode;
+    let mut last_charge_limit = config.lock().await.bat_charge_limit;
+    // start the main loop
+    loop {
+        connection.process_all();
+        // Use tokio sleep to not hold up other threads
+        tokio::time::delay_for(std::time::Duration::from_millis(500)).await;
+
+        let config = config.lock().await;
+        if config.fan_mode != last_fan_mode {
+            last_fan_mode = config.fan_mode;
+            connection
+                .send(
+                    fanmode_signal
+                        .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                        .append1(last_fan_mode),
+                )
+                .unwrap_or_else(|_| 0);
+        }
+        if config.bat_charge_limit != last_charge_limit {
+            last_charge_limit = config.bat_charge_limit;
+            connection
+                .send(
+                    charge_limit_signal
+                        .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                        .append1(last_charge_limit),
+                )
+                .unwrap_or_else(|_| 0);
         }
     }
 }

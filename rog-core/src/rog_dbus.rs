@@ -10,7 +10,7 @@ use tokio::sync::{
     Mutex,
 };
 
-pub(super) fn dbus_create_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -35,7 +35,7 @@ pub(super) fn dbus_create_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> M
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
-pub(super) fn dbus_create_ledmultizone_method(
+pub(super) fn dbus_set_ledmultizone_method(
     sender: Mutex<Sender<AuraCommand>>,
 ) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
@@ -68,9 +68,7 @@ pub(super) fn dbus_create_ledmultizone_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_ledeffect_method(
-    sender: Mutex<Sender<AuraCommand>>,
-) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledeffect_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -114,7 +112,7 @@ pub(super) fn dbus_create_ledeffect_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_animatrix_method(
+pub(super) fn dbus_set_animatrix_method(
     sender: Mutex<Sender<Vec<Vec<u8>>>>, // need mutex only to get interior mutability in MTSync
 ) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
@@ -138,7 +136,7 @@ pub(super) fn dbus_create_animatrix_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_create_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -162,7 +160,7 @@ pub(super) fn dbus_create_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()
         .inarg::<u8, _>("byte")
 }
 
-pub(super) fn dbus_create_charge_limit_method(data: DbusU8Type) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_charge_limit_method(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -195,6 +193,8 @@ pub(super) fn dbus_create_tree() -> (
     DbusU8Type,
     DbusU8Type,
     Arc<Signal<()>>,
+    Arc<Signal<()>>,
+    Arc<Signal<()>>,
 ) {
     let (aura_command_send, aura_command_recv) = channel::<AuraCommand>(1);
     let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
@@ -204,6 +204,8 @@ pub(super) fn dbus_create_tree() -> (
     let factory = Factory::new_sync::<()>();
 
     let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
+    let fanmode_changed_sig = Arc::new(factory.signal("FanModeChanged", ()));
+    let chrg_limit_changed_sig = Arc::new(factory.signal("ChargeLimitChanged", ()));
 
     let tree = factory
         .tree(())
@@ -211,19 +213,21 @@ pub(super) fn dbus_create_tree() -> (
             factory.object_path(DBUS_PATH, ()).introspectable().add(
                 factory
                     .interface(DBUS_IFACE, ())
-                    .add_m(dbus_create_ledmsg_method(Mutex::new(
+                    .add_m(dbus_set_ledmsg_method(Mutex::new(
                         aura_command_send.clone(),
                     )))
-                    .add_m(dbus_create_ledmultizone_method(Mutex::new(
+                    .add_m(dbus_set_ledmultizone_method(Mutex::new(
                         aura_command_send.clone(),
                     )))
-                    .add_m(dbus_create_ledeffect_method(Mutex::new(
+                    .add_m(dbus_set_ledeffect_method(Mutex::new(
                         aura_command_send.clone(),
                     )))
-                    .add_m(dbus_create_animatrix_method(Mutex::new(animatrix_send)))
-                    .add_m(dbus_create_fan_mode_method(fan_mode.clone()))
-                    .add_m(dbus_create_charge_limit_method(charge_limit.clone()))
-                    .add_s(effect_cancel_sig.clone()),
+                    .add_m(dbus_set_animatrix_method(Mutex::new(animatrix_send)))
+                    .add_m(dbus_set_fan_mode_method(fan_mode.clone()))
+                    .add_m(dbus_set_charge_limit_method(charge_limit.clone()))
+                    .add_s(effect_cancel_sig.clone())
+                    .add_s(fanmode_changed_sig.clone())
+                    .add_s(chrg_limit_changed_sig.clone()),
             ),
         )
         .add(factory.object_path("/", ()).introspectable());
@@ -235,5 +239,7 @@ pub(super) fn dbus_create_tree() -> (
         fan_mode,
         charge_limit,
         effect_cancel_sig,
+        fanmode_changed_sig,
+        chrg_limit_changed_sig,
     )
 }
