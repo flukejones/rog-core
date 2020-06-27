@@ -257,7 +257,7 @@ pub(super) fn dbus_create_tree(
                     .add_m(dbus_set_fan_mode(fan_mode.clone()))
                     .add_m(dbus_set_charge_limit(charge_limit.clone()))
                     .add_m(dbus_get_fan_mode(config.clone()))
-                    .add_m(dbus_get_charge_limit(config.clone()))
+                    .add_m(dbus_get_charge_limit(config))
                     .add_s(effect_cancel_sig.clone())
                     .add_s(fanmode_changed_sig.clone())
                     .add_s(chrg_limit_changed_sig.clone()),
