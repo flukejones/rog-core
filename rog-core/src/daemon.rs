@@ -97,7 +97,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         effect_cancel_signal,
         fanmode_signal,
         charge_limit_signal,
-    ) = dbus_create_tree();
+    ) = dbus_create_tree(config.clone());
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -171,11 +171,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .await
                         .unwrap_or_else(|err| warn!("{:?}", err));
                     connection1
-                        .send(
-                            effect_cancel_signal
-                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                .append1(true),
-                        )
+                        .send(effect_cancel_signal.msg(&DBUS_PATH.into(), &DBUS_IFACE.into()))
                         .unwrap_or_else(|_| 0);
                 }
             }

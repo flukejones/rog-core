@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::daemon::DbusU8Type;
 use crate::led_control::AuraCommand;
 use crate::rogcore::FanLevel;
@@ -10,7 +11,7 @@ use tokio::sync::{
     Mutex,
 };
 
-pub(super) fn dbus_set_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -35,9 +36,7 @@ pub(super) fn dbus_set_ledmsg_method(sender: Mutex<Sender<AuraCommand>>) -> Meth
         .inarg::<Vec<u8>, _>("bytearray")
 }
 
-pub(super) fn dbus_set_ledmultizone_method(
-    sender: Mutex<Sender<AuraCommand>>,
-) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledmultizone(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -68,7 +67,7 @@ pub(super) fn dbus_set_ledmultizone_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_set_ledeffect_method(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledeffect(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -112,7 +111,7 @@ pub(super) fn dbus_set_ledeffect_method(sender: Mutex<Sender<AuraCommand>>) -> M
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_set_animatrix_method(
+pub(super) fn dbus_set_animatrix(
     sender: Mutex<Sender<Vec<Vec<u8>>>>, // need mutex only to get interior mutability in MTSync
 ) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
@@ -136,11 +135,11 @@ pub(super) fn dbus_set_animatrix_method(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_set_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
-        .method("FanMode", (), {
+        .method("SetFanMode", (), {
             move |m| {
                 if let Ok(mut lock) = data.try_lock() {
                     let mut iter = m.msg.iter_init();
@@ -160,11 +159,43 @@ pub(super) fn dbus_set_fan_mode_method(data: DbusU8Type) -> Method<MTSync, ()> {
         .inarg::<u8, _>("byte")
 }
 
-pub(super) fn dbus_set_charge_limit_method(data: DbusU8Type) -> Method<MTSync, ()> {
+pub(super) fn dbus_get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        .method("GetFanMode", (), {
+            move |m| {
+                if let Ok(lock) = config.try_lock() {
+                    let mret = m.msg.method_return().append1(lock.fan_mode);
+                    Ok(vec![mret])
+                } else {
+                    Err(MethodErr::failed("Could not lock config for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("value")
+}
+
+pub(super) fn dbus_get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        .method("GetChargeLimit", (), {
+            move |m| {
+                if let Ok(lock) = config.try_lock() {
+                    let mret = m.msg.method_return().append1(lock.bat_charge_limit);
+                    Ok(vec![mret])
+                } else {
+                    Err(MethodErr::failed("Could not lock config for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("value")
+}
+
+pub(super) fn dbus_set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
-        .method("ChargeLimit", (), {
+        .method("SetChargeLimit", (), {
             move |m| {
                 if let Ok(mut lock) = data.try_lock() {
                     let mut iter = m.msg.iter_init();
@@ -185,7 +216,9 @@ pub(super) fn dbus_set_charge_limit_method(data: DbusU8Type) -> Method<MTSync, (
 }
 
 #[allow(clippy::type_complexity)]
-pub(super) fn dbus_create_tree() -> (
+pub(super) fn dbus_create_tree(
+    config: Arc<Mutex<Config>>,
+) -> (
     Tree<MTSync, ()>,
     Sender<AuraCommand>,
     Receiver<AuraCommand>,
@@ -204,8 +237,12 @@ pub(super) fn dbus_create_tree() -> (
     let factory = Factory::new_sync::<()>();
 
     let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
-    let fanmode_changed_sig = Arc::new(factory.signal("FanModeChanged", ()));
-    let chrg_limit_changed_sig = Arc::new(factory.signal("ChargeLimitChanged", ()));
+    let fanmode_changed_sig = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
+    let chrg_limit_changed_sig = Arc::new(
+        factory
+            .signal("ChargeLimitChanged", ())
+            .sarg::<u8, _>("value"),
+    );
 
     let tree = factory
         .tree(())
@@ -213,18 +250,14 @@ pub(super) fn dbus_create_tree() -> (
             factory.object_path(DBUS_PATH, ()).introspectable().add(
                 factory
                     .interface(DBUS_IFACE, ())
-                    .add_m(dbus_set_ledmsg_method(Mutex::new(
-                        aura_command_send.clone(),
-                    )))
-                    .add_m(dbus_set_ledmultizone_method(Mutex::new(
-                        aura_command_send.clone(),
-                    )))
-                    .add_m(dbus_set_ledeffect_method(Mutex::new(
-                        aura_command_send.clone(),
-                    )))
-                    .add_m(dbus_set_animatrix_method(Mutex::new(animatrix_send)))
-                    .add_m(dbus_set_fan_mode_method(fan_mode.clone()))
-                    .add_m(dbus_set_charge_limit_method(charge_limit.clone()))
+                    .add_m(dbus_set_ledmsg(Mutex::new(aura_command_send.clone())))
+                    .add_m(dbus_set_ledmultizone(Mutex::new(aura_command_send.clone())))
+                    .add_m(dbus_set_ledeffect(Mutex::new(aura_command_send.clone())))
+                    .add_m(dbus_set_animatrix(Mutex::new(animatrix_send)))
+                    .add_m(dbus_set_fan_mode(fan_mode.clone()))
+                    .add_m(dbus_set_charge_limit(charge_limit.clone()))
+                    .add_m(dbus_get_fan_mode(config.clone()))
+                    .add_m(dbus_get_charge_limit(config.clone()))
                     .add_s(effect_cancel_sig.clone())
                     .add_s(fanmode_changed_sig.clone())
                     .add_s(chrg_limit_changed_sig.clone()),

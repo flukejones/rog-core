@@ -110,8 +110,8 @@ impl AuraDbusWriter {
 
     #[inline]
     pub fn write_fan_mode(&self, level: u8) -> Result<String, Box<dyn std::error::Error>> {
-        let msg =
-            Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "FanMode")?.append1(level);
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "SetFanMode")?
+            .append1(level);
         let r = self
             .connection
             .send_with_reply_and_block(msg, Duration::from_millis(5000))?;
@@ -123,7 +123,7 @@ impl AuraDbusWriter {
 
     #[inline]
     pub fn write_charge_limit(&self, level: u8) -> Result<String, Box<dyn std::error::Error>> {
-        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "ChargeLimit")?
+        let msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "SetChargeLimit")?
             .append1(level);
         let r = self
             .connection
