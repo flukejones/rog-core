@@ -16,6 +16,7 @@ use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::time::Duration;
 
+#[derive(Clone)]
 pub enum AuraCommand {
     BrightInc,
     BrightDec,

@@ -66,15 +66,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .do_command(AuraCommand::ReloadLast, &mut config)
         .await?;
 
-    // Possible Animatrix
-    let mut animatrix_writer = None;
-    if laptop.support_animatrix() {
-        if let Ok(dev) = AniMeWriter::new() {
-            animatrix_writer = Some(dev);
-            info!("Device has an AniMe Matrix display");
-        }
-    }
-
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
     let (resource, connection) = connection::new_system_sync()?;
@@ -95,7 +86,9 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         fan_mode,
         charge_limit,
         effect_cancel_signal,
-    ) = dbus_create_tree();
+        fanmode_signal,
+        charge_limit_signal,
+    ) = dbus_create_tree(config.clone());
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -106,6 +99,21 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.key_endpoint(),
         laptop.key_filter().to_owned(),
     );
+
+    // Possible Animatrix
+    if laptop.support_animatrix() {
+        if let Ok(mut animatrix_writer) = AniMeWriter::new() {
+            info!("Device has an AniMe Matrix display");
+            tokio::spawn(async move {
+                while let Some(image) = animatrix_recv.recv().await {
+                    animatrix_writer
+                        .do_command(AnimatrixCommand::WriteImage(image))
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+            });
+        }
+    }
 
     let config1 = config.clone();
     // start the keyboard reader and laptop-action loop
@@ -140,14 +148,36 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    // If animatrix is supported, try doing a write
+    let connection1 = connection.clone();
+    let config1 = config.clone();
     tokio::spawn(async move {
-        if let Some(writer) = animatrix_writer.as_mut() {
-            while let Some(image) = animatrix_recv.recv().await {
-                writer
-                    .do_command(AnimatrixCommand::WriteImage(image))
-                    .await
-                    .unwrap_or_else(|err| warn!("{:?}", err));
+        // Some small things we need to track, without passing all sorts of stuff around
+        let mut last_fan_mode = config1.lock().await.fan_mode;
+        let mut last_charge_limit = config1.lock().await.bat_charge_limit;
+        loop {
+            // Use tokio sleep to not hold up other threads
+            tokio::time::delay_for(std::time::Duration::from_millis(500)).await;
+
+            let config = config1.lock().await;
+            if config.fan_mode != last_fan_mode {
+                last_fan_mode = config.fan_mode;
+                connection1
+                    .send(
+                        fanmode_signal
+                            .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                            .append1(last_fan_mode),
+                    )
+                    .unwrap_or_else(|_| 0);
+            }
+            if config.bat_charge_limit != last_charge_limit {
+                last_charge_limit = config.bat_charge_limit;
+                connection1
+                    .send(
+                        charge_limit_signal
+                            .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                            .append1(last_charge_limit),
+                    )
+                    .unwrap_or_else(|_| 0);
             }
         }
     });
@@ -156,7 +186,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     loop {
         connection.process_all();
 
-        // Check if a key press issued a command
         while let Some(command) = aura_command_recv.recv().await {
             let mut config = config.lock().await;
             match command {
@@ -170,11 +199,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .await
                         .unwrap_or_else(|err| warn!("{:?}", err));
                     connection
-                        .send(
-                            effect_cancel_signal
-                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                .append1(true),
-                        )
+                        .send(effect_cancel_signal.msg(&DBUS_PATH.into(), &DBUS_IFACE.into()))
                         .unwrap_or_else(|_| 0);
                 }
             }

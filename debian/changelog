@@ -1,3 +1,23 @@
+rog-core (0.12.2) focal; urgency=medium
+
+  * Changed "FanMode", "ChargeLimit" to "SetFanMode", "SetChargeLimit"
+  * Added dbus signals "FanModeChanged", "ChargeLimitChanged"
+  * Added dbus methods "GetFanMode", "GetChargeLimit"
+  * Added support for ROG Strix G712
+
+ -- Luke Jones <luke@ljones.dev>  Mon, 29 Jun 2020 09:54:25 +1200
+
+rog-core (0.12.0) focal; urgency=medium
+
+  * Add modes for FX531 LEDs
+  * Change where USB reset is called
+  * Add support for G531GT
+  * Remove duplicated code: it looks like there is at least *some* consistency
+    in Consumer-Device keycodes that ASUS uses
+  * `bat_charge_limit = 100` must be appended to the top of `/etc/rogcore.conf`
+
+ -- Luke Jones <luke@ljones.dev>  Fri, 26 Jun 2020 16:47:03 +1200
+
 rog-core (0.11.1) focal; urgency=medium
 
   * Use DBUS_NAME instead of DBUS_IFACE when requesting the name
