@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Dbus signals "FanModeChanged", "ChargeLimitChanged"
 - Dbus methods "GetFanMode", "GetChargeLimit", "SetFanMode", "SetChargeLimit"
+- Support for ROG Strix G712
 
 ## [0.12.0] - 2020-26-06
 ### Changed

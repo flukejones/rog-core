@@ -155,7 +155,6 @@ impl RogCore {
 
     pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let mut n = config.fan_mode;
-        info!("Current fan mode: {:?}", FanLevel::from(n));
         // wrap around the step number
         if n < 2 {
             n += 1;
@@ -174,14 +173,13 @@ impl RogCore {
         config.read();
         // Set CPU pstate
         if let Ok(pstate) = intel_pstate::PState::new() {
-            info!("Setting pstate for Intel CPU");
             match mode {
                 FanLevel::Normal => {
                     pstate.set_min_perf_pct(config.mode_performance.normal.min_percentage)?;
                     pstate.set_max_perf_pct(config.mode_performance.normal.max_percentage)?;
                     pstate.set_no_turbo(config.mode_performance.normal.no_turbo)?;
                     info!(
-                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        "Intel CPU Power: min: {:?}%, max: {:?}%, turbo: {:?}",
                         config.mode_performance.normal.min_percentage,
                         config.mode_performance.normal.max_percentage,
                         !config.mode_performance.normal.no_turbo
@@ -192,7 +190,7 @@ impl RogCore {
                     pstate.set_max_perf_pct(config.mode_performance.boost.max_percentage)?;
                     pstate.set_no_turbo(config.mode_performance.boost.no_turbo)?;
                     info!(
-                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        "Intel CPU Power: min: {:?}%, max: {:?}%, turbo: {:?}",
                         config.mode_performance.boost.min_percentage,
                         config.mode_performance.boost.max_percentage,
                         !config.mode_performance.boost.no_turbo
@@ -203,7 +201,7 @@ impl RogCore {
                     pstate.set_max_perf_pct(config.mode_performance.silent.max_percentage)?;
                     pstate.set_no_turbo(config.mode_performance.silent.no_turbo)?;
                     info!(
-                        "CPU Power: min-freq: {:?}, max-freq: {:?}, turbo: {:?}",
+                        "Intel CPU Power: min: {:?}%, max: {:?}%, turbo: {:?}",
                         config.mode_performance.silent.min_percentage,
                         config.mode_performance.silent.max_percentage,
                         !config.mode_performance.silent.no_turbo
@@ -230,7 +228,7 @@ impl RogCore {
                     file.write_all(boost.as_bytes()).unwrap_or_else(|err| {
                         error!("Could not write to {}, {:?}", AMD_BOOST_PATH, err)
                     });
-                    info!("CPU Power: turbo: {:?}", boost);
+                    info!("AMD CPU Turbo: {:?}", boost);
                 }
                 FanLevel::Boost => {
                     let boost = if config.mode_performance.boost.no_turbo {
@@ -241,7 +239,7 @@ impl RogCore {
                     file.write_all(boost.as_bytes()).unwrap_or_else(|err| {
                         error!("Could not write to {}, {:?}", AMD_BOOST_PATH, err)
                     });
-                    info!("CPU Power: turbo: {:?}", boost);
+                    info!("AMD CPU Turbo: {:?}", boost);
                 }
                 FanLevel::Silent => {
                     let boost = if config.mode_performance.silent.no_turbo {
@@ -252,7 +250,7 @@ impl RogCore {
                     file.write_all(boost.as_bytes()).unwrap_or_else(|err| {
                         error!("Could not write to {}, {:?}", AMD_BOOST_PATH, err)
                     });
-                    info!("CPU Power: turbo: {:?}", boost);
+                    info!("AMD CPU Turbo: {:?}", boost);
                 }
             }
         }

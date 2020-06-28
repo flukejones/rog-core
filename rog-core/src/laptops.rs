@@ -41,6 +41,11 @@ pub(crate) fn match_laptop() -> LaptopBase {
 fn choose_1866_device(prod: u16) -> LaptopBase {
     let dmi = sysfs_class::DmiId::default();
     let board_name = dmi.board_name().expect("Could not get board_name");
+    let prod_name = dmi.product_name().expect("Could not get board_name");
+
+    info!("Product name: {}", prod_name.trim());
+    info!("Board name: {}", board_name.trim());
+
     let mut laptop = LaptopBase {
         usb_vendor: 0x0B05,
         usb_product: prod,
@@ -55,50 +60,53 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         support_animatrix: false,
         //backlight: Backlight::new("intel_backlight").unwrap(),
     };
-    match &board_name.as_str()[..5] {
-        "GA401" => {
-            // Has no RGB control
-            laptop.support_animatrix = true;
-        }
-        "GA502" => {
-            // Has no RGB control
-        }
-        "GX502" => {
-            laptop.supported_modes = vec![
-                BuiltInModeByte::Single,
-                BuiltInModeByte::Breathing,
-                BuiltInModeByte::Strobe,
-                BuiltInModeByte::Rainbow,
-                BuiltInModeByte::Star,
-                BuiltInModeByte::Rain,
-                BuiltInModeByte::Highlight,
-                BuiltInModeByte::Laser,
-                BuiltInModeByte::Ripple,
-                BuiltInModeByte::Pulse,
-                BuiltInModeByte::Comet,
-                BuiltInModeByte::Flash,
-            ];
-        }
-        "GM501" => {
-            laptop.supported_modes = vec![
-                BuiltInModeByte::Single,
-                BuiltInModeByte::Breathing,
-                BuiltInModeByte::Strobe,
-                BuiltInModeByte::Rainbow,
-            ];
-        }
-        "GX531" | "G531G" => {
-            laptop.supported_modes = vec![
-                BuiltInModeByte::Single,
-                BuiltInModeByte::Breathing,
-                BuiltInModeByte::Strobe,
-                BuiltInModeByte::Rainbow,
-                BuiltInModeByte::Pulse,
-            ];
-        }
-        _ => panic!("Unsupported laptop: {}, please request support at\nhttps://github.com/flukejones/rog-core", board_name),
+
+    // GA401
+    if board_name.starts_with("GA401") {
+        info!("No RGB control available");
+        laptop.support_animatrix = true;
+    // GA502
+    } else if board_name.starts_with("GA502") {
+        info!("No RGB control available");
+    // GX502, G712
+    } else if board_name.starts_with("GX502") || board_name.starts_with("G712") {
+        laptop.supported_modes = vec![
+            BuiltInModeByte::Single,
+            BuiltInModeByte::Breathing,
+            BuiltInModeByte::Strobe,
+            BuiltInModeByte::Rainbow,
+            BuiltInModeByte::Star,
+            BuiltInModeByte::Rain,
+            BuiltInModeByte::Highlight,
+            BuiltInModeByte::Laser,
+            BuiltInModeByte::Ripple,
+            BuiltInModeByte::Pulse,
+            BuiltInModeByte::Comet,
+            BuiltInModeByte::Flash,
+        ];
+    // GM501
+    } else if board_name.starts_with("GM501") {
+        laptop.supported_modes = vec![
+            BuiltInModeByte::Single,
+            BuiltInModeByte::Breathing,
+            BuiltInModeByte::Strobe,
+            BuiltInModeByte::Rainbow,
+        ];
+    // G531
+    } else if board_name.starts_with("GX531") || board_name.starts_with("G531") {
+        laptop.supported_modes = vec![
+            BuiltInModeByte::Single,
+            BuiltInModeByte::Breathing,
+            BuiltInModeByte::Strobe,
+            BuiltInModeByte::Rainbow,
+            BuiltInModeByte::Pulse,
+        ];
+    } else {
+        panic!(
+            "Unsupported laptop, please request support at\nhttps://github.com/flukejones/rog-core"
+        );
     }
-    info!("Board name: {}", board_name.as_str().trim());
+
     laptop
 }
 
