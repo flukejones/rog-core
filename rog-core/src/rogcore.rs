@@ -154,6 +154,9 @@ impl RogCore {
     }
 
     pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        // re-read the config here in case a user changed the pstate settings
+        config.read();
+
         let mut n = config.fan_mode;
         // wrap around the step number
         if n < 2 {
@@ -169,8 +172,6 @@ impl RogCore {
         mode: FanLevel,
         config: &mut Config,
     ) -> Result<(), Box<dyn Error>> {
-        // re-read the config here in case a user changed the pstate settings
-        config.read();
         // Set CPU pstate
         if let Ok(pstate) = intel_pstate::PState::new() {
             match mode {
