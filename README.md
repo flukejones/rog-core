@@ -96,7 +96,7 @@ Alternatively, instead of building manually you can use the PPA.
 ```
 sudo add-apt-repository ppa:lukedjones/rog-core
 sudo apt-get update
-sudo install rog-core
+sudo apt-get install rog-core
 ```
 
 enable and start the service:
