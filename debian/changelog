@@ -1,3 +1,12 @@
+rog-core (0.12.2) focal; urgency=medium
+
+  * Changed "FanMode", "ChargeLimit" to "SetFanMode", "SetChargeLimit"
+  * Added dbus signals "FanModeChanged", "ChargeLimitChanged"
+  * Added dbus methods "GetFanMode", "GetChargeLimit"
+  * Added support for ROG Strix G712
+
+ -- Luke Jones <luke@ljones.dev>  Mon, 29 Jun 2020 09:54:25 +1200
+
 rog-core (0.12.0) focal; urgency=medium
 
   * Add modes for FX531 LEDs

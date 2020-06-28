@@ -69,7 +69,7 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     } else if board_name.starts_with("GA502") {
         info!("No RGB control available");
     // GX502, G712
-    } else if board_name.starts_with("GX502") || board_name.starts_with("G712") {
+    } else if board_name.starts_with("GX502") {
         laptop.supported_modes = vec![
             BuiltInModeByte::Single,
             BuiltInModeByte::Breathing,
@@ -93,7 +93,10 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
             BuiltInModeByte::Rainbow,
         ];
     // G531
-    } else if board_name.starts_with("GX531") || board_name.starts_with("G531") {
+    } else if board_name.starts_with("GX531")
+        || board_name.starts_with("G531")
+        || board_name.starts_with("G712")
+    {
         laptop.supported_modes = vec![
             BuiltInModeByte::Single,
             BuiltInModeByte::Breathing,
