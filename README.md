@@ -1,21 +1,41 @@
 # ROG-Core
 
-rog-core is a utility for Linux to control many aspects (eventually) of the ASUS ROG laptops like the Zephyrus GX502GW.
+rog-core is a utility for Linux to control many aspects (eventually) of the ASUS
+ROG laptops like the Zephyrus GX502GW.
 
-One of the benefits of this app (for me at least) is that you *don't* require a kernel with correct support for the
-laptop, or custom patched modules. The app reads and writes direct to the device interrupts, and can be customised
-(in source) quite extensively to do what you want such as directly controlling your laptop backlight rather than
-emitting a key-press for the DE to handle. There is also the possibility of rebinding fn keys to be macros which emit a
-series of keyboard presses.
+One of the benefits of this app (for me at least) is that you *don't* require a
+kernel with correct support for the laptop keyboard EC. The app
+reads and writes direct to the device interrupts, and can be customised (in
+source) quite extensively to do what you want such as directly controlling your
+laptop backlight rather than emitting a key-press for the DE to handle. There is
+also the possibility of rebinding fn keys to be macros which emit a series of
+keyboard presses.
 
-The laptop I currently have is the GX502RW and so I'll be using that for the basis of this app. If I get wireshark
-captures from others with different ROG laptops then I should be able to add them.
-
-I'm now looking at the kernel source to see if I can add the inputs correctly so they show up as proper evdev events.
+Other laptop functions such as fan modes or battery charge limiting will need
+kernel level support.
 
 ## Discord
 
 [Discord server link](https://discord.gg/uKxdua)
+
+## SUPPORTED LAPTOPS
+
+- GM501 (multizone needs testing, if you have this laptop please create an issue in the repo)
+- GX502
+- GX531
+- G712
+- G531
+- GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
+- GA15/GA502 appears to have most things working
+
+**Please help test or provide info for:**
+
+- GL703(0x1869)
+- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
+
+**Laptop support is added on a per-case basis** as the EC for the keyboard varies
+a little between models, e.g, some RGB modes are missing, or it's a single colour.
+As far as I can see, the EC does not give us a way to find what modes are supported.
 
 ## Implemented
 
@@ -38,22 +58,7 @@ I'm now looking at the kernel source to see if I can add the inputs correctly so
   + [ ] Mic mute - unsure which key should be emitted for this to work. The key by itself emits a code.
 - [X] Logging - required for journalctl
 - [X] AniMatrix display on G14 models that include it
-
-## SUPPORTED LAPTOPS
-
-- GM501 (multizone needs testing)
-- GX502
-- GX531
-- G531GT
-- GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
-- GA15/GA502 appears to have most things working
-
-**Please help test or provide info for:**
-
-- GL703(0x1869)
-- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
-
-**Laptop support is added on a per-case basis as the EC for the keyboard varies a little between models, e.g, some RGB modes are missing, or it's a single colour**
+- [X] Set battery charge limit (with kernel supporting this)
 
 ## Requirements for compiling
 
@@ -207,13 +212,16 @@ If the daemon service is enabled then on boot the following will be reloaded fro
 
 - LED brightness
 - Last used built-in mode
-- fan-boost/thermal mode 
+- fan-boost/thermal mode
+- battery charging limit
 
-The daemon also saves the settings per mode as the keyboard does not do this itself - this means cycling through modes
-with the Aura keys will use the settings that were used via CLI.
+The daemon also saves the settings per mode as the keyboard does not do this
+itself - this means cycling through modes with the Aura keys will use the
+settings that were used via CLI.
 
-Daemon mode creates a config file at `/etc/rogcore.conf` which you can edit a little of. Most parts will be byte arrays,
-but you can adjust things like `mode_performance`.
+Daemon mode creates a config file at `/etc/rogcore.conf` which you can edit a 
+little of. Most parts will be byte arrays, but you can adjust things like
+`mode_performance`.
 
 ### DBUS Input
 
