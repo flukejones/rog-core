@@ -5,10 +5,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.13.0] - 2020-29-06
 ### Changed
-- Dbus command LedWriteBytes renamed to SetKeyBacklight
-- Dbus signal LedCancelEffect renamed to KeyBacklightChanged
-- Dbus command SetKeyBacklight will now take a JSON string instead of an array of bytes
+- Dbus command `LedWriteBytes` renamed to `SetKeyBacklight`
+- Dbus command `SetKeyBacklight` will now take a JSON string instead of an array of bytes
+  + Example:
+    ```
+    {
+      "Breathe": {
+        "help": false,
+        "colour": [
+          254,
+          5,
+          171
+        ],
+        "colour2": [
+          0,
+          156,
+          156
+        ],
+        "speed": "High"
+      }
+    }
+    ```
+    note that `help` is unused but required as a side-effect of using `gumdrop`
+    for CLI.
+- Dbus signal `LedCancelEffect` renamed to `KeyBacklightChanged`
 - Config file is now in JSON format, and will store only the LED modes that a laptop
   supports rather than the whole set
 

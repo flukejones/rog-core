@@ -100,7 +100,7 @@ impl AuraDbusWriter {
     }
 
     #[inline]
-    pub fn write_bytes(&self, mode: &AuraModes) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn write_keyboard_leds(&self, mode: &AuraModes) -> Result<(), Box<dyn std::error::Error>> {
         let mut msg =
             Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "SetKeyBacklight")?
                 .append1(serde_json::to_string(mode)?);
@@ -129,12 +129,12 @@ impl AuraDbusWriter {
 
     #[inline]
     pub fn write_builtin_mode(&self, mode: &AuraModes) -> Result<(), Box<dyn std::error::Error>> {
-        self.write_bytes(mode)
+        self.write_keyboard_leds(mode)
     }
 
     #[inline]
     pub fn write_brightness(&self, level: u8) -> Result<String, Box<dyn std::error::Error>> {
-        self.write_bytes(&AuraModes::LedBrightness(level))?;
+        self.write_keyboard_leds(&AuraModes::LedBrightness(level))?;
         Ok(String::new())
     }
 }

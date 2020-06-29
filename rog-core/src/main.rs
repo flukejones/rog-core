@@ -10,7 +10,7 @@ use rog_client::{
     LED_MSG_LEN,
 };
 
-static VERSION: &str = "0.12.2";
+static VERSION: &str = "0.13.0";
 
 #[derive(Debug, Options)]
 struct CLIStart {

@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "rog-daemon"
-version = "0.12.2"
+version = "0.13.0"
 dependencies = [
  "dbus",
  "dbus-tokio",

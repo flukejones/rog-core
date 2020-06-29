@@ -54,6 +54,6 @@ vendor:
 
 target/release/$(BIN): $(SRC)
 ifeq ($(VENDORED),1)
-	tar pxf vendor_rog-core_<version>.tar.xz
+	tar pxf vendor.tar.xz
 endif
 	cargo build $(ARGS)
