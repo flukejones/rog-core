@@ -34,7 +34,7 @@ tokio = { version = "0.2.4", features = ["rt-threaded", "sync"] }
 # serialisation
 serde = "1.0"
 serde_derive = "1.0"
-toml = "0.5"
+serde_json = "1.0"
 
 # Device control
 sysfs-class = "^0.1.2" # used for backlight control and baord ID

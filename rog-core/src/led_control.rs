@@ -10,7 +10,10 @@ static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 use crate::config::Config;
 use log::{error, info, warn};
-use rog_client::{aura_brightness_bytes, error::AuraError, BuiltInModeByte};
+use rog_client::{
+    aura_brightness_bytes, aura_modes::AuraModes, error::AuraError, fancy::KeyColourArray,
+    LED_MSG_LEN,
+};
 use rusb::DeviceHandle;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
@@ -18,13 +21,8 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub enum AuraCommand {
-    BrightInc,
-    BrightDec,
-    BuiltinNext,
-    BuiltinPrev,
-    WriteBytes(Vec<u8>),
+    WriteMode(AuraModes),
     WriteEffect(Vec<Vec<u8>>),
-    ReloadLast,
     WriteMultizone(Vec<Vec<u8>>),
 }
 
@@ -38,8 +36,7 @@ where
     C: rusb::UsbContext,
 {
     handle: NonNull<DeviceHandle<C>>,
-    bright_min_max: (u8, u8),
-    supported_modes: Vec<BuiltInModeByte>,
+    supported_modes: Vec<u8>,
     led_endpoint: u8,
     initialised: bool,
     flip_effect_write: bool,
@@ -58,13 +55,11 @@ where
     pub fn new(
         device_handle: NonNull<DeviceHandle<C>>,
         led_endpoint: u8,
-        bright_min_max: (u8, u8),
-        supported_modes: Vec<BuiltInModeByte>,
+        supported_modes: Vec<u8>,
     ) -> Self {
         LedWriter {
             handle: device_handle,
             led_endpoint,
-            bright_min_max,
             supported_modes,
             initialised: false,
             flip_effect_write: false,
@@ -87,60 +82,9 @@ where
         }
 
         match command {
-            AuraCommand::BrightInc => {
-                let mut bright = config.brightness;
-                if bright < self.bright_min_max.1 {
-                    bright += 1;
-                    config.brightness = bright;
-                    let bytes = aura_brightness_bytes(bright);
-                    self.set_and_save(&bytes, config).await?;
-                    info!("Increased LED brightness to {:#?}", bright);
-                }
-            }
-            AuraCommand::BrightDec => {
-                let mut bright = config.brightness;
-                if bright > self.bright_min_max.0 {
-                    bright -= 1;
-                    config.brightness = bright;
-                    let bytes = aura_brightness_bytes(bright);
-                    self.set_and_save(&bytes, config).await?;
-                    info!("Decreased LED brightness to {:#?}", bright);
-                }
-            }
-            AuraCommand::BuiltinNext => {
-                // TODO: different path for multi-zone (byte 2 controlled, non-zero)
-                let mode_curr = config.current_mode[3];
-                if let Ok(idx) = self.supported_modes.binary_search(&mode_curr.into()) {
-                    let idx_next = if idx < self.supported_modes.len() - 1 {
-                        idx + 1
-                    } else {
-                        0
-                    };
-                    self.set_builtin(config, idx_next).await?;
-                } else {
-                    warn!("Tried to step to next LED mode while in non-supported mode");
-                    self.set_builtin(config, 0).await?;
-                }
-            }
-            AuraCommand::BuiltinPrev => {
-                // TODO: different path for multi-zone (byte 2 controlled, non-zero)
-                let mode_curr = config.current_mode[3];
-                if let Ok(idx) = self.supported_modes.binary_search(&mode_curr.into()) {
-                    let idx_next = if idx > 0 {
-                        idx - 1
-                    } else {
-                        self.supported_modes.len() - 1
-                    };
-                    self.set_builtin(config, idx_next).await?;
-                } else {
-                    warn!("Tried to step to next LED mode while in non-supported mode");
-                    self.set_builtin(config, 0).await?;
-                }
-            }
-            AuraCommand::WriteBytes(bytes) => self.set_and_save(&bytes, config).await?,
+            AuraCommand::WriteMode(mode) => self.set_and_save(mode, config).await?,
             AuraCommand::WriteMultizone(effect) => self.write_multizone(effect).await?,
             AuraCommand::WriteEffect(effect) => self.write_effect(effect).await?,
-            AuraCommand::ReloadLast => self.reload_last_builtin(&config).await?,
         }
         Ok(())
     }
@@ -159,17 +103,6 @@ where
                 _ => error!("Failed to write to led interrupt: {:?}", err),
             },
         }
-        Ok(())
-    }
-
-    #[inline]
-    async fn write_array_of_bytes(&self, messages: &[&[u8]]) -> Result<(), AuraError> {
-        for message in messages {
-            self.write_bytes(*message).await?;
-            self.write_bytes(&LED_SET).await?;
-        }
-        // Changes won't persist unless apply is set
-        self.write_bytes(&LED_APPLY).await?;
         Ok(())
     }
 
@@ -202,34 +135,55 @@ where
     }
 
     /// Used to set a builtin mode and save the settings for it
+    ///
+    /// This needs to be universal so that settings applied by dbus stick
     #[inline]
-    async fn set_and_save(&self, bytes: &[u8], config: &mut Config) -> Result<(), AuraError> {
-        let mode = BuiltInModeByte::from(bytes[3]);
-        // safety pass-through of possible effect write
-        if bytes[1] == 0xbc {
-            self.write_bytes(bytes).await?;
-            return Ok(());
-        } else if self.supported_modes.contains(&mode) || bytes[1] == 0xba {
-            let messages = [bytes];
-            self.write_array_of_bytes(&messages).await?;
-            config.set_field_from(bytes);
-            config.write();
-            return Ok(());
+    async fn set_and_save(&self, mode: AuraModes, config: &mut Config) -> Result<(), AuraError> {
+        match mode {
+            AuraModes::Aura => {
+                let bytes = KeyColourArray::get_init_msg();
+                self.write_bytes(&bytes).await?;
+                return Ok(());
+            }
+            AuraModes::LedBrightness(n) => {
+                let bytes: [u8; LED_MSG_LEN] = (&mode).into();
+                self.write_bytes(&bytes).await?;
+                config.brightness = n;
+                config.write();
+                info!("LED brightness set to {:#?}", n);
+                return Ok(());
+            }
+            _ => {
+                let mode_num: u8 = u8::from(&mode).into();
+                if self.supported_modes.contains(&mode_num) {
+                    let bytes: [u8; LED_MSG_LEN] = (&mode).into();
+                    self.write_bytes(&bytes).await?;
+                    self.write_bytes(&LED_SET).await?;
+                    // Changes won't persist unless apply is set
+                    self.write_bytes(&LED_APPLY).await?;
+
+                    config.current_mode = mode_num;
+                    config.set_mode_data(mode);
+                    config.write();
+                    info!("Switched LED mode to {:#?}", config.current_mode);
+                    return Ok(());
+                }
+            }
         }
+
         warn!("{:?} not supported", mode);
         Err(AuraError::NotSupported)
     }
 
     #[inline]
-    async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
+    pub async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
         // set current mode (if any)
         if self.supported_modes.len() > 1 {
-            let mode_curr = config.current_mode[3];
             let mode = config
-                .builtin_modes
-                .get_field_from(mode_curr)
+                .get_led_mode_data(config.current_mode)
                 .ok_or(AuraError::NotSupported)?
                 .to_owned();
+            let mode: [u8; LED_MSG_LEN] = mode.into();
             self.write_bytes(&mode).await?;
             info!("Reloaded last used mode");
         }
@@ -240,20 +194,5 @@ where
         self.write_bytes(&bytes).await?;
         info!("Reloaded last used brightness");
         Ok(())
-    }
-
-    #[inline]
-    async fn set_builtin(&self, config: &mut Config, index: usize) -> Result<(), AuraError> {
-        if let Some(mode) = self.supported_modes.get(index) {
-            let mode_next = config
-                .builtin_modes
-                .get_field_from(mode.to_owned().into())
-                .ok_or(AuraError::NotSupported)?
-                .to_owned();
-            self.set_and_save(&mode_next, config).await?;
-            info!("Switched LED mode to {:#?}", self.supported_modes[index]);
-            return Ok(());
-        }
-        Err(AuraError::NotSupported)
     }
 }

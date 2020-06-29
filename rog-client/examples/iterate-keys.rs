@@ -1,4 +1,7 @@
-use rog_client::{AuraDbusWriter, GX502Layout, Key, KeyColourArray, KeyLayout};
+use rog_client::{
+    core_dbus::AuraDbusWriter,
+    fancy::{GX502Layout, Key, KeyColourArray, KeyLayout},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut writer = AuraDbusWriter::new()?;

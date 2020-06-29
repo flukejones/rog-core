@@ -4,8 +4,10 @@ use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
 use rog_client::{
+    aura_modes::AuraModes,
     cli_options::{LedBrightness, SetAuraBuiltin},
-    AuraDbusWriter, LED_MSG_LEN,
+    core_dbus::AuraDbusWriter,
+    LED_MSG_LEN,
 };
 
 static VERSION: &str = "0.12.2";
@@ -67,33 +69,22 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Check for special modes here, eg, per-key or multi-zone
             match command {
                 SetAuraBuiltin::MultiStatic(_) => {
+                    let command: AuraModes = command.into();
                     let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
                     writer.write_multizone(&byte_arr)?;
                 }
-                _ => match writer.write_builtin_mode(&command) {
-                    Ok(msg) => println!("Daemon response: {}", msg),
-                    Err(err) => println!("Error: {}", err),
-                },
+                _ => writer.write_builtin_mode(&command.into())?,
             }
         }
     }
     if let Some(brightness) = parsed.bright {
-        match writer.write_brightness(brightness.level()) {
-            Ok(msg) => println!("Daemon response: {}", msg),
-            Err(err) => println!("Error: {}", err),
-        }
+        writer.write_brightness(brightness.level())?;
     }
     if let Some(fan_level) = parsed.fan_mode {
-        match writer.write_fan_mode(fan_level.into()) {
-            Ok(msg) => println!("Daemon response: {}", msg),
-            Err(err) => println!("Error: {}", err),
-        }
+        writer.write_fan_mode(fan_level.into())?;
     }
     if let Some(charge_limit) = parsed.charge_limit {
-        match writer.write_charge_limit(charge_limit) {
-            Ok(msg) => println!("Daemon response: {}", msg),
-            Err(err) => println!("Error: {}", err),
-        }
+        writer.write_charge_limit(charge_limit)?;
     }
     Ok(())
 }

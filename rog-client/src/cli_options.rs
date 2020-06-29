@@ -1,5 +1,6 @@
 use crate::error::AuraError;
 use gumdrop::Options;
+use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
 
@@ -30,7 +31,7 @@ impl FromStr for LedBrightness {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Colour(pub u8, pub u8, pub u8);
 impl Default for Colour {
     fn default() -> Self {
@@ -51,7 +52,7 @@ impl FromStr for Colour {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub enum Speed {
     Low = 0xe1,
     Med = 0xeb,
@@ -79,7 +80,7 @@ impl FromStr for Speed {
 /// Used for Rainbow mode.
 ///
 /// Enum corresponds to the required integer value
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub enum Direction {
     Right,
     Left,
@@ -106,7 +107,7 @@ impl FromStr for Direction {
     }
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct TwoColourSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -118,7 +119,7 @@ pub struct TwoColourSpeed {
     pub speed: Speed,
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct SingleSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -126,7 +127,7 @@ pub struct SingleSpeed {
     pub speed: Speed,
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct SingleColour {
     #[options(help = "print help message")]
     help: bool,
@@ -134,7 +135,7 @@ pub struct SingleColour {
     pub colour: Colour,
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct MultiColour {
     #[options(help = "print help message")]
     help: bool,
@@ -148,7 +149,7 @@ pub struct MultiColour {
     pub colour4: Colour,
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct SingleSpeedDirection {
     #[options(help = "print help message")]
     help: bool,
@@ -162,7 +163,7 @@ pub struct SingleSpeedDirection {
     pub speed: Speed,
 }
 
-#[derive(Debug, Default, Options)]
+#[derive(Debug, Clone, Default, Options, Deserialize, Serialize)]
 pub struct SingleColourSpeed {
     #[options(help = "print help message")]
     help: bool,
@@ -172,10 +173,16 @@ pub struct SingleColourSpeed {
     pub speed: Speed,
 }
 
+#[derive(Debug, Options, Clone, Deserialize, Serialize, Default)]
+pub struct FreeOpts {
+    #[options(free)]
+    free: Vec<String>,
+}
+
 /// Byte value for setting the built-in mode.
 ///
 /// Enum corresponds to the required integer value
-#[derive(Debug, Options)]
+#[derive(Debug, Clone, Options, Deserialize, Serialize)]
 pub enum SetAuraBuiltin {
     #[options(help = "set a single static colour")]
     Stable(SingleColour),

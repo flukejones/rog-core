@@ -153,7 +153,7 @@ impl From<AniMeMatrix> for AniMePacketType {
 
 #[cfg(test)]
 mod tests {
-    use crate::{AniMeMatrix, AniMePacketType};
+    use crate::anime_matrix::{AniMeMatrix, AniMePacketType};
 
     #[test]
     fn check_data_alignment() {

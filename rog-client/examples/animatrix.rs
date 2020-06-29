@@ -1,4 +1,5 @@
-use rog_client::{AniMeDbusWriter, AniMeMatrix, AniMePacketType, HEIGHT, WIDTH};
+use rog_client::anime_dbus::AniMeDbusWriter;
+use rog_client::anime_matrix::{AniMeMatrix, AniMePacketType, HEIGHT, WIDTH};
 use tinybmp::{Bmp, Pixel};
 
 fn main() {

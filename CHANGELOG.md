@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Dbus command LedWriteBytes renamed to SetKeyBacklight
+- Dbus signal LedCancelEffect renamed to KeyBacklightChanged
+- Dbus command SetKeyBacklight will now take a JSON string instead of an array of bytes
+- Config file is now in JSON format, and will store only the LED modes that a laptop
+  supports rather than the whole set
 
 ## [0.12.2] - 2020-29-06
 ### Changed

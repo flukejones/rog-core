@@ -1,5 +1,11 @@
 use crate::{config::Config, led_control::AuraCommand, rogcore::RogCore};
-use rog_client::{error::AuraError, BuiltInModeByte};
+use rog_client::{
+    aura_modes::{
+        AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, PULSE, RAIN, RAINBOW, RIPPLE, SINGLE,
+        STAR, STROBE,
+    },
+    error::AuraError,
+};
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;
 use log::{info, warn};
@@ -22,11 +28,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
                         led_endpoint: 0x04,
                         //from `lsusb -vd 0b05:1866`
                         key_endpoint: 0x83,
-                        supported_modes: vec![
-                            BuiltInModeByte::Single,
-                            BuiltInModeByte::Breathing,
-                            BuiltInModeByte::Strobe,
-                        ],
+                        supported_modes: vec![SINGLE, BREATHING, STROBE],
                         support_animatrix: false,
                         // backlight: Backlight::new("intel_backlight").unwrap(),
                     };
@@ -71,39 +73,18 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     // GX502, G712
     } else if board_name.starts_with("GX502") {
         laptop.supported_modes = vec![
-            BuiltInModeByte::Single,
-            BuiltInModeByte::Breathing,
-            BuiltInModeByte::Strobe,
-            BuiltInModeByte::Rainbow,
-            BuiltInModeByte::Star,
-            BuiltInModeByte::Rain,
-            BuiltInModeByte::Highlight,
-            BuiltInModeByte::Laser,
-            BuiltInModeByte::Ripple,
-            BuiltInModeByte::Pulse,
-            BuiltInModeByte::Comet,
-            BuiltInModeByte::Flash,
+            SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
+            FLASH,
         ];
     // GM501
     } else if board_name.starts_with("GM501") {
-        laptop.supported_modes = vec![
-            BuiltInModeByte::Single,
-            BuiltInModeByte::Breathing,
-            BuiltInModeByte::Strobe,
-            BuiltInModeByte::Rainbow,
-        ];
+        laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW];
     // G531
     } else if board_name.starts_with("GX531")
         || board_name.starts_with("G531")
         || board_name.starts_with("G712")
     {
-        laptop.supported_modes = vec![
-            BuiltInModeByte::Single,
-            BuiltInModeByte::Breathing,
-            BuiltInModeByte::Strobe,
-            BuiltInModeByte::Rainbow,
-            BuiltInModeByte::Pulse,
-        ];
+        laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE];
     } else {
         panic!(
             "Unsupported laptop, please request support at\nhttps://github.com/flukejones/rog-core"
@@ -121,7 +102,7 @@ pub(super) struct LaptopBase {
     max_led_bright: u8,
     led_endpoint: u8,
     key_endpoint: u8,
-    supported_modes: Vec<BuiltInModeByte>,
+    supported_modes: Vec<u8>,
     support_animatrix: bool,
     //backlight: Backlight,
 }
@@ -137,30 +118,68 @@ impl LaptopBase {
         key_buf: [u8; 32],
         mut aura_command: mpsc::Sender<AuraCommand>,
     ) -> Result<(), AuraError> {
+        let mut config = config.lock().await;
         match FnKeys::from(key_buf[1]) {
             FnKeys::LedBrightUp => {
+                let mut bright = config.brightness;
+                if bright < self.max_led_bright {
+                    bright += 1;
+                    info!("Increased LED brightness to {:#?}", bright);
+                }
                 aura_command
-                    .send(AuraCommand::BrightInc)
+                    .send(AuraCommand::WriteMode(AuraModes::LedBrightness(bright)))
                     .await
                     .unwrap_or_else(|err| warn!("LedBrightUp: {}", err));
             }
             FnKeys::LedBrightDown => {
+                let mut bright = config.brightness;
+                if bright > self.min_led_bright {
+                    bright -= 1;
+                }
                 aura_command
-                    .send(AuraCommand::BrightDec)
+                    .send(AuraCommand::WriteMode(AuraModes::LedBrightness(bright)))
                     .await
                     .unwrap_or_else(|err| warn!("LedBrightDown: {}", err));
             }
             FnKeys::AuraNext => {
-                aura_command
-                    .send(AuraCommand::BuiltinNext)
-                    .await
-                    .unwrap_or_else(|_| {});
+                if let Ok(idx) = self
+                    .supported_modes
+                    .binary_search(&config.current_mode.into())
+                {
+                    let idx_next = if idx < self.supported_modes.len() - 1 {
+                        idx + 1
+                    } else {
+                        0
+                    };
+                    if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
+                        aura_command
+                            .send(AuraCommand::WriteMode(data.to_owned()))
+                            .await
+                            .unwrap_or_else(|_| {});
+                    }
+                } else {
+                    warn!("Tried to step to next LED mode while in non-supported mode");
+                }
             }
             FnKeys::AuraPrevious => {
-                aura_command
-                    .send(AuraCommand::BuiltinPrev)
-                    .await
-                    .unwrap_or_else(|_| {});
+                if let Ok(idx) = self
+                    .supported_modes
+                    .binary_search(&config.current_mode.into())
+                {
+                    let idx_next = if idx > 0 {
+                        idx - 1
+                    } else {
+                        self.supported_modes.len() - 1
+                    };
+                    if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
+                        aura_command
+                            .send(AuraCommand::WriteMode(data.to_owned()))
+                            .await
+                            .unwrap_or_else(|_| {});
+                    }
+                } else {
+                    warn!("Tried to step to next LED mode while in non-supported mode");
+                }
             }
             FnKeys::ScreenBrightUp => rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into()), //self.backlight.step_up(),
             FnKeys::ScreenBrightDn => rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into()),
@@ -169,7 +188,6 @@ impl LaptopBase {
             FnKeys::AirplaneMode => rogcore.toggle_airplane_mode(),
             FnKeys::MicToggle => {}
             FnKeys::Fan => {
-                let mut config = config.lock().await;
                 rogcore.fan_mode_step(&mut config).unwrap_or_else(|err| {
                     warn!("Couldn't toggle fan mode: {:?}", err);
                 });
@@ -199,12 +217,6 @@ impl LaptopBase {
         Ok(())
     }
 
-    pub(super) fn min_led_bright(&self) -> u8 {
-        self.min_led_bright
-    }
-    pub(super) fn max_led_bright(&self) -> u8 {
-        self.max_led_bright
-    }
     pub(super) fn led_endpoint(&self) -> u8 {
         self.led_endpoint
     }
@@ -220,7 +232,7 @@ impl LaptopBase {
     pub(super) fn usb_product(&self) -> u16 {
         self.usb_product
     }
-    pub(super) fn supported_modes(&self) -> &[BuiltInModeByte] {
+    pub(super) fn supported_modes(&self) -> &[u8] {
         &self.supported_modes
     }
     pub(super) fn support_animatrix(&self) -> bool {

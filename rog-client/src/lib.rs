@@ -3,26 +3,25 @@ pub static DBUS_PATH: &str = "/org/rogcore/Daemon";
 pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
 pub const LED_MSG_LEN: usize = 17;
 
-mod builtins;
-pub use builtins::*;
+pub mod aura_modes;
+use aura_modes::AuraModes;
 
 /// Contains mostly only what is required for parsing CLI options
 pub mod cli_options;
-mod fancy;
 
-mod aura_dbus;
-pub use aura_dbus::*;
+/// Enables you to create fancy RGB effects
+pub mod fancy;
 
-pub use fancy::*;
+/// The main dbus group for system controls, e.g, fan control, keyboard LED's
+pub mod core_dbus;
 
-mod animatrix_dbus;
-pub use animatrix_dbus::*;
+/// Specific dbus for writing to the AniMe Matrix display (if supported)
+pub mod anime_dbus;
 
-mod anime_matrix;
-pub use anime_matrix::*;
+/// Helper functions for the AniMe display
+pub mod anime_matrix;
 
 pub mod error;
-use crate::cli_options::*;
 
 /// Writes aout the correct byte string for brightness
 ///
@@ -56,7 +55,7 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
     ]
 }
 
-/// Parses `SetAuraBuiltin` in to packet data
+/// Parses `AuraCommands` in to packet data
 ///
 /// Byte structure:
 ///
@@ -133,40 +132,41 @@ pub fn aura_brightness_bytes(brightness: u8) -> [u8; 17] {
 /// ```
 ///
 /// This descriptor is also used for the per-key LED settings
-impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
-    fn from(mode: &SetAuraBuiltin) -> Self {
+impl From<&AuraModes> for [u8; LED_MSG_LEN] {
+    fn from(mode: &AuraModes) -> Self {
         let mut msg = [0u8; LED_MSG_LEN];
         msg[0] = 0x5d;
         msg[1] = 0xb3;
         match mode {
-            SetAuraBuiltin::Stable(_) => msg[3] = 0x00,
-            SetAuraBuiltin::Breathe(_) => msg[3] = 0x01,
-            SetAuraBuiltin::Strobe(_) => msg[3] = 0x02,
-            SetAuraBuiltin::Rainbow(_) => msg[3] = 0x03,
-            SetAuraBuiltin::Star(_) => msg[3] = 0x04,
-            SetAuraBuiltin::Rain(_) => msg[3] = 0x05,
-            SetAuraBuiltin::Highlight(_) => msg[3] = 0x06,
-            SetAuraBuiltin::Laser(_) => msg[3] = 0x07,
-            SetAuraBuiltin::Ripple(_) => msg[3] = 0x08,
-            SetAuraBuiltin::Pulse(_) => msg[3] = 0x0a,
-            SetAuraBuiltin::Comet(_) => msg[3] = 0x0b,
-            SetAuraBuiltin::Flash(_) => msg[3] = 0x0c,
+            AuraModes::LedBrightness(n) => return aura_brightness_bytes(*n),
+            AuraModes::Stable(_) => msg[3] = 0x00,
+            AuraModes::Breathe(_) => msg[3] = 0x01,
+            AuraModes::Strobe(_) => msg[3] = 0x02,
+            AuraModes::Rainbow(_) => msg[3] = 0x03,
+            AuraModes::Star(_) => msg[3] = 0x04,
+            AuraModes::Rain(_) => msg[3] = 0x05,
+            AuraModes::Highlight(_) => msg[3] = 0x06,
+            AuraModes::Laser(_) => msg[3] = 0x07,
+            AuraModes::Ripple(_) => msg[3] = 0x08,
+            AuraModes::Pulse(_) => msg[3] = 0x0a,
+            AuraModes::Comet(_) => msg[3] = 0x0b,
+            AuraModes::Flash(_) => msg[3] = 0x0c,
             _ => panic!("Mode not convertable to array"),
         }
 
         match mode {
-            SetAuraBuiltin::Rainbow(settings) => {
+            AuraModes::Rainbow(settings) => {
                 msg[7] = settings.speed as u8;
                 msg[8] = settings.direction as u8;
             }
-            SetAuraBuiltin::Star(settings) => {
+            AuraModes::Star(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
                 msg[7] = settings.speed as u8;
                 msg[9] = settings.colour2.2;
             }
-            SetAuraBuiltin::Breathe(settings) => {
+            AuraModes::Breathe(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
@@ -175,21 +175,21 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
                 msg[11] = settings.colour2.1;
                 msg[12] = settings.colour2.2;
             }
-            SetAuraBuiltin::Strobe(settings) | SetAuraBuiltin::Rain(settings) => {
+            AuraModes::Strobe(settings) | AuraModes::Rain(settings) => {
                 msg[7] = settings.speed as u8;
             }
-            SetAuraBuiltin::Highlight(settings)
-            | SetAuraBuiltin::Laser(settings)
-            | SetAuraBuiltin::Ripple(settings) => {
+            AuraModes::Highlight(settings)
+            | AuraModes::Laser(settings)
+            | AuraModes::Ripple(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
                 msg[7] = settings.speed as u8;
             }
-            SetAuraBuiltin::Stable(settings)
-            | SetAuraBuiltin::Pulse(settings)
-            | SetAuraBuiltin::Comet(settings)
-            | SetAuraBuiltin::Flash(settings) => {
+            AuraModes::Stable(settings)
+            | AuraModes::Pulse(settings)
+            | AuraModes::Comet(settings)
+            | AuraModes::Flash(settings) => {
                 msg[4] = settings.colour.0;
                 msg[5] = settings.colour.1;
                 msg[6] = settings.colour.2;
@@ -200,16 +200,16 @@ impl From<&SetAuraBuiltin> for [u8; LED_MSG_LEN] {
     }
 }
 
-impl From<SetAuraBuiltin> for [u8; LED_MSG_LEN] {
+impl From<AuraModes> for [u8; LED_MSG_LEN] {
     #[inline]
-    fn from(mode: SetAuraBuiltin) -> Self {
+    fn from(mode: AuraModes) -> Self {
         <[u8; LED_MSG_LEN]>::from(&mode)
     }
 }
 
-impl From<SetAuraBuiltin> for [[u8; LED_MSG_LEN]; 4] {
+impl From<AuraModes> for [[u8; LED_MSG_LEN]; 4] {
     #[inline]
-    fn from(mode: SetAuraBuiltin) -> Self {
+    fn from(mode: AuraModes) -> Self {
         let mut msg = [[0u8; LED_MSG_LEN]; 4];
         for (i, row) in msg.iter_mut().enumerate() {
             row[0] = 0x5d;
@@ -218,7 +218,7 @@ impl From<SetAuraBuiltin> for [[u8; LED_MSG_LEN]; 4] {
         }
 
         match mode {
-            SetAuraBuiltin::MultiStatic(settings) => {
+            AuraModes::MultiStatic(settings) => {
                 msg[0][4] = settings.colour1.0;
                 msg[0][5] = settings.colour1.1;
                 msg[0][6] = settings.colour1.2;

@@ -11,7 +11,7 @@ use dbus::{channel::Sender, nonblock::Process};
 
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use rog_client::{aura_modes::AuraModes, DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -29,7 +29,8 @@ pub(super) type DbusU8Type = Arc<Mutex<Option<u8>>>;
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
-    let mut config = Config::default().load();
+    let mut config = Config::default().load(laptop.supported_modes());
+
     info!("Config loaded");
 
     let mut rogcore = RogCore::new(
@@ -59,12 +60,9 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let mut led_writer = LedWriter::new(
         rogcore.get_raw_device_handle(),
         laptop.led_endpoint(),
-        (laptop.min_led_bright(), laptop.max_led_bright()),
         laptop.supported_modes().to_owned(),
     );
-    led_writer
-        .do_command(AuraCommand::ReloadLast, &mut config)
-        .await?;
+    led_writer.reload_last_builtin(&mut config).await?;
 
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
@@ -148,6 +146,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    // For helping with processing signals
     let connection1 = connection.clone();
     let config1 = config.clone();
     tokio::spawn(async move {
@@ -188,20 +187,39 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
         while let Some(command) = aura_command_recv.recv().await {
             let mut config = config.lock().await;
-            match command {
+            match &command {
                 AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
                     .do_command(command, &mut config)
                     .await
                     .unwrap_or_else(|err| warn!("{:?}", err)),
-                _ => {
-                    led_writer
-                        .do_command(command, &mut config)
-                        .await
-                        .unwrap_or_else(|err| warn!("{:?}", err));
-                    connection
-                        .send(effect_cancel_signal.msg(&DBUS_PATH.into(), &DBUS_IFACE.into()))
-                        .unwrap_or_else(|_| 0);
-                }
+                AuraCommand::WriteMode(mode) => match mode {
+                    AuraModes::Aura => {
+                        led_writer
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{:?}", err));
+                    }
+                    _ => {
+                        led_writer
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{:?}", err));
+                        connection
+                            .send(
+                                effect_cancel_signal
+                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                    .append1(true),
+                            )
+                            .unwrap_or_else(|_| 0);
+                        connection
+                            .send(
+                                effect_cancel_signal
+                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                    .append1(false),
+                            )
+                            .unwrap_or_else(|_| 0);
+                    }
+                },
             }
         }
     }

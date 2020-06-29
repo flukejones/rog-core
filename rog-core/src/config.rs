@@ -1,4 +1,4 @@
-use rog_client::BuiltInModeBytes;
+use rog_client::aura_modes::AuraModes;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -10,15 +10,15 @@ pub struct Config {
     pub fan_mode: u8,
     pub bat_charge_limit: u8,
     pub brightness: u8,
-    pub current_mode: [u8; 4],
-    pub builtin_modes: BuiltInModeBytes,
+    pub current_mode: u8,
+    pub builtin_modes: Vec<AuraModes>,
     pub mode_performance: FanModeSettings,
 }
 
 impl Config {
     /// `load` will attempt to read the config, but if it is not found it
     /// will create a new default config and write that out.
-    pub fn load(mut self) -> Self {
+    pub fn load(mut self, supported_led_modes: &[u8]) -> Self {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -31,15 +31,20 @@ impl Config {
                 // create a default config here
                 let mut c = Config::default();
                 c.bat_charge_limit = 100;
-                c.current_mode[0] = 0x5d;
-                c.current_mode[1] = 0xb3;
+                c.current_mode = 0;
+
+                for n in supported_led_modes {
+                    c.builtin_modes.push(AuraModes::from(*n))
+                }
+                dbg!(&c.builtin_modes);
+
                 // Should be okay to unwrap this as is since it is a Default
-                let toml = toml::to_string(&c).unwrap();
-                file.write_all(toml.as_bytes())
+                let json = serde_json::to_string_pretty(&c).unwrap();
+                file.write_all(json.as_bytes())
                     .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
                 self = c;
             } else {
-                self = toml::from_str(&buf)
+                self = serde_json::from_str(&buf)
                     .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
             }
         }
@@ -56,7 +61,7 @@ impl Config {
             if l == 0 {
                 panic!("Missing {}", CONFIG_PATH);
             } else {
-                let x: Config = toml::from_str(&buf)
+                let x: Config = serde_json::from_str(&buf)
                     .unwrap_or_else(|_| panic!("Could not deserialise {}", CONFIG_PATH));
                 *self = x;
             }
@@ -65,18 +70,28 @@ impl Config {
 
     pub fn write(&self) {
         let mut file = File::create(CONFIG_PATH).expect("Couldn't overwrite config");
-        let toml = toml::to_string(self).expect("Parse config to JSON failed");
-        file.write_all(toml.as_bytes())
+        let json = serde_json::to_string_pretty(self).expect("Parse config to JSON failed");
+        file.write_all(json.as_bytes())
             .expect("Saving config failed");
     }
 
-    pub fn set_field_from(&mut self, bytes: &[u8]) {
-        if bytes[0] == 0x5a && bytes[1] == 0xba {
-            self.brightness = bytes[4];
-        } else if bytes[0] == 0x5d && bytes[1] == 0xb3 {
-            self.current_mode.copy_from_slice(&bytes[0..4]);
-            self.builtin_modes.set_field_from(bytes);
+    pub fn set_mode_data(&mut self, mode: AuraModes) {
+        let byte: u8 = (&mode).into();
+        for (index, n) in self.builtin_modes.iter().enumerate() {
+            if byte == u8::from(n) {
+                self.builtin_modes[index] = mode;
+                break;
+            }
         }
+    }
+
+    pub fn get_led_mode_data(&self, num: u8) -> Option<&AuraModes> {
+        for mode in &self.builtin_modes {
+            if u8::from(mode) == num {
+                return Some(mode);
+            }
+        }
+        None
     }
 }
 

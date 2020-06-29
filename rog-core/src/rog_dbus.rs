@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::daemon::DbusU8Type;
 use crate::led_control::AuraCommand;
-use crate::rogcore::FanLevel;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
 use log::warn;
 use rog_client::{DBUS_IFACE, DBUS_PATH};
@@ -15,25 +14,26 @@ pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSy
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
-        .method("LedWriteBytes", (), {
+        .method("SetKeyBacklight", (), {
             move |m| {
-                let bytes: Vec<u8> = m.msg.read1()?;
+                let json: &str = m.msg.read1()?;
                 if let Ok(mut lock) = sender.try_lock() {
-                    let command = AuraCommand::WriteBytes(bytes.to_vec());
-                    lock.try_send(command)
-                        .unwrap_or_else(|err| warn!("LedWriteBytes over mpsc failed: {}", err));
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(&format!("Wrote {:x?}", bytes));
-                    Ok(vec![mret])
+                    if let Ok(data) = serde_json::from_str(json) {
+                        let command = AuraCommand::WriteMode(data);
+                        lock.try_send(command).unwrap_or_else(|err| {
+                            warn!("SetKeyBacklight over mpsc failed: {}", err)
+                        });
+                    } else {
+                        warn!("SetKeyBacklight could not deserialise");
+                    }
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
-        .outarg::<&str, _>("reply")
-        .inarg::<Vec<u8>, _>("bytearray")
+        .inarg::<&str, _>("json")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 pub(super) fn dbus_set_ledmultizone(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
@@ -145,18 +145,14 @@ pub(super) fn dbus_set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
                     let mut iter = m.msg.iter_init();
                     let byte: u8 = iter.read()?;
                     *lock = Some(byte);
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(format!("Fan level set to {:?}", FanLevel::from(byte)));
-                    Ok(vec![mret])
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
-        .outarg::<&str, _>("reply")
         .inarg::<u8, _>("byte")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 pub(super) fn dbus_get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
@@ -201,18 +197,14 @@ pub(super) fn dbus_set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
                     let mut iter = m.msg.iter_init();
                     let byte: u8 = iter.read()?;
                     *lock = Some(byte);
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(format!("Battery charge limit set to {}", byte));
-                    Ok(vec![mret])
+                    Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
                 }
             }
         })
-        .outarg::<&str, _>("reply")
         .inarg::<u8, _>("byte")
+        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
 #[allow(clippy::type_complexity)]
@@ -236,7 +228,11 @@ pub(super) fn dbus_create_tree(
 
     let factory = Factory::new_sync::<()>();
 
-    let effect_cancel_sig = Arc::new(factory.signal("LedCancelEffect", ()));
+    let builtin_mode_sig = Arc::new(
+        factory
+            .signal("KeyBacklightChanged", ())
+            .sarg::<bool, _>("value"),
+    );
     let fanmode_changed_sig = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
     let chrg_limit_changed_sig = Arc::new(
         factory
@@ -258,7 +254,7 @@ pub(super) fn dbus_create_tree(
                     .add_m(dbus_set_charge_limit(charge_limit.clone()))
                     .add_m(dbus_get_fan_mode(config.clone()))
                     .add_m(dbus_get_charge_limit(config))
-                    .add_s(effect_cancel_sig.clone())
+                    .add_s(builtin_mode_sig.clone())
                     .add_s(fanmode_changed_sig.clone())
                     .add_s(chrg_limit_changed_sig.clone()),
             ),
@@ -271,7 +267,7 @@ pub(super) fn dbus_create_tree(
         animatrix_recv,
         fan_mode,
         charge_limit,
-        effect_cancel_sig,
+        builtin_mode_sig,
         fanmode_changed_sig,
         chrg_limit_changed_sig,
     )
