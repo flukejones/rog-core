@@ -142,10 +142,7 @@ impl LaptopBase {
                     .unwrap_or_else(|err| warn!("LedBrightDown: {}", err));
             }
             FnKeys::AuraNext => {
-                if let Ok(idx) = self
-                    .supported_modes
-                    .binary_search(&config.current_mode.into())
-                {
+                if let Ok(idx) = self.supported_modes.binary_search(&config.current_mode) {
                     let idx_next = if idx < self.supported_modes.len() - 1 {
                         idx + 1
                     } else {
@@ -162,10 +159,7 @@ impl LaptopBase {
                 }
             }
             FnKeys::AuraPrevious => {
-                if let Ok(idx) = self
-                    .supported_modes
-                    .binary_search(&config.current_mode.into())
-                {
+                if let Ok(idx) = self.supported_modes.binary_search(&config.current_mode) {
                     let idx_next = if idx > 0 {
                         idx - 1
                     } else {

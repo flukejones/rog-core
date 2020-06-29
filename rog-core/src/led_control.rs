@@ -67,11 +67,7 @@ where
         }
     }
 
-    pub async fn do_command(
-        &mut self,
-        command: AuraCommand,
-        config: &mut Config,
-    ) -> Result<(), AuraError> {
+    async fn initialise(&mut self) -> Result<(), AuraError> {
         if !self.initialised {
             self.write_bytes(&LED_INIT1).await?;
             self.write_bytes(LED_INIT2.as_bytes()).await?;
@@ -80,7 +76,15 @@ where
             self.write_bytes(&LED_INIT5).await?;
             self.initialised = true;
         }
+        Ok(())
+    }
 
+    pub async fn do_command(
+        &mut self,
+        command: AuraCommand,
+        config: &mut Config,
+    ) -> Result<(), AuraError> {
+        self.initialise().await?;
         match command {
             AuraCommand::WriteMode(mode) => self.set_and_save(mode, config).await?,
             AuraCommand::WriteMultizone(effect) => self.write_multizone(effect).await?,
@@ -154,7 +158,7 @@ where
                 return Ok(());
             }
             _ => {
-                let mode_num: u8 = u8::from(&mode).into();
+                let mode_num: u8 = u8::from(&mode);
                 if self.supported_modes.contains(&mode_num) {
                     let bytes: [u8; LED_MSG_LEN] = (&mode).into();
                     self.write_bytes(&bytes).await?;
@@ -176,7 +180,8 @@ where
     }
 
     #[inline]
-    pub async fn reload_last_builtin(&self, config: &Config) -> Result<(), AuraError> {
+    pub async fn reload_last_builtin(&mut self, config: &Config) -> Result<(), AuraError> {
+        self.initialise().await?;
         // set current mode (if any)
         if self.supported_modes.len() > 1 {
             let mode = config

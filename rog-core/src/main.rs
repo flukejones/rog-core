@@ -1,6 +1,5 @@
 use daemon::daemon::start_daemon;
 use daemon::rogcore::FanLevel;
-use env_logger::{Builder, Target};
 use gumdrop::Options;
 use log::LevelFilter;
 use rog_client::{
@@ -9,8 +8,9 @@ use rog_client::{
     core_dbus::AuraDbusWriter,
     LED_MSG_LEN,
 };
+use std::io::Write;
 
-static VERSION: &str = "0.13.0";
+static VERSION: &str = "0.13.1";
 
 #[derive(Debug, Options)]
 struct CLIStart {
@@ -46,11 +46,10 @@ struct LedModeCommand {
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut builder = Builder::new();
-    builder
-        .target(Target::Stdout)
-        .format_module_path(false)
-        .format_timestamp(None)
+    let mut logger = env_logger::Builder::new();
+    logger
+        .target(env_logger::Target::Stdout)
+        .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
         .filter(None, LevelFilter::Info)
         .init();
 

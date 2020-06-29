@@ -62,7 +62,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.led_endpoint(),
         laptop.supported_modes().to_owned(),
     );
-    led_writer.reload_last_builtin(&mut config).await?;
+    led_writer.reload_last_builtin(&config).await?;
 
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
