@@ -161,7 +161,7 @@ where
             }
         }
 
-        warn!("{:?} not supported", mode);
+        warn!("Attempted to set unsupported mode");
         Err(AuraError::NotSupported)
     }
 

@@ -149,10 +149,7 @@ impl LaptopBase {
                         0
                     };
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
-                        aura_command
-                            .send(data.to_owned())
-                            .await
-                            .unwrap_or_else(|_| {});
+                        aura_command.send(data.clone()).await.unwrap_or_else(|_| {});
                     }
                 } else {
                     warn!("Tried to step to next LED mode while in non-supported mode");
@@ -166,10 +163,7 @@ impl LaptopBase {
                         self.supported_modes.len() - 1
                     };
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
-                        aura_command
-                            .send(data.to_owned())
-                            .await
-                            .unwrap_or_else(|_| {});
+                        aura_command.send(data.clone()).await.unwrap_or_else(|_| {});
                     }
                 } else {
                     warn!("Tried to step to next LED mode while in non-supported mode");

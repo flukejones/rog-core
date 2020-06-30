@@ -10,7 +10,7 @@ use std::io::Write;
 
 static VERSION: &str = "0.13.1";
 
-#[derive(Debug, Options)]
+#[derive(Options)]
 struct CLIStart {
     #[options(help = "print help message")]
     help: bool,
@@ -28,13 +28,13 @@ struct CLIStart {
     command: Option<Command>,
 }
 
-#[derive(Debug, Options)]
+#[derive(Options)]
 enum Command {
     #[options(help = "Set the keyboard lighting from built-in modes")]
     LedMode(LedModeCommand),
 }
 
-#[derive(Debug, Options)]
+#[derive(Options)]
 struct LedModeCommand {
     #[options(help = "print help message")]
     help: bool,
