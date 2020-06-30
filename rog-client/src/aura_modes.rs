@@ -14,6 +14,7 @@ pub const RIPPLE: u8 = 0x08;
 pub const PULSE: u8 = 0x0a;
 pub const COMET: u8 = 0x0b;
 pub const FLASH: u8 = 0x0c;
+pub const MULTISTATIC: u8 = 0x0d;
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Colour(pub u8, pub u8, pub u8);
@@ -226,7 +227,7 @@ impl From<&AuraModes> for u8 {
             AuraModes::Pulse(_) => PULSE,
             AuraModes::Comet(_) => COMET,
             AuraModes::Flash(_) => FLASH,
-            AuraModes::MultiStatic(_) => 0x0d,
+            AuraModes::MultiStatic(_) => MULTISTATIC,
             _ => panic!("Invalid mode"),
         }
     }
@@ -248,6 +249,7 @@ impl From<u8> for AuraModes {
             PULSE => AuraModes::Pulse(SingleColour::default()),
             COMET => AuraModes::Comet(SingleColour::default()),
             FLASH => AuraModes::Flash(SingleColour::default()),
+            MULTISTATIC => AuraModes::MultiStatic(MultiColour::default()),
             _ => panic!("Invalid mode byte"),
         }
     }

@@ -1,8 +1,8 @@
 use crate::{config::Config, rogcore::RogCore};
 use rog_client::{
     aura_modes::{
-        AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, PULSE, RAIN, RAINBOW, RIPPLE, SINGLE,
-        STAR, STROBE,
+        AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, MULTISTATIC, PULSE, RAIN, RAINBOW,
+        RIPPLE, SINGLE, STAR, STROBE,
     },
     error::AuraError,
 };
@@ -79,12 +79,12 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     // GM501
     } else if board_name.starts_with("GM501") {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW];
-    // G531
-    } else if board_name.starts_with("GX531")
-        || board_name.starts_with("G531")
-        || board_name.starts_with("G712")
-    {
+    // GX531, G531
+    } else if board_name.starts_with("GX531") || board_name.starts_with("G531") {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE];
+    // G712
+    } else if board_name.starts_with("G712") {
+        laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE, MULTISTATIC];
     } else {
         panic!(
             "Unsupported laptop, please request support at\nhttps://github.com/flukejones/rog-core"

@@ -198,6 +198,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{}", err));
                 }
                 _ => {
+                    let json = serde_json::to_string(&command)?;
                     led_writer
                         .do_command(command, &mut config)
                         .await
@@ -206,14 +207,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .send(
                             effect_cancel_signal
                                 .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                .append1(true),
-                        )
-                        .unwrap_or_else(|_| 0);
-                    connection
-                        .send(
-                            effect_cancel_signal
-                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                .append1(false),
+                                .append1(json),
                         )
                         .unwrap_or_else(|_| 0);
                 }

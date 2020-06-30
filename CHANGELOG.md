@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   also allows for setting the brightness through `SetKeyBacklight`
 
 ### Added
-- REDME_DBUS.md to document DBUS interface
+- README_DBUS.md to document DBUS interface
+- Dbus method `GetKeyBacklight`
+- Dbus method `GetKeyBacklightModes`
 
 ## [0.13.1] - 2020-29-06
 ### Fixed

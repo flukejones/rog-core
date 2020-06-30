@@ -26,10 +26,8 @@ impl AuraDbusWriter {
         let stopper2 = stop.clone();
         let match_rule = dbus::message::MatchRule::new_signal(DBUS_IFACE, "KeyBacklightChanged");
         let stop_token = connection.add_match(match_rule, move |_: (), _, msg| {
-            if let Ok(stop) = msg.read1::<bool>() {
-                if stop {
-                    stopper2.store(true, Ordering::Relaxed);
-                }
+            if msg.read1::<&str>().is_ok() {
+                stopper2.store(true, Ordering::Relaxed);
             }
             true
         })?;

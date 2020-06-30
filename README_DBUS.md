@@ -9,12 +9,13 @@ pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
 ## Methods
 
 - `SetKeyBacklight`
+- `GetKeyBacklight`
 - `AnimatrixWrite`
 - `SetFanMode`
 - `GetFanMode`
 - `SetChargeLimit`
 - `GetChargeLimit`
-- TODO: GetLEDModes
+- `GetKeyBacklightModes`
 
 ## Signals
 
@@ -65,6 +66,18 @@ dbus.
 
 Lastly, there is `"LedBrightness": <u8>` which accepts 0-3 for off, low, med, high.
 
+### GetKeyBacklight
+
+This method will return a JSON string in the same format as accepted by `SetKeyBacklight`.
+
+### GetKeyBacklightModes
+
+Will return a JSON string array of modes that this laptop accepts. The mode data
+within this will be the current settings per mode. Good for:
+
+- Getting supported modes
+- Getting all mode settings
+
 ### AnimatrixWrite
 
 Used to write data to the AniMe display if available. Currently is takes `[[u8; 640]; 2]`
@@ -94,7 +107,15 @@ Returns the integer set from above.
 
 ### KeyBacklightChanged
 
-When emitted, it will emit a true or false.
+When emitted, it will emit the JSON data of the mode changed to, e.g:
+
+```
+{
+  "Stable": {
+    "colour": [ 255, 0, 0]
+  }
+}
+```
 
 ### FanModeChanged
 

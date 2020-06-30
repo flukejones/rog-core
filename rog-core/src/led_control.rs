@@ -9,7 +9,7 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 use crate::{config::Config, error::RogError};
-use log::{error, info, warn};
+use log::{error, info};
 use rog_client::{
     aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
 };
@@ -140,24 +140,32 @@ where
             }
             _ => {
                 let mode_num: u8 = u8::from(&mode);
-                if self.supported_modes.contains(&mode_num) {
-                    let bytes: [u8; LED_MSG_LEN] = (&mode).into();
-                    self.write_bytes(&bytes).await?;
-                    self.write_bytes(&LED_SET).await?;
-                    // Changes won't persist unless apply is set
-                    self.write_bytes(&LED_APPLY).await?;
-
-                    config.current_mode = mode_num;
-                    config.set_mode_data(mode);
-                    config.write();
-                    info!("Switched LED mode to {:#?}", config.current_mode);
-                    return Ok(());
+                match mode {
+                    AuraModes::MultiStatic(_) => {
+                        if self.supported_modes.contains(&mode_num) {
+                            let bytes: [[u8; LED_MSG_LEN]; 4] = (&mode).into();
+                            for array in bytes.iter() {
+                                self.write_bytes(array).await?;
+                            }
+                        }
+                    }
+                    _ => {
+                        if self.supported_modes.contains(&mode_num) {
+                            let bytes: [u8; LED_MSG_LEN] = (&mode).into();
+                            self.write_bytes(&bytes).await?;
+                        }
+                    }
                 }
+                self.write_bytes(&LED_SET).await?;
+                // Changes won't persist unless apply is set
+                self.write_bytes(&LED_APPLY).await?;
+                config.current_mode = mode_num;
+                config.set_mode_data(mode);
+                config.write();
+                info!("Switched LED mode to {:#?}", config.current_mode);
+                return Ok(());
             }
         }
-
-        warn!("Attempted to set unsupported mode");
-        Err(RogError::NotSupported)
     }
 
     #[inline]

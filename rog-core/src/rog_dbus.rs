@@ -9,7 +9,7 @@ use tokio::sync::{
     Mutex,
 };
 
-pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraModes>>) -> Method<MTSync, ()> {
+fn set_keyboard_backlight(sender: Mutex<Sender<AuraModes>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -34,7 +34,48 @@ pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraModes>>) -> Method<MTSync
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_set_animatrix(
+fn get_keyboard_backlight(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        .method("GetKeyBacklight", (), {
+            move |m| {
+                if let Ok(lock) = config.try_lock() {
+                    for mode in &lock.builtin_modes {
+                        if lock.current_mode == <u8>::from(mode) {
+                            let mode = serde_json::to_string(&mode).unwrap();
+                            let mret = m.msg.method_return().append1(mode);
+                            return Ok(vec![mret]);
+                        }
+                    }
+                    Err(MethodErr::failed(
+                        "Keyboard LED mode set to an invalid mode",
+                    ))
+                } else {
+                    Err(MethodErr::failed("Could not lock config for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("value")
+}
+
+fn get_keyboard_backlight_modes(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+    let factory = Factory::new_sync::<()>();
+    factory
+        .method("GetKeyBacklightModes", (), {
+            move |m| {
+                if let Ok(lock) = config.try_lock() {
+                    let mode = serde_json::to_string(&lock.builtin_modes).unwrap();
+                    let mret = m.msg.method_return().append1(mode);
+                    return Ok(vec![mret]);
+                } else {
+                    Err(MethodErr::failed("Could not lock config for access"))
+                }
+            }
+        })
+        .outarg::<&str, _>("value")
+}
+
+fn set_animatrix(
     sender: Mutex<Sender<Vec<Vec<u8>>>>, // need mutex only to get interior mutability in MTSync
 ) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
@@ -58,7 +99,7 @@ pub(super) fn dbus_set_animatrix(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
+fn set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -78,7 +119,7 @@ pub(super) fn dbus_set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-pub(super) fn dbus_get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+fn get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         .method("GetFanMode", (), {
@@ -94,7 +135,7 @@ pub(super) fn dbus_get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()
         .outarg::<&str, _>("value")
 }
 
-pub(super) fn dbus_get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
+fn get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         .method("GetChargeLimit", (), {
@@ -110,7 +151,7 @@ pub(super) fn dbus_get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync
         .outarg::<&str, _>("value")
 }
 
-pub(super) fn dbus_set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
+fn set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -151,17 +192,17 @@ pub(super) fn dbus_create_tree(
 
     let factory = Factory::new_sync::<()>();
 
-    let builtin_mode_sig = Arc::new(
+    let key_backlight_changed = Arc::new(
         factory
             .signal("KeyBacklightChanged", ())
-            .sarg::<bool, _>("value"),
+            .sarg::<&str, _>("value"),
     );
-    let fanmode_changed_sig = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
-    let chrg_limit_changed_sig = Arc::new(
+    let chrg_limit_changed = Arc::new(
         factory
             .signal("ChargeLimitChanged", ())
             .sarg::<u8, _>("value"),
     );
+    let fanmode_changed = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
 
     let tree = factory
         .tree(())
@@ -169,15 +210,19 @@ pub(super) fn dbus_create_tree(
             factory.object_path(DBUS_PATH, ()).introspectable().add(
                 factory
                     .interface(DBUS_IFACE, ())
-                    .add_m(dbus_set_ledmsg(Mutex::new(aura_command_send.clone())))
-                    .add_m(dbus_set_animatrix(Mutex::new(animatrix_send)))
-                    .add_m(dbus_set_fan_mode(fan_mode.clone()))
-                    .add_m(dbus_set_charge_limit(charge_limit.clone()))
-                    .add_m(dbus_get_fan_mode(config.clone()))
-                    .add_m(dbus_get_charge_limit(config))
-                    .add_s(builtin_mode_sig.clone())
-                    .add_s(fanmode_changed_sig.clone())
-                    .add_s(chrg_limit_changed_sig.clone()),
+                    .add_m(set_keyboard_backlight(Mutex::new(
+                        aura_command_send.clone(),
+                    )))
+                    .add_m(set_animatrix(Mutex::new(animatrix_send)))
+                    .add_m(set_fan_mode(fan_mode.clone()))
+                    .add_m(set_charge_limit(charge_limit.clone()))
+                    .add_m(get_fan_mode(config.clone()))
+                    .add_m(get_charge_limit(config.clone()))
+                    .add_m(get_keyboard_backlight(config.clone()))
+                    .add_m(get_keyboard_backlight_modes(config.clone()))
+                    .add_s(key_backlight_changed.clone())
+                    .add_s(fanmode_changed.clone())
+                    .add_s(chrg_limit_changed.clone()),
             ),
         )
         .add(factory.object_path("/", ()).introspectable());
@@ -188,8 +233,8 @@ pub(super) fn dbus_create_tree(
         animatrix_recv,
         fan_mode,
         charge_limit,
-        builtin_mode_sig,
-        fanmode_changed_sig,
-        chrg_limit_changed_sig,
+        key_backlight_changed,
+        fanmode_changed,
+        chrg_limit_changed,
     )
 }

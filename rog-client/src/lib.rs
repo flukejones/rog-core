@@ -210,6 +210,13 @@ impl From<AuraModes> for [u8; LED_MSG_LEN] {
 impl From<AuraModes> for [[u8; LED_MSG_LEN]; 4] {
     #[inline]
     fn from(mode: AuraModes) -> Self {
+        <[[u8; LED_MSG_LEN]; 4]>::from(&mode)
+    }
+}
+
+impl From<&AuraModes> for [[u8; LED_MSG_LEN]; 4] {
+    #[inline]
+    fn from(mode: &AuraModes) -> Self {
         let mut msg = [[0u8; LED_MSG_LEN]; 4];
         for (i, row) in msg.iter_mut().enumerate() {
             row[0] = 0x5d;
