@@ -125,7 +125,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 if let Some(n) = lock.take() {
                     let mut config = config1.lock().await;
                     rogcore
-                        .fan_mode_set(n, &mut config)
+                        .set_fan_mode(n, &mut config)
                         .unwrap_or_else(|err| warn!("{:?}", err));
                 }
             }

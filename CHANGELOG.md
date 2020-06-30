@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Further refine the way setting LED modes works so it is more universal, this
+  also allows for setting the brightness through `SetKeyBacklight`
+
+### Added
+- REDME_DBUS.md to document DBUS interface
+
 ## [0.13.1] - 2020-29-06
 ### Fixed
 - Properly initialise the device

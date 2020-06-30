@@ -225,17 +225,7 @@ little of. Most parts will be byte arrays, but you can adjust things like
 
 ### DBUS Input
 
-Paths:
-
-```rust
-pub static DBUS_NAME: &str = "org.rogcore.Daemon";
-pub static DBUS_PATH: &str = "/org/rogcore/Daemon";
-pub static DBUS_IFACE: &str = "org.rogcore.Daemon";
-```
-
-Commands: `FanMode`, `LedWriteBytes`, `LedWriteMultizone`, `LedWriteEffect`
-
-TODO: fill in this info
+See [README_DBUS.md](./README_DBUS.md).
 
 ### AniMe input
 

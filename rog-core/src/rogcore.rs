@@ -139,7 +139,7 @@ impl RogCore {
         Ok(())
     }
 
-    pub fn fan_mode_set(&mut self, n: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
+    pub fn set_fan_mode(&mut self, n: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
         let path = RogCore::get_fan_path()?;
         let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
 
@@ -164,7 +164,7 @@ impl RogCore {
         } else {
             n = 0;
         }
-        self.fan_mode_set(n, config)
+        self.set_fan_mode(n, config)
     }
 
     fn set_pstate_for_fan_mode(
