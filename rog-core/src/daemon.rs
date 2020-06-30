@@ -62,7 +62,10 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.led_endpoint(),
         laptop.supported_modes().to_owned(),
     );
-    led_writer.reload_last_builtin(&config).await?;
+    led_writer
+        .reload_last_builtin(&config)
+        .await
+        .unwrap_or_else(|err| warn!("Reload settings: {}", err));
 
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
@@ -107,7 +110,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                     animatrix_writer
                         .do_command(AnimatrixCommand::WriteImage(image))
                         .await
-                        .unwrap_or_else(|err| warn!("{:?}", err));
+                        .unwrap_or_else(|err| warn!("{}", err));
                 }
             });
         }
@@ -141,7 +144,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 laptop
                     .run(&mut rogcore, &config1, bytes, aura_command_sender.clone())
                     .await
-                    .unwrap_or_else(|err| warn!("{:?}", err));
+                    .unwrap_or_else(|err| warn!("{}", err));
             }
         }
     });
@@ -192,13 +195,13 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                     led_writer
                         .do_command(command, &mut config)
                         .await
-                        .unwrap_or_else(|err| warn!("{:?}", err));
+                        .unwrap_or_else(|err| warn!("{}", err));
                 }
                 _ => {
                     led_writer
                         .do_command(command, &mut config)
                         .await
-                        .unwrap_or_else(|err| warn!("{:?}", err));
+                        .unwrap_or_else(|err| warn!("{}", err));
                     connection
                         .send(
                             effect_cancel_signal

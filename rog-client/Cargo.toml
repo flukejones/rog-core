@@ -10,13 +10,12 @@ description = "A small library of effect types and conversions for ROG Aura"
 edition = "2018"
 
 [dependencies]
-gumdrop = "^0.8.0"
-dbus = { version = "^0.8.2" }
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-thiserror = "^1.0.15"
-yansi-term = "0.1.2"
+gumdrop = "^0.8"
+dbus = { version = "^0.8" }
+serde = "^1.0"
+serde_derive = "^1.0"
+serde_json = "^1.0"
+yansi-term = "^0.1"
 
 [dev-dependencies]
-tinybmp = "0.2.3"
+tinybmp = "^0.2.3"

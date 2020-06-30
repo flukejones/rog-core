@@ -8,11 +8,10 @@ static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
 static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-use crate::config::Config;
+use crate::{config::Config, error::RogError};
 use log::{error, info, warn};
 use rog_client::{
-    aura_brightness_bytes, aura_modes::AuraModes, error::AuraError, fancy::KeyColourArray,
-    LED_MSG_LEN,
+    aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
 };
 use rusb::DeviceHandle;
 use std::marker::PhantomData;
@@ -60,7 +59,7 @@ where
         }
     }
 
-    async fn initialise(&mut self) -> Result<(), AuraError> {
+    async fn initialise(&mut self) -> Result<(), RogError> {
         if !self.initialised {
             self.write_bytes(&LED_INIT1).await?;
             self.write_bytes(LED_INIT2.as_bytes()).await?;
@@ -76,14 +75,14 @@ where
         &mut self,
         mode: AuraModes,
         config: &mut Config,
-    ) -> Result<(), AuraError> {
+    ) -> Result<(), RogError> {
         self.initialise().await?;
         self.set_and_save(mode, config).await
     }
 
     /// Should only be used if the bytes you are writing are verified correct
     #[inline]
-    async fn write_bytes(&self, message: &[u8]) -> Result<(), AuraError> {
+    async fn write_bytes(&self, message: &[u8]) -> Result<(), RogError> {
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
@@ -102,7 +101,7 @@ where
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
     #[inline]
-    async fn write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
+    async fn write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), RogError> {
         if self.flip_effect_write {
             for row in effect.iter().rev() {
                 self.write_bytes(row).await?;
@@ -120,11 +119,7 @@ where
     ///
     /// This needs to be universal so that settings applied by dbus stick
     #[inline]
-    async fn set_and_save(
-        &mut self,
-        mode: AuraModes,
-        config: &mut Config,
-    ) -> Result<(), AuraError> {
+    async fn set_and_save(&mut self, mode: AuraModes, config: &mut Config) -> Result<(), RogError> {
         match mode {
             AuraModes::RGB(v) => {
                 if v[0].is_empty() {
@@ -162,17 +157,17 @@ where
         }
 
         warn!("Attempted to set unsupported mode");
-        Err(AuraError::NotSupported)
+        Err(RogError::NotSupported)
     }
 
     #[inline]
-    pub async fn reload_last_builtin(&mut self, config: &Config) -> Result<(), AuraError> {
+    pub async fn reload_last_builtin(&mut self, config: &Config) -> Result<(), RogError> {
         self.initialise().await?;
         // set current mode (if any)
         if self.supported_modes.len() > 1 {
             let mode = config
                 .get_led_mode_data(config.current_mode)
-                .ok_or(AuraError::NotSupported)?
+                .ok_or(RogError::NotSupported)?
                 .to_owned();
             let mode: [u8; LED_MSG_LEN] = mode.into();
             self.write_bytes(&mode).await?;

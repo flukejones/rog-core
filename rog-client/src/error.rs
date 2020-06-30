@@ -1,18 +1,20 @@
-use std::fmt::Debug;
-use thiserror::Error;
+use std::fmt;
 
-#[derive(Error, Debug)]
 pub enum AuraError {
-    #[error("unable to parse string to colour")]
     ParseColour,
-    #[error("unable to parse string to speed")]
     ParseSpeed,
-    #[error("unable to parse string to direction")]
     ParseDirection,
-    #[error("unable to parse string to brightness")]
     ParseBrightness,
-    #[error("could not poll the keyboard for input")]
-    PollKeyboard,
-    #[error("mode not supported")]
-    NotSupported,
+}
+
+impl fmt::Display for AuraError {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AuraError::ParseColour => write!(f, "Could not parse colour"),
+            AuraError::ParseSpeed => write!(f, "Could not parse speed"),
+            AuraError::ParseDirection => write!(f, "Could not parse direction"),
+            AuraError::ParseBrightness => write!(f, "Could not parse brightness"),
+        }
+    }
 }

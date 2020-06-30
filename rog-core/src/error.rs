@@ -1,10 +1,16 @@
-use std::fmt::Debug;
-use thiserror::Error;
+use std::fmt;
 
-#[derive(Error, Debug)]
 pub enum RogError {
-    #[error("unable to parse string to fan mode")]
     ParseFanLevel,
-    #[error("mode not supported")]
     NotSupported,
+}
+
+impl fmt::Display for RogError {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            RogError::ParseFanLevel => write!(f, "Parse error"),
+            RogError::NotSupported => write!(f, "Not supported"),
+        }
+    }
 }
