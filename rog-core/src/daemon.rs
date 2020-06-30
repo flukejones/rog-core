@@ -2,7 +2,7 @@ use crate::{
     animatrix_control::{AniMeWriter, AnimatrixCommand},
     config::Config,
     laptops::match_laptop,
-    led_control::{AuraCommand, LedWriter},
+    led_control::LedWriter,
     rog_dbus::dbus_create_tree,
     rogcore::*,
 };
@@ -188,38 +188,32 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         while let Some(command) = aura_command_recv.recv().await {
             let mut config = config.lock().await;
             match &command {
-                AuraCommand::WriteEffect(_) | AuraCommand::WriteMultizone(_) => led_writer
-                    .do_command(command, &mut config)
-                    .await
-                    .unwrap_or_else(|err| warn!("{:?}", err)),
-                AuraCommand::WriteMode(mode) => match mode {
-                    AuraModes::Aura => {
-                        led_writer
-                            .do_command(command, &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{:?}", err));
-                    }
-                    _ => {
-                        led_writer
-                            .do_command(command, &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{:?}", err));
-                        connection
-                            .send(
-                                effect_cancel_signal
-                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                    .append1(true),
-                            )
-                            .unwrap_or_else(|_| 0);
-                        connection
-                            .send(
-                                effect_cancel_signal
-                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                    .append1(false),
-                            )
-                            .unwrap_or_else(|_| 0);
-                    }
-                },
+                AuraModes::RGB(_) => {
+                    led_writer
+                        .do_command(command, &mut config)
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+                _ => {
+                    led_writer
+                        .do_command(command, &mut config)
+                        .await
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                    connection
+                        .send(
+                            effect_cancel_signal
+                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                .append1(true),
+                        )
+                        .unwrap_or_else(|_| 0);
+                    connection
+                        .send(
+                            effect_cancel_signal
+                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                .append1(false),
+                        )
+                        .unwrap_or_else(|_| 0);
+                }
             }
         }
     }

@@ -36,7 +36,6 @@ impl Config {
                 for n in supported_led_modes {
                     c.builtin_modes.push(AuraModes::from(*n))
                 }
-                dbg!(&c.builtin_modes);
 
                 // Should be okay to unwrap this as is since it is a Default
                 let json = serde_json::to_string_pretty(&c).unwrap();

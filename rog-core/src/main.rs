@@ -3,10 +3,8 @@ use daemon::rogcore::FanLevel;
 use gumdrop::Options;
 use log::LevelFilter;
 use rog_client::{
-    aura_modes::AuraModes,
     cli_options::{LedBrightness, SetAuraBuiltin},
     core_dbus::AuraDbusWriter,
-    LED_MSG_LEN,
 };
 use std::io::Write;
 
@@ -61,19 +59,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Version: {}", VERSION);
     }
 
-    let mut writer = AuraDbusWriter::new()?;
+    let writer = AuraDbusWriter::new()?;
 
     if let Some(Command::LedMode(mode)) = parsed.command {
         if let Some(command) = mode.command {
-            // Check for special modes here, eg, per-key or multi-zone
-            match command {
-                SetAuraBuiltin::MultiStatic(_) => {
-                    let command: AuraModes = command.into();
-                    let byte_arr = <[[u8; LED_MSG_LEN]; 4]>::from(command);
-                    writer.write_multizone(&byte_arr)?;
-                }
-                _ => writer.write_builtin_mode(&command.into())?,
-            }
+            writer.write_builtin_mode(&command.into())?
         }
     }
     if let Some(brightness) = parsed.bright {

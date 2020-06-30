@@ -19,13 +19,6 @@ use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::time::Duration;
 
-#[derive(Clone)]
-pub enum AuraCommand {
-    WriteMode(AuraModes),
-    WriteEffect(Vec<Vec<u8>>),
-    WriteMultizone(Vec<Vec<u8>>),
-}
-
 /// UNSAFE: Must live as long as RogCore
 ///
 /// Because we're holding a pointer to something that *may* go out of scope while the
@@ -81,16 +74,11 @@ where
 
     pub async fn do_command(
         &mut self,
-        command: AuraCommand,
+        mode: AuraModes,
         config: &mut Config,
     ) -> Result<(), AuraError> {
         self.initialise().await?;
-        match command {
-            AuraCommand::WriteMode(mode) => self.set_and_save(mode, config).await?,
-            AuraCommand::WriteMultizone(effect) => self.write_multizone(effect).await?,
-            AuraCommand::WriteEffect(effect) => self.write_effect(effect).await?,
-        }
-        Ok(())
+        self.set_and_save(mode, config).await
     }
 
     /// Should only be used if the bytes you are writing are verified correct
@@ -128,25 +116,23 @@ where
         Ok(())
     }
 
-    #[inline]
-    async fn write_multizone(&mut self, effect: Vec<Vec<u8>>) -> Result<(), AuraError> {
-        for row in effect.iter() {
-            self.write_bytes(row).await?;
-        }
-        self.write_bytes(&LED_SET).await?;
-        self.write_bytes(&LED_APPLY).await?;
-        Ok(())
-    }
-
     /// Used to set a builtin mode and save the settings for it
     ///
     /// This needs to be universal so that settings applied by dbus stick
     #[inline]
-    async fn set_and_save(&self, mode: AuraModes, config: &mut Config) -> Result<(), AuraError> {
+    async fn set_and_save(
+        &mut self,
+        mode: AuraModes,
+        config: &mut Config,
+    ) -> Result<(), AuraError> {
         match mode {
-            AuraModes::Aura => {
-                let bytes = KeyColourArray::get_init_msg();
-                self.write_bytes(&bytes).await?;
+            AuraModes::RGB(v) => {
+                if v[0].is_empty() {
+                    let bytes = KeyColourArray::get_init_msg();
+                    self.write_bytes(&bytes).await?;
+                } else {
+                    self.write_effect(v).await?;
+                }
                 return Ok(());
             }
             AuraModes::LedBrightness(n) => {

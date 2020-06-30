@@ -30,7 +30,8 @@ pub enum AuraModes {
     Flash(SingleColour),
     MultiStatic(MultiColour),
     LedBrightness(u8),
-    Aura,
+    // TODO: use a serializable structure for this (KeyColourArray)
+    RGB(Vec<Vec<u8>>),
 }
 
 impl From<SetAuraBuiltin> for AuraModes {

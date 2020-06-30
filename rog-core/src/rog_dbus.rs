@@ -1,16 +1,15 @@
 use crate::config::Config;
 use crate::daemon::DbusU8Type;
-use crate::led_control::AuraCommand;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
 use log::warn;
-use rog_client::{DBUS_IFACE, DBUS_PATH};
+use rog_client::{aura_modes::AuraModes, DBUS_IFACE, DBUS_PATH};
 use std::sync::Arc;
 use tokio::sync::{
     mpsc::{channel, Receiver, Sender},
     Mutex,
 };
 
-pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
+pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraModes>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
@@ -19,8 +18,7 @@ pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSy
                 let json: &str = m.msg.read1()?;
                 if let Ok(mut lock) = sender.try_lock() {
                     if let Ok(data) = serde_json::from_str(json) {
-                        let command = AuraCommand::WriteMode(data);
-                        lock.try_send(command).unwrap_or_else(|err| {
+                        lock.try_send(data).unwrap_or_else(|err| {
                             warn!("SetKeyBacklight over mpsc failed: {}", err)
                         });
                     } else {
@@ -33,81 +31,6 @@ pub(super) fn dbus_set_ledmsg(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSy
             }
         })
         .inarg::<&str, _>("json")
-        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
-}
-
-pub(super) fn dbus_set_ledmultizone(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("LedWriteMultizone", (), {
-            move |m| {
-                if let Ok(mut lock) = sender.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte_array: Vec<Vec<u8>> =
-                        vec![iter.read()?, iter.read()?, iter.read()?, iter.read()?];
-                    let command = AuraCommand::WriteMultizone(byte_array);
-                    lock.try_send(command)
-                        .unwrap_or_else(|err| warn!("LedWriteMultizone over mpsc failed: {}", err));
-                    let mret = m
-                        .msg
-                        .method_return()
-                        .append1(&"Got effect part".to_string());
-                    Ok(vec![mret])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .outarg::<&str, _>("reply")
-        .inarg::<Vec<u8>, _>("bytearray1")
-        .inarg::<Vec<u8>, _>("bytearray2")
-        .inarg::<Vec<u8>, _>("bytearray3")
-        .inarg::<Vec<u8>, _>("bytearray4")
-        .annotate("org.freedesktop.DBus.Method.NoReply", "true")
-}
-
-pub(super) fn dbus_set_ledeffect(sender: Mutex<Sender<AuraCommand>>) -> Method<MTSync, ()> {
-    let factory = Factory::new_sync::<()>();
-    factory
-        // method for ledmessage
-        .method("LedWriteEffect", (), {
-            move |m| {
-                if let Ok(mut lock) = sender.try_lock() {
-                    let mut iter = m.msg.iter_init();
-                    let byte_array: Vec<Vec<u8>> = vec![
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                        iter.read()?,
-                    ];
-                    let command = AuraCommand::WriteEffect(byte_array);
-                    lock.try_send(command)
-                        .unwrap_or_else(|err| warn!("LedWriteEffect over mpsc failed: {}", err));
-                    Ok(vec![])
-                } else {
-                    Err(MethodErr::failed("Could not lock daemon for access"))
-                }
-            }
-        })
-        .inarg::<Vec<u8>, _>("bytearray1")
-        .inarg::<Vec<u8>, _>("bytearray2")
-        .inarg::<Vec<u8>, _>("bytearray3")
-        .inarg::<Vec<u8>, _>("bytearray4")
-        .inarg::<Vec<u8>, _>("bytearray5")
-        .inarg::<Vec<u8>, _>("bytearray6")
-        .inarg::<Vec<u8>, _>("bytearray7")
-        .inarg::<Vec<u8>, _>("bytearray8")
-        .inarg::<Vec<u8>, _>("bytearray9")
-        .inarg::<Vec<u8>, _>("bytearray10")
-        .inarg::<Vec<u8>, _>("bytearray11")
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
@@ -212,8 +135,8 @@ pub(super) fn dbus_create_tree(
     config: Arc<Mutex<Config>>,
 ) -> (
     Tree<MTSync, ()>,
-    Sender<AuraCommand>,
-    Receiver<AuraCommand>,
+    Sender<AuraModes>,
+    Receiver<AuraModes>,
     Receiver<Vec<Vec<u8>>>,
     DbusU8Type,
     DbusU8Type,
@@ -221,7 +144,7 @@ pub(super) fn dbus_create_tree(
     Arc<Signal<()>>,
     Arc<Signal<()>>,
 ) {
-    let (aura_command_send, aura_command_recv) = channel::<AuraCommand>(1);
+    let (aura_command_send, aura_command_recv) = channel::<AuraModes>(1);
     let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
     let fan_mode: DbusU8Type = Arc::new(Mutex::new(None));
     let charge_limit: DbusU8Type = Arc::new(Mutex::new(None));
@@ -247,8 +170,6 @@ pub(super) fn dbus_create_tree(
                 factory
                     .interface(DBUS_IFACE, ())
                     .add_m(dbus_set_ledmsg(Mutex::new(aura_command_send.clone())))
-                    .add_m(dbus_set_ledmultizone(Mutex::new(aura_command_send.clone())))
-                    .add_m(dbus_set_ledeffect(Mutex::new(aura_command_send.clone())))
                     .add_m(dbus_set_animatrix(Mutex::new(animatrix_send)))
                     .add_m(dbus_set_fan_mode(fan_mode.clone()))
                     .add_m(dbus_set_charge_limit(charge_limit.clone()))

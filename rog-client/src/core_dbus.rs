@@ -26,7 +26,6 @@ impl AuraDbusWriter {
         let stopper2 = stop.clone();
         let match_rule = dbus::message::MatchRule::new_signal(DBUS_IFACE, "KeyBacklightChanged");
         let stop_token = connection.add_match(match_rule, move |_: (), _, msg| {
-            dbg!(&msg);
             if let Ok(stop) = msg.read1::<bool>() {
                 if stop {
                     stopper2.store(true, Ordering::Relaxed);
@@ -47,7 +46,7 @@ impl AuraDbusWriter {
     /// the keyboard LED EC in the correct mode
     #[inline]
     pub fn init_effect(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let mode = AuraModes::Aura;
+        let mode = AuraModes::RGB(vec![vec![]]);
         let mut msg =
             Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "SetKeyBacklight")?
                 .append1(serde_json::to_string(&mode)?);
@@ -66,11 +65,14 @@ impl AuraDbusWriter {
         key_colour_array: &KeyColourArray,
     ) -> Result<(), Box<dyn Error>> {
         let group = key_colour_array.get();
-        let mut msg = Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteEffect")?
-            .append3(&group[0].to_vec(), &group[1].to_vec(), &group[2].to_vec())
-            .append3(&group[3].to_vec(), &group[4].to_vec(), &group[5].to_vec())
-            .append3(&group[6].to_vec(), &group[7].to_vec(), &group[8].to_vec())
-            .append2(&group[9].to_vec(), &group[10].to_vec());
+        let mut vecs = Vec::with_capacity(group.len());
+        for v in group {
+            vecs.push(v.to_vec());
+        }
+        let mode = AuraModes::RGB(vecs);
+        let mut msg =
+            Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "SetKeyBacklight")?
+                .append1(serde_json::to_string(&mode)?);
         msg.set_no_reply(true);
         self.connection.send(msg).unwrap();
         thread::sleep(Duration::from_micros(self.block_time));
@@ -80,22 +82,6 @@ impl AuraDbusWriter {
             println!("Keyboard backlight was changed, exiting");
             std::process::exit(1)
         }
-        Ok(())
-    }
-
-    #[inline]
-    pub fn write_multizone(
-        &mut self,
-        group: &[[u8; LED_MSG_LEN]; 4],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut msg =
-            Message::new_method_call(DBUS_NAME, DBUS_PATH, DBUS_IFACE, "LedWriteMultizone")?
-                .append1(&group[0].to_vec())
-                .append1(&group[1].to_vec())
-                .append1(&group[2].to_vec())
-                .append1(&group[3].to_vec());
-        msg.set_no_reply(true);
-        self.connection.send(msg).unwrap();
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use crate::{config::Config, led_control::AuraCommand, rogcore::RogCore};
+use crate::{config::Config, rogcore::RogCore};
 use rog_client::{
     aura_modes::{
         AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, PULSE, RAIN, RAINBOW, RIPPLE, SINGLE,
@@ -116,7 +116,7 @@ impl LaptopBase {
         rogcore: &mut RogCore,
         config: &Mutex<Config>,
         key_buf: [u8; 32],
-        mut aura_command: mpsc::Sender<AuraCommand>,
+        mut aura_command: mpsc::Sender<AuraModes>,
     ) -> Result<(), AuraError> {
         let mut config = config.lock().await;
         match FnKeys::from(key_buf[1]) {
@@ -127,7 +127,7 @@ impl LaptopBase {
                     info!("Increased LED brightness to {:#?}", bright);
                 }
                 aura_command
-                    .send(AuraCommand::WriteMode(AuraModes::LedBrightness(bright)))
+                    .send(AuraModes::LedBrightness(bright))
                     .await
                     .unwrap_or_else(|err| warn!("LedBrightUp: {}", err));
             }
@@ -137,7 +137,7 @@ impl LaptopBase {
                     bright -= 1;
                 }
                 aura_command
-                    .send(AuraCommand::WriteMode(AuraModes::LedBrightness(bright)))
+                    .send(AuraModes::LedBrightness(bright))
                     .await
                     .unwrap_or_else(|err| warn!("LedBrightDown: {}", err));
             }
@@ -150,7 +150,7 @@ impl LaptopBase {
                     };
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
                         aura_command
-                            .send(AuraCommand::WriteMode(data.to_owned()))
+                            .send(data.to_owned())
                             .await
                             .unwrap_or_else(|_| {});
                     }
@@ -167,7 +167,7 @@ impl LaptopBase {
                     };
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
                         aura_command
-                            .send(AuraCommand::WriteMode(data.to_owned()))
+                            .send(data.to_owned())
                             .await
                             .unwrap_or_else(|_| {});
                     }
