@@ -66,7 +66,7 @@ fn get_keyboard_backlight_modes(config: Arc<Mutex<Config>>) -> Method<MTSync, ()
                 if let Ok(lock) = config.try_lock() {
                     let mode = serde_json::to_string(&lock.builtin_modes).unwrap();
                     let mret = m.msg.method_return().append1(mode);
-                    return Ok(vec![mret]);
+                    Ok(vec![mret])
                 } else {
                     Err(MethodErr::failed("Could not lock config for access"))
                 }

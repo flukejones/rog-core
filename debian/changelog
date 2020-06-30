@@ -1,3 +1,13 @@
+rog-core (0.14.0) focal; urgency=medium
+
+  - Further refine the way setting LED modes works so it is more universal, this
+    also allows for setting the brightness through `SetKeyBacklight`
+  - `README_DBUS.md` to document DBUS interface
+  - Dbus method `GetKeyBacklight`
+  - Dbus method `GetKeyBacklightModes`
+
+ -- Luke Jones <luke@ljones.dev>  Wed, 01 Jul 2020 11:04:34 +1200
+
 rog-core (0.13.1) focal; urgency=medium
 
   * Properly initialise the device

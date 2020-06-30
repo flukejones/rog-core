@@ -128,7 +128,6 @@ where
                 } else {
                     self.write_effect(v).await?;
                 }
-                return Ok(());
             }
             AuraModes::LedBrightness(n) => {
                 let bytes: [u8; LED_MSG_LEN] = (&mode).into();
@@ -136,7 +135,6 @@ where
                 config.brightness = n;
                 config.write();
                 info!("LED brightness set to {:#?}", n);
-                return Ok(());
             }
             _ => {
                 let mode_num: u8 = u8::from(&mode);
@@ -163,9 +161,9 @@ where
                 config.set_mode_data(mode);
                 config.write();
                 info!("Switched LED mode to {:#?}", config.current_mode);
-                return Ok(());
             }
         }
+        Ok(())
     }
 
     #[inline]
