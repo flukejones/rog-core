@@ -124,3 +124,13 @@ When emitted, it will include the integer the fan mode was changed to.
 ### ChargeLimitChanged
 
 When emitted, it will include the integer the charging limit was changed to.
+
+## dbus-send examples
+
+```
+dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetKeyBacklight string:'{"Stable": {"colour": [ 80, 0, 40]}}'
+```
+
+```
+dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetKeyBacklight string:'{"LedBrightness":3}'
+```
