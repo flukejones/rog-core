@@ -16,11 +16,16 @@ pub const COMET: u8 = 0x0b;
 pub const FLASH: u8 = 0x0c;
 pub const MULTISTATIC: u8 = 0x0d;
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Colour(pub u8, pub u8, pub u8);
 impl From<cli_options::Colour> for Colour {
     fn from(c: cli_options::Colour) -> Self {
         Colour(c.0, c.1, c.2)
+    }
+}
+impl Default for Colour {
+    fn default() -> Self {
+        Colour(255, 255, 255)
     }
 }
 

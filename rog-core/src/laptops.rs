@@ -148,6 +148,7 @@ impl LaptopBase {
                     } else {
                         0
                     };
+                    config.read();
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
                         aura_command.send(data.clone()).await.unwrap_or_else(|_| {});
                     }
@@ -162,6 +163,7 @@ impl LaptopBase {
                     } else {
                         self.supported_modes.len() - 1
                     };
+                    config.read();
                     if let Some(data) = config.get_led_mode_data(self.supported_modes[idx_next]) {
                         aura_command.send(data.clone()).await.unwrap_or_else(|_| {});
                     }
