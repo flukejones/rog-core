@@ -1,3 +1,10 @@
+rog-core (0.14.1) focal; urgency=medium
+
+  - Support for G512 series
+  - Support for GU502 (variant of GA15)
+
+ -- Luke Jones <luke@ljones.dev>  Sat, 04 Jul 2020 10:18:08 +1200
+
 rog-core (0.14.0) focal; urgency=medium
 
   - Further refine the way setting LED modes works so it is more universal, this

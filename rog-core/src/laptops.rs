@@ -68,9 +68,10 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     // GA401
     if board_name.starts_with("GA401") {
         info!("No RGB control available");
+        // TODO: actual check for the AniMe device here
         laptop.support_animatrix = true;
     // GA502
-    } else if board_name.starts_with("GA502") {
+    } else if board_name.starts_with("GA502") || board_name.starts_with("GU502") {
         info!("No RGB control available");
     // GX502, G712
     } else if board_name.starts_with("GX502") {
@@ -245,6 +246,9 @@ impl LaptopBase {
     }
     pub(super) fn support_animatrix(&self) -> bool {
         self.support_animatrix
+    }
+    pub(super) fn set_support_animatrix(&mut self, supported: bool) {
+        self.support_animatrix = supported;
     }
 }
 
