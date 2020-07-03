@@ -15,6 +15,7 @@ pub const PULSE: u8 = 0x0a;
 pub const COMET: u8 = 0x0b;
 pub const FLASH: u8 = 0x0c;
 pub const MULTISTATIC: u8 = 0x0d;
+pub const RGB: u8 = 0xf0;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Colour(pub u8, pub u8, pub u8);
@@ -238,7 +239,30 @@ impl From<&AuraModes> for u8 {
     }
 }
 
-/// Exists to convert back from correct bytes
+impl From<&AuraModes> for &str {
+    fn from(mode: &AuraModes) -> Self {
+        match mode {
+            AuraModes::Stable(_) => "Static",
+            AuraModes::Breathe(_) => "Breathing",
+            AuraModes::Strobe(_) => "Strobing",
+            AuraModes::Rainbow(_) => "Rainbow",
+            AuraModes::Star(_) => "Stars",
+            AuraModes::Rain(_) => "Rain",
+            AuraModes::Highlight(_) => "Keypress Highlight",
+            AuraModes::Laser(_) => "Keypress Laser",
+            AuraModes::Ripple(_) => "Keypress Ripple",
+            AuraModes::Pulse(_) => "Pulse",
+            AuraModes::Comet(_) => "Comet",
+            AuraModes::Flash(_) => "Flash",
+            AuraModes::MultiStatic(_) => "4-Zone Static Colours",
+            AuraModes::RGB(_) => "RGB per-key",
+            _ => panic!("Invalid mode"),
+        }
+    }
+}
+
+/// Exists to convert back from correct bytes. RGB byte intentionally left off as it
+/// does not correspond to an actual pre-set mode, nor does brightness.
 impl From<u8> for AuraModes {
     fn from(byte: u8) -> Self {
         match byte {

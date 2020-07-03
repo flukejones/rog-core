@@ -2,13 +2,15 @@ use crate::{config::Config, rogcore::RogCore};
 use rog_client::{
     aura_modes::{
         AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, MULTISTATIC, PULSE, RAIN, RAINBOW,
-        RIPPLE, SINGLE, STAR, STROBE,
+        RGB, RIPPLE, SINGLE, STAR, STROBE,
     },
     error::AuraError,
 };
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
 use crate::virt_device::ConsumerKeys;
 use log::{info, warn};
+
+static HELP_ADDRESS: &str = "https://github.com/flukejones/rog-core";
 
 pub(crate) fn match_laptop() -> LaptopBase {
     for device in rusb::devices().unwrap().iter() {
@@ -74,20 +76,36 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     } else if board_name.starts_with("GX502") {
         laptop.supported_modes = vec![
             SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
-            FLASH,
+            FLASH, RGB,
         ];
-    // GM501
-    } else if board_name.starts_with("GM501") {
-        laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW];
-    // GX531, G531
-    } else if board_name.starts_with("GX531") || board_name.starts_with("G531") {
+    // G512LI & G712LI has 1 RGB zone which means per-key effect might work
+    // TODO: add specific supported mode for per-key effect
+    } else if board_name.starts_with("G512LI") || board_name.starts_with("G712LI") {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE];
-    // G712
-    } else if board_name.starts_with("G712") {
+    // GM501, GX531, G531, G512, G712 have 4-zone RGB
+    } else if board_name.starts_with("GM501")
+        || board_name.starts_with("G512")
+        || board_name.starts_with("G712")
+        || board_name.starts_with("GX531")
+        || board_name.starts_with("G531")
+    {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE, MULTISTATIC];
     } else {
         panic!(
-            "Unsupported laptop, please request support at\nhttps://github.com/flukejones/rog-core"
+            "Unsupported laptop, please request support at {}",
+            HELP_ADDRESS
+        );
+    }
+
+    if !laptop.supported_modes.is_empty() {
+        info!("Supported Keyboard LED modes are:");
+        for mode in &laptop.supported_modes {
+            let mode = <&str>::from(&<AuraModes>::from(*mode));
+            info!("- {}", mode);
+        }
+        info!(
+            "If these modes are incorrect or missing please request support at {}",
+            HELP_ADDRESS
         );
     }
 
