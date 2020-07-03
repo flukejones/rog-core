@@ -28,7 +28,7 @@ pub(super) type DbusU8Type = Arc<Mutex<Option<u8>>>;
 //
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
-    let laptop = match_laptop();
+    let mut laptop = match_laptop();
     let mut config = Config::default().load(laptop.supported_modes());
 
     info!("Config loaded");
@@ -113,6 +113,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{}", err));
                 }
             });
+            laptop.set_support_animatrix(false);
         }
     }
 

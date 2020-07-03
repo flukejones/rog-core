@@ -219,7 +219,7 @@ pub(super) fn dbus_create_tree(
                     .add_m(get_fan_mode(config.clone()))
                     .add_m(get_charge_limit(config.clone()))
                     .add_m(get_keyboard_backlight(config.clone()))
-                    .add_m(get_keyboard_backlight_modes(config.clone()))
+                    .add_m(get_keyboard_backlight_modes(config))
                     .add_s(key_backlight_changed.clone())
                     .add_s(fanmode_changed.clone())
                     .add_s(chrg_limit_changed.clone()),

@@ -20,18 +20,20 @@ kernel level support.
 
 ## SUPPORTED LAPTOPS
 
-- GM501 (multizone needs testing, if you have this laptop please create an issue in the repo)
+- GM501
 - GX502
 - GX531
+- G512
 - G712
+- GX531
 - G531
 - GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
-- GA15/GA502 appears to have most things working
+- GA15/GA502/GU502 appears to have most things working
 
 **Please help test or provide info for:**
 
 - GL703(0x1869)
-- GL553(0x1854) GL753 (attempted support from researching 2nd-hand info, multizone may work)
+- GL553/GL753 (device = 0x1854) (attempted support from researching 2nd-hand info, multizone may work)
 
 **Laptop support is added on a per-case basis** as the EC for the keyboard varies
 a little between models, e.g, some RGB modes are missing, or it's a single colour.

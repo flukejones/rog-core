@@ -1,6 +1,7 @@
 use daemon::daemon::start_daemon;
 use daemon::rogcore::FanLevel;
 use gumdrop::Options;
+use log::info;
 use log::LevelFilter;
 use rog_client::{
     cli_options::{LedBrightness, SetAuraBuiltin},
@@ -8,7 +9,7 @@ use rog_client::{
 };
 use std::io::Write;
 
-static VERSION: &str = "0.14.0";
+static VERSION: &str = "0.14.1";
 
 #[derive(Options)]
 struct CLIStart {
@@ -53,6 +54,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let parsed = CLIStart::parse_args_default_or_exit();
     if parsed.daemon {
+        info!("Version: {}", VERSION);
         start_daemon().await?;
     }
     if parsed.version {
