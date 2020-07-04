@@ -1,3 +1,9 @@
+rog-core (0.14.2) focal; urgency=medium
+
+  - Try to correct how laptop modes are handled
+
+ -- Luke Jones <luke@ljones.dev>  Sun, 05 Jul 2020 00:22:00 +1200
+
 rog-core (0.14.1) focal; urgency=medium
 
   - Support for G512 series

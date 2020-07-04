@@ -151,7 +151,8 @@ impl From<&AuraModes> for [u8; LED_MSG_LEN] {
             AuraModes::Pulse(_) => msg[3] = 0x0a,
             AuraModes::Comet(_) => msg[3] = 0x0b,
             AuraModes::Flash(_) => msg[3] = 0x0c,
-            _ => panic!("Mode not convertable to array"),
+            AuraModes::MultiStatic(_) => msg[3] = 0x0d,
+            _ => print!("Mode not convertable to array: {}", <&str>::from(mode)),
         }
 
         match mode {
