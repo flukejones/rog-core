@@ -101,7 +101,7 @@ where
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
     #[inline]
-    async fn write_effect(&mut self, effect: &Vec<Vec<u8>>) -> Result<(), RogError> {
+    async fn write_effect(&mut self, effect: &[Vec<u8>]) -> Result<(), RogError> {
         if self.flip_effect_write {
             for row in effect.iter().rev() {
                 self.write_bytes(row).await?;
