@@ -1,3 +1,9 @@
+rog-core (0.14.3) focal; urgency=medium
+
+  - Proper fix of laptop mode conversion bug
+
+ -- Luke Jones <luke@ljones.dev>  Sun, 05 Jul 2020 21:22:05 +1200
+
 rog-core (0.14.2) focal; urgency=medium
 
   - Try to correct how laptop modes are handled

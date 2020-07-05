@@ -9,7 +9,7 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 use crate::{config::Config, error::RogError};
-use log::{error, info};
+use log::{error, info, warn};
 use rog_client::{
     aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
 };
@@ -181,17 +181,38 @@ where
     }
 
     #[inline]
-    pub async fn reload_last_builtin(&mut self, config: &Config) -> Result<(), RogError> {
+    pub async fn reload_last_builtin(&mut self, config: &mut Config) -> Result<(), RogError> {
         self.initialise().await?;
         // set current mode (if any)
         if self.supported_modes.len() > 1 {
-            let mode = config
-                .get_led_mode_data(config.current_mode)
-                .ok_or(RogError::NotSupported)?
-                .to_owned();
-            let mode: [u8; LED_MSG_LEN] = mode.into();
-            self.write_bytes(&mode).await?;
-            info!("Reloaded last used mode");
+            if self.supported_modes.contains(&config.current_mode) {
+                let mode = config
+                    .get_led_mode_data(config.current_mode)
+                    .ok_or(RogError::NotSupported)?
+                    .to_owned();
+                self.write_mode(&mode).await?;
+                info!("Reloaded last used mode");
+            } else {
+                warn!(
+                    "An unsupported mode was set: {}, reset to first mode available",
+                    <&str>::from(&<AuraModes>::from(config.current_mode))
+                );
+                for (idx, mode) in config.builtin_modes.iter_mut().enumerate() {
+                    if !self.supported_modes.contains(&mode.into()) {
+                        config.builtin_modes.remove(idx);
+                        config.write();
+                        break;
+                    }
+                }
+                config.current_mode = self.supported_modes[0];
+                // TODO: do a recursive call with a boxed dyn future later
+                let mode = config
+                    .get_led_mode_data(config.current_mode)
+                    .ok_or(RogError::NotSupported)?
+                    .to_owned();
+                self.write_mode(&mode).await?;
+                info!("Reloaded last used mode");
+            }
         }
 
         // Reload brightness

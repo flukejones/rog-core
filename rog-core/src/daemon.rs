@@ -63,7 +63,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.supported_modes().to_owned(),
     );
     led_writer
-        .reload_last_builtin(&config)
+        .reload_last_builtin(&mut config)
         .await
         .unwrap_or_else(|err| warn!("Reload settings: {}", err));
 
