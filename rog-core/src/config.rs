@@ -78,6 +78,7 @@ impl Config {
         let byte: u8 = (&mode).into();
         for (index, n) in self.builtin_modes.iter().enumerate() {
             if byte == u8::from(n) {
+                // Consume it, OMNOMNOMNOM
                 self.builtin_modes[index] = mode;
                 break;
             }

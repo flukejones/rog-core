@@ -101,7 +101,7 @@ where
     ///
     /// `aura_effect_init` must be called any effect routine, and called only once.
     #[inline]
-    async fn write_effect(&mut self, effect: Vec<Vec<u8>>) -> Result<(), RogError> {
+    async fn write_effect(&mut self, effect: &Vec<Vec<u8>>) -> Result<(), RogError> {
         if self.flip_effect_write {
             for row in effect.iter().rev() {
                 self.write_bytes(row).await?;
@@ -121,14 +121,6 @@ where
     #[inline]
     async fn set_and_save(&mut self, mode: AuraModes, config: &mut Config) -> Result<(), RogError> {
         match mode {
-            AuraModes::RGB(v) => {
-                if v[0].is_empty() {
-                    let bytes = KeyColourArray::get_init_msg();
-                    self.write_bytes(&bytes).await?;
-                } else {
-                    self.write_effect(v).await?;
-                }
-            }
             AuraModes::LedBrightness(n) => {
                 let bytes: [u8; LED_MSG_LEN] = (&mode).into();
                 self.write_bytes(&bytes).await?;
@@ -138,10 +130,36 @@ where
             }
             _ => {
                 let mode_num: u8 = u8::from(&mode);
+                self.write_mode(&mode).await?;
+                config.current_mode = mode_num;
+                config.set_mode_data(mode);
+                config.write();
+                info!(
+                    "Switched LED mode to {}",
+                    <&str>::from(&<AuraModes>::from(config.current_mode))
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    async fn write_mode(&mut self, mode: &AuraModes) -> Result<(), RogError> {
+        match mode {
+            AuraModes::RGB(v) => {
+                if v.is_empty() || v[0].is_empty() {
+                    let bytes = KeyColourArray::get_init_msg();
+                    self.write_bytes(&bytes).await?;
+                } else {
+                    self.write_effect(v).await?;
+                }
+            }
+            _ => {
+                let mode_num: u8 = u8::from(mode);
                 match mode {
                     AuraModes::MultiStatic(_) => {
                         if self.supported_modes.contains(&mode_num) {
-                            let bytes: [[u8; LED_MSG_LEN]; 4] = (&mode).into();
+                            let bytes: [[u8; LED_MSG_LEN]; 4] = mode.into();
                             for array in bytes.iter() {
                                 self.write_bytes(array).await?;
                             }
@@ -149,7 +167,7 @@ where
                     }
                     _ => {
                         if self.supported_modes.contains(&mode_num) {
-                            let bytes: [u8; LED_MSG_LEN] = (&mode).into();
+                            let bytes: [u8; LED_MSG_LEN] = mode.into();
                             self.write_bytes(&bytes).await?;
                         }
                     }
@@ -157,10 +175,6 @@ where
                 self.write_bytes(&LED_SET).await?;
                 // Changes won't persist unless apply is set
                 self.write_bytes(&LED_APPLY).await?;
-                config.current_mode = mode_num;
-                config.set_mode_data(mode);
-                config.write();
-                info!("Switched LED mode to {:#?}", config.current_mode);
             }
         }
         Ok(())

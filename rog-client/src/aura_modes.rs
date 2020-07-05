@@ -234,6 +234,7 @@ impl From<&AuraModes> for u8 {
             AuraModes::Comet(_) => COMET,
             AuraModes::Flash(_) => FLASH,
             AuraModes::MultiStatic(_) => MULTISTATIC,
+            AuraModes::RGB(_) => RGB,
             _ => panic!("Invalid mode"),
         }
     }
@@ -279,6 +280,7 @@ impl From<u8> for AuraModes {
             COMET => AuraModes::Comet(SingleColour::default()),
             FLASH => AuraModes::Flash(SingleColour::default()),
             MULTISTATIC => AuraModes::MultiStatic(MultiColour::default()),
+            RGB => AuraModes::RGB(vec![]),
             _ => panic!("Invalid mode byte"),
         }
     }
