@@ -195,14 +195,14 @@ pub(super) fn dbus_create_tree(
     let key_backlight_changed = Arc::new(
         factory
             .signal("KeyBacklightChanged", ())
-            .sarg::<&str, _>("value"),
+            .sarg::<&str, _>("json"),
     );
     let chrg_limit_changed = Arc::new(
         factory
             .signal("ChargeLimitChanged", ())
-            .sarg::<u8, _>("value"),
+            .sarg::<u8, _>("byte"),
     );
-    let fanmode_changed = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
+    let fanmode_changed = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("byte"));
 
     let tree = factory
         .tree(())
