@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.14.4] - 2020-07-07
+### Changed
+- Changes to the way rog-core is initialised
+
 ## [0.14.3] - 2020-05-07
 ### Changed
 - Proper fix of laptop mode conversion bug

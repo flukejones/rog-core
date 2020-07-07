@@ -11,7 +11,7 @@ const SET: u8 = 0xc4;
 
 use log::{error, warn};
 use rog_client::error::AuraError;
-use rusb::DeviceHandle;
+use rusb::{Device, DeviceHandle};
 use std::error::Error;
 use std::time::Duration;
 
@@ -33,32 +33,39 @@ impl AniMeWriter {
     #[inline]
     pub fn new() -> Result<AniMeWriter, Box<dyn Error>> {
         // We don't expect this ID to ever change
-        let mut dev_handle = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
+        let device = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
             warn!("Could not get AniMe display handle: {:?}", err);
             err
         })?;
-        dev_handle.reset()?;
-        // This config seems to be the required device config for writing
-        dev_handle.set_active_configuration(1).unwrap_or(());
 
-        // For the animatrix device there is only one interface and one endpoint
-        let interface = 0;
+        let mut device = device.open()?;
+        device.reset()?;
 
-        dev_handle
-            .set_auto_detach_kernel_driver(true)
-            .map_err(|err| {
-                error!("Auto-detach kernel driver failed: {:?}", err);
-                err
-            })?;
-        dev_handle.claim_interface(interface).map_err(|err| {
+        device.set_auto_detach_kernel_driver(true).map_err(|err| {
+            error!("Auto-detach kernel driver failed: {:?}", err);
+            err
+        })?;
+
+        device.claim_interface(0).map_err(|err| {
             error!("Could not claim device interface: {:?}", err);
             err
         })?;
 
         Ok(AniMeWriter {
-            handle: dev_handle,
+            handle: device,
             initialised: false,
         })
+    }
+
+    #[inline]
+    fn get_device(vendor: u16, product: u16) -> Result<Device<rusb::GlobalContext>, rusb::Error> {
+        for device in rusb::devices()?.iter() {
+            let device_desc = device.device_descriptor()?;
+            if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
+                return Ok(device);
+            }
+        }
+        Err(rusb::Error::NoDevice)
     }
 
     pub async fn do_command(&mut self, command: AnimatrixCommand) -> Result<(), AuraError> {
@@ -123,21 +130,6 @@ impl AniMeWriter {
         }
         self.do_flush().await?;
         Ok(())
-    }
-
-    // TODO: save/reload last frame
-    #[inline]
-    fn get_device(
-        vendor: u16,
-        product: u16,
-    ) -> Result<DeviceHandle<rusb::GlobalContext>, rusb::Error> {
-        for device in rusb::devices()?.iter() {
-            let device_desc = device.device_descriptor()?;
-            if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return device.open();
-            }
-        }
-        Err(rusb::Error::NoDevice)
     }
 
     #[inline]

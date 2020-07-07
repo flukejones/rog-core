@@ -2,7 +2,7 @@
 
 use crate::{config::Config, error::RogError, virt_device::VirtKeys};
 use log::{error, info, warn};
-use rusb::DeviceHandle;
+use rusb::{Device, DeviceHandle};
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -35,16 +35,17 @@ pub struct RogCore {
 
 impl RogCore {
     pub fn new(vendor: u16, product: u16, match_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
-        let mut dev_handle = RogCore::get_device(vendor, product).map_err(|err| {
-            error!("Could not get keyboard device handle: {:?}", err);
+        let device = RogCore::get_device(vendor, product).map_err(|err| {
+            error!("Could not find keyboard device: {:?}", err);
             err
         })?;
-        dev_handle.set_active_configuration(0).unwrap_or(());
 
-        let dev_config = dev_handle.device().config_descriptor(0).map_err(|err| {
+        let dev_config = device.config_descriptor(0).map_err(|err| {
             error!("Could not get keyboard device config: {:?}", err);
             err
         })?;
+        info!("ACTIVE CONFIG: {:?}", dev_config.number());
+
         // Interface with outputs
         let mut interface = 2; // The interface with keyboard consumer device and LED control
                                // is #2 on 0x1866 device at least
@@ -65,39 +66,29 @@ impl RogCore {
             }
         }
 
-        if let Err(err) = dev_handle.set_auto_detach_kernel_driver(true) {
+        let mut device = device.open().map_err(|err| {
+            error!("Could not open device: {:?}", err);
+            err
+        })?;
+
+        if let Err(err) = device.set_auto_detach_kernel_driver(true) {
             warn!("Auto-detach kernel driver failed: {:?}", err);
-            let mut fail_count = 5;
-            while fail_count > 0 {
-                warn!("Trying device reset");
-                fail_count -= 1;
-                dev_handle.reset()?;
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                dev_handle
-                    .set_auto_detach_kernel_driver(true)
-                    .map_err(|err| {
-                        error!("Auto-detach kernel driver failed: {:?}", err);
-                        err
-                    })?;
-            }
+            warn!("Trying device reset");
+            device.reset()?;
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            device.set_auto_detach_kernel_driver(true)?;
         }
 
-        if let Err(err) = dev_handle.claim_interface(interface) {
+        if let Err(err) = device.claim_interface(interface) {
             warn!("Could not claim keyboard device interface: {:?}", err);
-            let mut fail_count = 5;
-            while fail_count > 0 {
-                warn!("Sleeping");
-                fail_count -= 1;
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                dev_handle.claim_interface(interface).map_err(|err| {
-                    error!("Could not claim keyboard device interface: {:?}", err);
-                    err
-                })?;
-            }
+            warn!("Sleeping 5 seconds");
+            std::thread::sleep(std::time::Duration::from_millis(5000));
+            device.claim_interface(interface)?;
         }
 
+        // std::thread::sleep(std::time::Duration::from_millis(500));
         Ok(RogCore {
-            handle: dev_handle,
+            handle: device,
             virt_keys: VirtKeys::new(),
             _pin: PhantomPinned,
         })
@@ -107,14 +98,11 @@ impl RogCore {
         &mut self.virt_keys
     }
 
-    fn get_device(
-        vendor: u16,
-        product: u16,
-    ) -> Result<DeviceHandle<rusb::GlobalContext>, rusb::Error> {
+    fn get_device(vendor: u16, product: u16) -> Result<Device<rusb::GlobalContext>, rusb::Error> {
         for device in rusb::devices()?.iter() {
             let device_desc = device.device_descriptor()?;
             if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return device.open();
+                return Ok(device);
             }
         }
         Err(rusb::Error::NoDevice)
