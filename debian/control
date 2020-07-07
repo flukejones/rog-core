@@ -7,7 +7,6 @@ Build-Depends:
   cargo,
   llvm,
   libclang-dev,
-  dh-systemd,
   libusb-1.0-0-dev,
   libdbus-1-dev,
   pkg-config
@@ -18,9 +17,21 @@ Package: rog-core
 Architecture: amd64
 Depends:
   dbus,
-  libc6,
   systemd,
   libusb-1.0-0,
   ${misc:Depends},
-  ${shlib:Depends}
-Description: ASUS ROG Laptop Management
+  ${shlibs:Depends}
+Description:ASUS ROG Laptop Management
+ Extra support for ASUS laptop models:
+   - GM501
+   - GX502
+   - GX531
+   - G512
+   - G712
+   - GX531
+   - G531
+   - GA14/GA401. You will need kernel patches
+     + https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches
+   - GA15/GA502/GU502 appears to have most things working
+   - GL703(0x1869)
+   - GL553/GL753

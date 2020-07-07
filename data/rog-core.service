@@ -1,12 +1,8 @@
 [Unit]
 Description=ROG Core Daemon
-After=dbus.service
 
 [Service]
 ExecStart=/usr/bin/rog-core -d
 Restart=on-failure
 Type=dbus
 BusName=org.rogcore.Daemon
-
-[Install]
-WantedBy=multi-user.target
