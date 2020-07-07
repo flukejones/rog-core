@@ -67,7 +67,7 @@ impl RogCore {
 
         if let Err(err) = dev_handle.set_auto_detach_kernel_driver(true) {
             warn!("Auto-detach kernel driver failed: {:?}", err);
-            let mut fail_count = 10;
+            let mut fail_count = 5;
             while fail_count > 0 {
                 warn!("Trying device reset");
                 fail_count -= 1;
@@ -84,7 +84,7 @@ impl RogCore {
 
         if let Err(err) = dev_handle.claim_interface(interface) {
             warn!("Could not claim keyboard device interface: {:?}", err);
-            let mut fail_count = 10;
+            let mut fail_count = 5;
             while fail_count > 0 {
                 warn!("Sleeping");
                 fail_count -= 1;

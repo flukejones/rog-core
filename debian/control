@@ -18,6 +18,7 @@ Package: rog-core
 Architecture: amd64
 Depends:
   dbus,
+  libc6,
   systemd,
   libusb-1.0-0,
   ${misc:Depends},

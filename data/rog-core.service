@@ -1,5 +1,6 @@
 [Unit]
 Description=ROG Core Daemon
+After=dbus.service
 
 [Service]
 ExecStart=/usr/bin/rog-core -d

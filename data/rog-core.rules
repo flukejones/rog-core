@@ -1,0 +1,1 @@
+ACTION=="bind", SUBSYSTEM=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18[0-9][0-9]", TAG+="systemd", ENV{SYSTEMD_WANTS}="rog-core.service"

@@ -1,3 +1,9 @@
+rog-core (0.14.4) focal; urgency=medium
+
+  - Improve how service is initialised on boot
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 07 Jul 2020 16:14:48 +1200
+
 rog-core (0.14.3) focal; urgency=medium
 
   - Proper fix of laptop mode conversion bug

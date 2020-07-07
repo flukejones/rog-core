@@ -91,6 +91,30 @@ gnome-shell extension, or at least limiting use of the power-management parts as
 (one or the other will overwrite pstates). I will create a shell extension at some point similar to system76, but using
 the rog-core parts. It is safe to leave `system76-power.service` enabled and use for switching between graphics modes.
 
+## Arch Linux, and possibly others
+
+This method of enabling may become default.
+
+Currently there seems to be an issue where the device is not fully initialised and
+when rog-core attempts to grab the keyboard it will fail, and you may be left without
+input. A way around this is to disable the systemd service (rog-core) if enabled
+and create a udev rule in `/etc/udev/rules.d/99-rogcore.rules` with the following
+content:
+
+```
+ACTION=="bind", SUBSYSTEM=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1866", TAG+="systemd", ENV{SYSTEMD_WANTS}="rog-core.service"
+```
+
+Double-check your `idProduct` with `lsusb |grep 0b05`, this will show a line such
+as:
+
+```
+Bus 001 Device 006: ID 0b05:1866 ASUSTek Computer, Inc. N-KEY Device
+```
+
+where `1866` here is the `idProduct`. Modify the udev rule to suit. If there is
+more than one line (such as with an AniMe laptop), prefer using the `N-Key` device.
+
 ### Ubuntu PPA
 
 Alternatively, instead of building manually you can use the PPA.
@@ -101,12 +125,7 @@ sudo apt-get update
 sudo apt-get install rog-core
 ```
 
-enable and start the service:
-
-```
-sudo systemctl start rog-core.service
-sudo systemctl enable rog-core.service
-```
+the rog-core service will run when the device is initialised.
 
 ### Gentoo ebuild
 
