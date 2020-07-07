@@ -132,5 +132,27 @@ dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Dae
 ```
 
 ```
+dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetKeyBacklight string:'{"Star":{"colour":[0,255,255],"colour2":[0,0,0],"speed":"Med"}}'
+```
+
+**Note:** setting colour2 to `[0,0,255]` activates random star colour. Colour2 has no effect on the
+mode otherwise.
+```
+dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetKeyBacklight string:'{"Star":{"colour":[0,255,255],"colour2":[0,0,255],"speed":"Med"}}'
+```
+
+```
 dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetKeyBacklight string:'{"LedBrightness":3}'
+```
+
+```
+dbus-send --system --type=method_call --dest=org.rogcore.Daemon /org/rogcore/Daemon org.rogcore.Daemon.SetFanMode byte:'2'
+```
+
+Monitoring dbus while sending commands via `rog-core` will give you the json structure if you are otherwise unsure, e.g: `dbus-monitor --system |grep -A2 rogcore`.
+
+## Getting an introspection .xml
+
+```
+dbus-send --system --print-reply --dest=org.rogcore.Daemon /org/rogcore/Daemon org.freedesktop.DBus.Introspectable.Introspect > xml/dbus-0.14.4.xml
 ```

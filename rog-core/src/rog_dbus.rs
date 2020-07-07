@@ -55,7 +55,7 @@ fn get_keyboard_backlight(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
                 }
             }
         })
-        .outarg::<&str, _>("value")
+        .outarg::<&str, _>("json")
 }
 
 fn get_keyboard_backlight_modes(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
@@ -72,7 +72,7 @@ fn get_keyboard_backlight_modes(config: Arc<Mutex<Config>>) -> Method<MTSync, ()
                 }
             }
         })
-        .outarg::<&str, _>("value")
+        .outarg::<&str, _>("json")
 }
 
 fn set_animatrix(
@@ -115,7 +115,7 @@ fn set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
                 }
             }
         })
-        .inarg::<u8, _>("byte")
+        .inarg::<u8, _>("mode")
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
@@ -132,7 +132,7 @@ fn get_fan_mode(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
                 }
             }
         })
-        .outarg::<&str, _>("value")
+        .outarg::<u8, _>("mode")
 }
 
 fn get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
@@ -148,7 +148,7 @@ fn get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
                 }
             }
         })
-        .outarg::<&str, _>("value")
+        .outarg::<u8, _>("limit")
 }
 
 fn set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
@@ -167,7 +167,7 @@ fn set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
                 }
             }
         })
-        .inarg::<u8, _>("byte")
+        .inarg::<u8, _>("limit")
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
@@ -195,14 +195,14 @@ pub(super) fn dbus_create_tree(
     let key_backlight_changed = Arc::new(
         factory
             .signal("KeyBacklightChanged", ())
-            .sarg::<&str, _>("value"),
+            .sarg::<&str, _>("json"),
     );
     let chrg_limit_changed = Arc::new(
         factory
             .signal("ChargeLimitChanged", ())
-            .sarg::<u8, _>("value"),
+            .sarg::<u8, _>("limit"),
     );
-    let fanmode_changed = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("value"));
+    let fanmode_changed = Arc::new(factory.signal("FanModeChanged", ()).sarg::<u8, _>("mode"));
 
     let tree = factory
         .tree(())

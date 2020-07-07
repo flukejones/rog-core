@@ -24,7 +24,8 @@ impl Ball {
         }
     }
 
-    fn update(&mut self, key_map: &Vec<[Key; 17]>) {
+    #[allow(clippy::if_same_then_else)]
+    fn update(&mut self, key_map: &[[Key; 17]]) {
         let pos = self.position;
         let dir = self.direction;
 
