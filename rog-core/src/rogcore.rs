@@ -65,31 +65,35 @@ impl RogCore {
             }
         }
 
-        dev_handle
-            .set_auto_detach_kernel_driver(true)
-            .map_err(|err| {
-                error!("Auto-detach kernel driver failed: {:?}", err);
-                err
-            })?;
+        if let Err(err) = dev_handle.set_auto_detach_kernel_driver(true) {
+            warn!("Auto-detach kernel driver failed: {:?}", err);
+            let mut fail_count = 10;
+            while fail_count > 0 {
+                warn!("Trying device reset");
+                fail_count -= 1;
+                dev_handle.reset()?;
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                dev_handle
+                    .set_auto_detach_kernel_driver(true)
+                    .map_err(|err| {
+                        error!("Auto-detach kernel driver failed: {:?}", err);
+                        err
+                    })?;
+            }
+        }
 
         if let Err(err) = dev_handle.claim_interface(interface) {
             warn!("Could not claim keyboard device interface: {:?}", err);
-            warn!("Trying to detach kernel driver then retry");
-            if let Ok(active) = dev_handle.kernel_driver_active(interface) {
-                if active {
-                    dev_handle.reset()?;
-                    dev_handle.detach_kernel_driver(interface).map_err(|err| {
-                        warn!("Could not detach kernel driver: {:?}", err);
-                        err
-                    })?;
-                } else {
-                    warn!("Kernel driver not active, continue");
-                }
+            let mut fail_count = 10;
+            while fail_count > 0 {
+                warn!("Sleeping");
+                fail_count -= 1;
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                dev_handle.claim_interface(interface).map_err(|err| {
+                    error!("Could not claim keyboard device interface: {:?}", err);
+                    err
+                })?;
             }
-            dev_handle.claim_interface(interface).map_err(|err| {
-                error!("Could not claim keyboard device interface: {:?}", err);
-                err
-            })?;
         }
 
         Ok(RogCore {
