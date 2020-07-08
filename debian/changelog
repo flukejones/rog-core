@@ -1,3 +1,32 @@
+rog-core (0.15.0) focal; urgency=medium
+
+  - Support "Calc" fn key on G712
+  - ROG key has limited customization, see README.md for details.
+    + Power
+    + Sleep
+    + MediaRecord
+    + MediaFastFwd
+    + MediaRewind
+    + MediaNext
+    + MediaPrev
+    + MediaStop
+    + MediaPlayPause
+    + MediaVolMute
+    + MediaVolUp
+    + MediaVolDown
+    + BacklightInc
+    + BacklightDec
+    + ControlConfig
+    + LaunchTextEditor
+    + LaunchEmailApp
+    + LaunchNewsReader
+    + LaunchCalendar
+    + LaunchCalculator
+    + LaunchWebBrowser
+    + FileBrowser
+
+ -- Luke Jones <luke@ljones.dev>  Thu, 09 Jul 2020 11:14:16 +1200
+
 rog-core (0.14.5) focal; urgency=medium
 
   - Use udev rules to init the service

@@ -201,6 +201,39 @@ Optional arguments:
   -s SPEED    set the speed: low, med, high
 ```
 
+## ROG Key
+
+The ROG key can be customized in a limited way by use of presets:
+- Power
+- Sleep
+- MediaRecord
+- MediaFastFwd
+- MediaRewind
+- MediaNext
+- MediaPrev
+- MediaStop
+- MediaPlayPause
+- MediaVolMute
+- MediaVolUp
+- MediaVolDown
+- BacklightInc
+- BacklightDec
+- ControlConfig
+- LaunchTextEditor
+- LaunchEmailApp
+- LaunchNewsReader
+- LaunchCalendar
+- LaunchCalculator
+- LaunchWebBrowser
+- FileBrowser
+
+This key can be changed in /etc/rogcore.conf, for example:
+
+```
+{
+  "rog_key": "FileBrowser",
+```
+
 ## Daemon mode
 
 If the daemon service is enabled then on boot the following will be reloaded from save:

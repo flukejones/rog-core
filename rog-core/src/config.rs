@@ -1,3 +1,4 @@
+use crate::virt_device::ConsumerKeys;
 use rog_client::aura_modes::AuraModes;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
@@ -7,6 +8,7 @@ pub static CONFIG_PATH: &str = "/etc/rogcore.conf";
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct Config {
+    pub rog_key: ConsumerKeys,
     pub fan_mode: u8,
     pub bat_charge_limit: u8,
     pub brightness: u8,

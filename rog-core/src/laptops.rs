@@ -7,7 +7,7 @@ use rog_client::{
     error::AuraError,
 };
 //use keycode::{KeyMap, KeyMappingId, KeyState, KeyboardState};
-use crate::virt_device::ConsumerKeys;
+use crate::virt_device::{ConsumerKeys, KeyboardKeys};
 use log::{info, warn};
 
 static HELP_ADDRESS: &str = "https://github.com/flukejones/rog-core";
@@ -192,30 +192,22 @@ impl LaptopBase {
             }
             FnKeys::ScreenBrightUp => rogcore.virt_keys().press(ConsumerKeys::BacklightInc.into()), //self.backlight.step_up(),
             FnKeys::ScreenBrightDn => rogcore.virt_keys().press(ConsumerKeys::BacklightDec.into()),
-            FnKeys::ScreenToggle => rogcore.virt_keys().press(ConsumerKeys::BacklightTog.into()),
+            FnKeys::ScreenToggle => {}
             FnKeys::Sleep => rogcore.suspend_with_systemd(),
             FnKeys::AirplaneMode => rogcore.toggle_airplane_mode(),
-            FnKeys::MicToggle => {}
+            FnKeys::MicToggle => rogcore.virt_keys().press(KeyboardKeys::MicToggle.into()),
             FnKeys::Fan => {
                 rogcore.fan_mode_step(&mut config).unwrap_or_else(|err| {
                     warn!("Couldn't toggle fan mode: {:?}", err);
                 });
             }
-
-            FnKeys::TouchPadToggle => {
-                let mut key = [0u8; 32];
-                key[0] = 0x01;
-                key[3] = 0x070;
-                rogcore.virt_keys().press(key);
-            }
-            FnKeys::Rog => {
-                //rogcore.aura_effect_init()?;
-                //rogcore.aura_write_effect(&self.per_key_led)?;
-                let mut key = [0u8; 32];
-                key[0] = 0x01;
-                key[3] = 0x68; // XF86Tools? F13
-                rogcore.virt_keys().press(key);
-            }
+            FnKeys::TouchPadToggle => rogcore
+                .virt_keys()
+                .press(KeyboardKeys::TouchpadToggle.into()),
+            FnKeys::Rog => rogcore.virt_keys().press(config.rog_key.into()),
+            FnKeys::Calc => rogcore
+                .virt_keys()
+                .press(ConsumerKeys::LaunchCalculator.into()),
             FnKeys::None => {
                 if key_buf[0] != 0x5A {
                     info!("Unmapped key, attempt passthrough: {:X?}", &key_buf[1]);
@@ -266,6 +258,7 @@ pub enum FnKeys {
     LedBrightDown = 0xC5,
     AuraPrevious = 0xB2,
     AuraNext = 0xB3,
+    Calc = 0x90,
     None,
 }
 
@@ -285,6 +278,7 @@ impl From<u8> for FnKeys {
             0xC5 => FnKeys::LedBrightDown,
             0xB2 => FnKeys::AuraPrevious,
             0xB3 => FnKeys::AuraNext,
+            0x90 => FnKeys::Calc,
             _ => FnKeys::None,
         }
     }

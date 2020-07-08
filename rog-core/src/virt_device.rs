@@ -1,4 +1,5 @@
 use log::error;
+use serde_derive::{Deserialize, Serialize};
 use uhid_virt::{Bus, CreateParams, UHIDDevice};
 
 /// Create a virtual device to emit key-presses
@@ -113,12 +114,11 @@ impl VirtKeys {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 pub enum ConsumerKeys {
     Power = 0x30,
     Sleep = 0x32,
-    Menu = 0x0040,
-
+    // Menu = 0x40,
     MediaRecord = 0xB2,
     MediaFastFwd = 0xB3,
     MediaRewind = 0xB4,
@@ -126,41 +126,21 @@ pub enum ConsumerKeys {
     MediaPrev = 0xB6,
     MediaStop = 0xB7,
     MediaPlayPause = 0xCD,
-    MediaPause = 0xB0,
-
     MediaVolMute = 0xE2,
     MediaVolUp = 0xE9,
     MediaVolDown = 0xEA,
-
     BacklightInc = 0x6F,
     BacklightDec = 0x70,
-
-    BacklightTog = 0x72, // USAGE (Backlight toggle? display toggle?)
-    BacklightMin = 0x73,
-    BacklightMax = 0x74,
-
+    // BacklightTog = 0x72, // USAGE (Backlight toggle? display toggle?)
     ControlConfig = 0x183,
-
-    LaunchWordEditor = 0x184,
     LaunchTextEditor = 0x185,
-    LaunchSpreadSheet = 0x186,
-    LaunchGraphicsEditor = 0x187,
-    LaunchPresentationApp = 0x188,
-    LaunchDatabaseEditor = 0x189,
     LaunchEmailApp = 0x18A,
     LaunchNewsReader = 0x18B,
-    LaunchCalendarApp = 0x018E,
-    LaunchTaskManagementApp = 0x18F,
+    LaunchCalendar = 0x018E,
+    LaunchCalculator = 0x192,
     LaunchWebBrowser = 0x196,
-    ControlPanel = 0x19F,
-
-    VideoOutStep = 0x82,
-
-    Documents = 0x1A7,
+    // VideoOutStep = 0x82,
     FileBrowser = 0x1B4,
-    ImageBrowser = 0x1B6,
-    AudioBrowser = 0x1B7,
-    MovieBrowser = 0x1B8,
 }
 
 impl From<ConsumerKeys> for [u8; 32] {
@@ -169,6 +149,33 @@ impl From<ConsumerKeys> for [u8; 32] {
         bytes[0] = 0x02; // report ID for consumer
         bytes[1] = key as u8;
         bytes[2] = (key as u16 >> 8) as u8;
+        bytes
+    }
+}
+
+impl Default for ConsumerKeys {
+    fn default() -> Self {
+        ConsumerKeys::ControlConfig
+    }
+}
+
+/// Implements only a small subset of useful keys
+#[allow(dead_code)]
+#[derive(Copy, Clone)]
+pub enum KeyboardKeys {
+    Config = 0x68,         // Desktop configuration, F13
+    MicToggle = 0x6f,      // Microphone toggle, F20
+    TouchpadToggle = 0x70, // Touchpad toggle, F21
+    WWW = 0xf0,            // Web browser
+    Sleep = 0xf8,          // Sleep
+    Coffee = 0xf9,         // lockscreen
+}
+
+impl From<KeyboardKeys> for [u8; 32] {
+    fn from(key: KeyboardKeys) -> Self {
+        let mut bytes = [0u8; 32];
+        bytes[0] = 0x01; // report ID for keyboard
+        bytes[3] = key as u8;
         bytes
     }
 }
