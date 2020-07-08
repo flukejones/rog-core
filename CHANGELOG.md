@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.14.5] - 2020-07-07
+### Changed
+- Correct some device handling and order of operations
+
+### BREAKING
+- Not quite breaking, but the serice should now be static (not enabled) and
+  the udev rule `data/rog-core.rules` used to start the service. This ensures
+  the device is actually initialised fully before the service starts.
+
 ## [0.14.4] - 2020-07-07
 ### Changed
 - Changes to the way rog-core is initialised

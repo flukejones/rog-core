@@ -72,18 +72,15 @@ As far as I can see, the EC does not give us a way to find what modes are suppor
 
 ## Installing
 
-Run `make` then `sudo make install`. If you want to use the daemon mode on system boot you'll need to enable and start
-the systemd service with:
+Run `make` then `sudo make install` then reboot.
+
+The default init method is to use the udev rule, this ensures that the service is
+started when the device is initialised and ready.
+
+If you are upgrading from a previous installed version, you will need to restart the service or reboot.
 
 ```
-$ sudo systemctl start rog-core.service
-$ sudo systemctl enable rog-core.service
-```
-
-If you are upgrading from a previous installed version, you will also need to reload service files.
-
-```
-$ sudo systemctl daemon-reload
+$ systemctl daemon-reload && systemctl restart rog-core
 ```
 
 You may also need to activate the service for debian install. If running Pop!_OS, I suggest disabling `system76-power`
