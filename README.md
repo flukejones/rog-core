@@ -16,7 +16,7 @@ kernel level support.
 
 ## Discord
 
-[Discord server link](https://discord.gg/uKxdua)
+[Discord server link](https://discord.gg/PVyFzWj)
 
 ## SUPPORTED LAPTOPS
 
