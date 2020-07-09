@@ -1,3 +1,9 @@
+rog-core (0.15.1) focal; urgency=medium
+
+  - Use correct keycode for calc
+
+ -- Luke Jones <luke@ljones.dev>  Thu, 09 Jul 2020 20:31:04 +1200
+
 rog-core (0.15.0) focal; urgency=medium
 
   - Support "Calc" fn key on G712

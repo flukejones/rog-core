@@ -258,7 +258,7 @@ pub enum FnKeys {
     LedBrightDown = 0xC5,
     AuraPrevious = 0xB2,
     AuraNext = 0xB3,
-    Calc = 0x90,
+    Calc = 0x92,
     None,
 }
 

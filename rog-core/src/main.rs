@@ -9,7 +9,7 @@ use rog_client::{
 };
 use std::io::Write;
 
-static VERSION: &str = "0.15.0";
+static VERSION: &str = "0.15.1";
 
 #[derive(Options)]
 struct CLIStart {
