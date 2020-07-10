@@ -47,7 +47,7 @@ As far as I can see, the EC does not give us a way to find what modes are suppor
 - [X] Daemon mode
 - [X] Saving settings for reload
 - [ ] System control
-  + [ ] ROG key custom mapping (Can be done in source)
+  + [X] ROG key custom mapping (Can be done in source)
   + [X] Fan/Performance mode
   + [ ] Screen off? Now mapped to a keycode but has no effect
   + [X] Screen brightness up/down
@@ -57,7 +57,7 @@ As far as I can see, the EC does not give us a way to find what modes are suppor
 - [X] Capture and use hotkeys
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
-  + [ ] Mic mute - unsure which key should be emitted for this to work. The key by itself emits a code.
+  + [X] Mic mute - unsure which key should be emitted for this to work. The key by itself emits a code.
 - [X] Logging - required for journalctl
 - [X] AniMatrix display on G14 models that include it
 - [X] Set battery charge limit (with kernel supporting this)
