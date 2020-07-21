@@ -1,3 +1,10 @@
+rog-core (0.15.2) focal; urgency=medium
+
+  - Add G532 support
+  - Change GX531 to support all LED modes
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 21 Jul 2020 21:13:57 +1200
+
 rog-core (0.15.1) focal; urgency=medium
 
   - Use correct keycode for calc
