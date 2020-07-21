@@ -1,3 +1,9 @@
+rog-core (0.15.3) focal; urgency=medium
+
+  - Put G532 in right section for support
+
+ -- Luke Jones <luke@ljones.dev>  Tue, 21 Jul 2020 22:07:53 +1200
+
 rog-core (0.15.2) focal; urgency=medium
 
   - Add G532 support

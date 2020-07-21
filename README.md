@@ -7,12 +7,10 @@ One of the benefits of this app (for me at least) is that you *don't* require a
 kernel with correct support for the laptop keyboard EC. The app
 reads and writes direct to the device interrupts, and can be customised (in
 source) quite extensively to do what you want such as directly controlling your
-laptop backlight rather than emitting a key-press for the DE to handle. There is
-also the possibility of rebinding fn keys to be macros which emit a series of
-keyboard presses.
+laptop backlight rather than emitting a key-press for the DE to handle.
 
 Other laptop functions such as fan modes or battery charge limiting will need
-kernel level support.
+kernel level support which exists in most newer kernels (higher than 5.6.10).
 
 ## Discord
 
@@ -20,29 +18,59 @@ kernel level support.
 
 ## SUPPORTED LAPTOPS
 
-- GM501
-- GX502
-- GX531
-- G512
-- G712
-- G531
-- G532
-- GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
-- GA15/GA502/GU502 appears to have most things working
-
 **Please help test or provide info for:**
 
 - GL703(0x1869)
 - GL553/GL753 (device = 0x1854) (attempted support from researching 2nd-hand info, multizone may work)
 
-**Laptop support is added on a per-case basis** as the EC for the keyboard varies
+**Laptop support is modified on a per-case basis** as the EC for the keyboard varies
 a little between models, e.g, some RGB modes are missing, or it's a single colour.
 As far as I can see, the EC does not give us a way to find what modes are supported.
+
+### KEYS + OTHER FUNCTIONS
+
+Media keys are Volume -/+, Mute output, previous, next, play/pause. These keys are grouped together on one interface block on the keyboard EC
+as a "Consumer Device" HID, all other fn+<key> combo are on another interface which is "Vendor Custom", this includes things like keyboard
+LED brightness and mode change keys, Calc, fan-mode toggles etc.
+
+| MODEL |Media keys| Additional FN+<KEY> | AniMe |Touchpad-Numpad| Fan Modes | Charge Limit |
+|=-----=|=--------=|=-------------------=|=-----=|=-------------=|=---------=|=------------=|
+| GM501 |     X    |         X           |       |               |     X     |       X      |
+| GX502 |     X    |         X           |       |               |     X     |       X      |
+| GX531 |     X    |         X           |       |               |     X     |       X      |
+| GX701 |     X    |         X           |       |               |     X     |       X      |
+| G512  |     X    |         X           |       |               |     X     |       X      |
+| G712  |     X    |         X           |       |               |     X     |       X      |
+| G531  |     X    |         X           |       |               |     X     |       X      |
+| G532  |     X    |         X           |       |               |     X     |       X      |
+| GA401 |     X    |         X           |   X   |               |     X     |       X      |
+| GA502 |     X    |         X           |   X   |               |     X     |       X      |
+| GU502 |     X    |         X           |   X   |               |     X     |       X      |
+
+**NOTE:** GA14/GA401 and GA15/GA502/GU502, You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
+
+### LED MODES
+
+Models GA401, GA502, GU502 support LED brightness change only (no RGB).
+
+| MODEL  | SINGLE | BREATHING | STROBE | RAINBOW | STAR | RAIN | HIGHLIGHT | LASER | RIPPLE | PULSE | COMET | FLASH | ZONES | PER-KEY RGB |
+|=------=|=------=|=---------=|=------=|=-------=|=----=|=----=|=---------=|=-----=|=------=|=-----=|=-----=|=-----=|=-----=|=-----------=|
+| G512LI |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |       |             |
+| G712LI |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |       |             |
+| GM501  |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
+| GX531  |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
+| G512   |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
+| G712   |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
+| GX502  |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
+| GX701  |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
+| G531   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
+| G532   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
+
 
 ## Implemented
 
 - [X] Setting/modifying built-in LED modes
-- [X] Per-key LED setting (PARTIALLY COMPLETE)
+- [X] Per-key LED setting
 - [X] Fancy LED modes (See examples)
 - [X] Daemon mode
 - [X] Saving settings for reload
@@ -51,13 +79,13 @@ As far as I can see, the EC does not give us a way to find what modes are suppor
   + [X] Fan/Performance mode
   + [ ] Screen off? Now mapped to a keycode but has no effect
   + [X] Screen brightness up/down
-  + [X] Touchpad toggle (using a virtual keyboard to emit F21...)
+  + [X] Touchpad toggle
   + [X] Sleep
   + [X] Airplane mode
 - [X] Capture and use hotkeys
   + [X] Aura control by Aura keys
   + [X] Volume + media controls work
-  + [X] Mic mute - unsure which key should be emitted for this to work. The key by itself emits a code.
+  + [X] Mic mute
 - [X] Logging - required for journalctl
 - [X] AniMatrix display on G14 models that include it
 - [X] Set battery charge limit (with kernel supporting this)

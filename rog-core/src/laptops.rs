@@ -104,33 +104,34 @@ fn select_1866_device(prod: u16) -> LaptopBase {
         support_animatrix: false,
     };
 
-    // GA401
+    // AniMe, no RGB
     if board_name.starts_with("GA401") {
         info!("No RGB control available");
         // TODO: actual check for the AniMe device here
         laptop.support_animatrix = true;
-    // GA502
+    // No AniMe, no RGB
     } else if board_name.starts_with("GA502")
         || board_name.starts_with("GU502")
     {
         info!("No RGB control available");
-    // GX502, G712
+    // RGB, per-key settings, no zones
     } else if board_name.starts_with("GX502")
-        || board_name.starts_with("GX531")
+        || board_name.starts_with("GX701")
+        || board_name.starts_with("G531")
         || board_name.starts_with("G532")
     {
         laptop.supported_modes = vec![
             SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
             FLASH, RGB,
         ];
-    // G512LI & G712LI has 1 RGB zone which means per-key effect might work
+    // RGB, limited effects, no zones
     } else if board_name.starts_with("G512LI") || board_name.starts_with("G712LI") {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE];
-    // GM501, GX531, G531, G512, G712 have 4-zone RGB
+    // RGB, limited effects, 4-zone RGB
     } else if board_name.starts_with("GM501")
+        || board_name.starts_with("GX531")
         || board_name.starts_with("G512")
         || board_name.starts_with("G712")
-        || board_name.starts_with("G531")
     {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE, MULTISTATIC];
     } else {
