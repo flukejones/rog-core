@@ -112,11 +112,13 @@ fn select_1866_device(prod: u16) -> LaptopBase {
     // GA502
     } else if board_name.starts_with("GA502")
         || board_name.starts_with("GU502")
-        || board_name.starts_with("G532")
     {
         info!("No RGB control available");
     // GX502, G712
-    } else if board_name.starts_with("GX502") || board_name.starts_with("GX531") {
+    } else if board_name.starts_with("GX502")
+        || board_name.starts_with("GX531")
+        || board_name.starts_with("G532")
+    {
         laptop.supported_modes = vec![
             SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
             FLASH, RGB,
