@@ -25,8 +25,8 @@ kernel level support.
 - GX531
 - G512
 - G712
-- GX531
 - G531
+- G532
 - GA14/GA401 *is* supported, including the AniMe display. You will need kernel [patches](https://lab.retarded.farm/zappel/asus-rog-zephyrus-g14/-/tree/master/kernel_patches).
 - GA15/GA502/GU502 appears to have most things working
 

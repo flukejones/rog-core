@@ -12,12 +12,53 @@ use log::{info, warn};
 
 static HELP_ADDRESS: &str = "https://github.com/flukejones/rog-core";
 
+/// The map of bytes which each fn+key combo emits (0x1866 device only)
+pub enum FnKeys {
+    Rog = 0x38,
+    MicToggle = 0x7C,
+    Fan = 0xAE,
+    ScreenToggle = 0x35,
+    ScreenBrightDn = 0x10,
+    ScreenBrightUp = 0x20,
+    TouchPadToggle = 0x6b,
+    Sleep = 0x6C,
+    AirplaneMode = 0x88,
+    LedBrightUp = 0xC4,
+    LedBrightDown = 0xC5,
+    AuraPrevious = 0xB2,
+    AuraNext = 0xB3,
+    Calc = 0x92,
+    None,
+}
+
+impl From<u8> for FnKeys {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0x38 => FnKeys::Rog,
+            0x7C => FnKeys::MicToggle,
+            0xAE => FnKeys::Fan,
+            0x35 => FnKeys::ScreenToggle,
+            0x10 => FnKeys::ScreenBrightDn,
+            0x20 => FnKeys::ScreenBrightUp,
+            0x6b => FnKeys::TouchPadToggle,
+            0x6C => FnKeys::Sleep,
+            0x88 => FnKeys::AirplaneMode,
+            0xC4 => FnKeys::LedBrightUp,
+            0xC5 => FnKeys::LedBrightDown,
+            0xB2 => FnKeys::AuraPrevious,
+            0xB3 => FnKeys::AuraNext,
+            0x90 => FnKeys::Calc,
+            _ => FnKeys::None,
+        }
+    }
+}
+
 pub(crate) fn match_laptop() -> LaptopBase {
     for device in rusb::devices().unwrap().iter() {
         let device_desc = device.device_descriptor().unwrap();
         if device_desc.vendor_id() == 0x0b05 {
             match device_desc.product_id() {
-                0x1869 | 0x1866 => return choose_1866_device(device_desc.product_id()),
+                0x1869 | 0x1866 => return select_1866_device(device_desc.product_id()),
                 0x1854 => {
                     info!("Found GL753 or similar");
                     return LaptopBase {
@@ -32,7 +73,6 @@ pub(crate) fn match_laptop() -> LaptopBase {
                         key_endpoint: 0x83,
                         supported_modes: vec![SINGLE, BREATHING, STROBE],
                         support_animatrix: false,
-                        // backlight: Backlight::new("intel_backlight").unwrap(),
                     };
                 }
                 _ => {}
@@ -42,7 +82,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
     panic!("could not match laptop");
 }
 
-fn choose_1866_device(prod: u16) -> LaptopBase {
+fn select_1866_device(prod: u16) -> LaptopBase {
     let dmi = sysfs_class::DmiId::default();
     let board_name = dmi.board_name().expect("Could not get board_name");
     let prod_name = dmi.product_name().expect("Could not get board_name");
@@ -62,7 +102,6 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         key_endpoint: 0x83,
         supported_modes: vec![],
         support_animatrix: false,
-        //backlight: Backlight::new("intel_backlight").unwrap(),
     };
 
     // GA401
@@ -71,7 +110,10 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
         // TODO: actual check for the AniMe device here
         laptop.support_animatrix = true;
     // GA502
-    } else if board_name.starts_with("GA502") || board_name.starts_with("GU502") {
+    } else if board_name.starts_with("GA502")
+        || board_name.starts_with("GU502")
+        || board_name.starts_with("G532")
+    {
         info!("No RGB control available");
     // GX502, G712
     } else if board_name.starts_with("GX502") || board_name.starts_with("GX531") {
@@ -80,7 +122,6 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
             FLASH, RGB,
         ];
     // G512LI & G712LI has 1 RGB zone which means per-key effect might work
-    // TODO: add specific supported mode for per-key effect
     } else if board_name.starts_with("G512LI") || board_name.starts_with("G712LI") {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE];
     // GM501, GX531, G531, G512, G712 have 4-zone RGB
@@ -91,10 +132,11 @@ fn choose_1866_device(prod: u16) -> LaptopBase {
     {
         laptop.supported_modes = vec![SINGLE, BREATHING, STROBE, RAINBOW, PULSE, MULTISTATIC];
     } else {
-        panic!(
+        warn!(
             "Unsupported laptop, please request support at {}",
             HELP_ADDRESS
         );
+        warn!("Continuing with minimal support")
     }
 
     if !laptop.supported_modes.is_empty() {
@@ -122,14 +164,14 @@ pub(super) struct LaptopBase {
     key_endpoint: u8,
     supported_modes: Vec<u8>,
     support_animatrix: bool,
-    //backlight: Backlight,
 }
 
 use tokio::sync::{mpsc, Mutex};
 
 impl LaptopBase {
-    /// Pass in LedWriter as Mutex so it is only locked when required
-    pub(super) async fn run(
+    // Pass in LedWriter as Mutex so it is only locked when required
+    /// Determines what action each fn+key combo should have
+    pub(super) async fn do_keyboard_command(
         &self,
         rogcore: &mut RogCore,
         config: &Mutex<Config>,
@@ -240,45 +282,5 @@ impl LaptopBase {
     }
     pub(super) fn set_support_animatrix(&mut self, supported: bool) {
         self.support_animatrix = supported;
-    }
-}
-
-pub enum FnKeys {
-    Rog = 0x38,
-    MicToggle = 0x7C,
-    Fan = 0xAE,
-    ScreenToggle = 0x35,
-    ScreenBrightDn = 0x10,
-    ScreenBrightUp = 0x20,
-    TouchPadToggle = 0x6b,
-    Sleep = 0x6C,
-    AirplaneMode = 0x88,
-    LedBrightUp = 0xC4,
-    LedBrightDown = 0xC5,
-    AuraPrevious = 0xB2,
-    AuraNext = 0xB3,
-    Calc = 0x92,
-    None,
-}
-
-impl From<u8> for FnKeys {
-    fn from(byte: u8) -> Self {
-        match byte {
-            0x38 => FnKeys::Rog,
-            0x7C => FnKeys::MicToggle,
-            0xAE => FnKeys::Fan,
-            0x35 => FnKeys::ScreenToggle,
-            0x10 => FnKeys::ScreenBrightDn,
-            0x20 => FnKeys::ScreenBrightUp,
-            0x6b => FnKeys::TouchPadToggle,
-            0x6C => FnKeys::Sleep,
-            0x88 => FnKeys::AirplaneMode,
-            0xC4 => FnKeys::LedBrightUp,
-            0xC5 => FnKeys::LedBrightDown,
-            0xB2 => FnKeys::AuraPrevious,
-            0xB3 => FnKeys::AuraNext,
-            0x90 => FnKeys::Calc,
-            _ => FnKeys::None,
-        }
     }
 }

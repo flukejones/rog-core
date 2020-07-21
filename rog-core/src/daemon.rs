@@ -165,7 +165,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             let data = keyboard_reader.poll_keyboard().await;
             if let Some(bytes) = data {
                 laptop
-                    .run(&mut rogcore, &config1, bytes, aura_command_sender.clone())
+                    .do_keyboard_command(&mut rogcore, &config1, bytes, aura_command_sender.clone())
                     .await
                     .unwrap_or_else(|err| warn!("{}", err));
             }

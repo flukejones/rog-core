@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 - GX531 now supports same LED features as GX502
 
+## Added
+- Support for G532
+
 ## [0.15.0] - 2020-07-09
 ### Changed
 - Support "Calc" fn key on G712
