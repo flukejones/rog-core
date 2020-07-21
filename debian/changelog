@@ -1,3 +1,9 @@
+rog-core (0.15.4) focal; urgency=medium
+
+  - Minor corrections to two laptops
+
+ -- Luke Jones <luke@ljones.dev>  Wed, 22 Jul 2020 10:35:05 +1200
+
 rog-core (0.15.3) focal; urgency=medium
 
   - Put G532 in right section for support
