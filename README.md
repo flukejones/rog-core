@@ -1,5 +1,25 @@
 # ROG-Core
 
+**NOTICE:**
+I have completed kernel patches to move a large chunk of rog-core functionality
+in to the Linux kernel. The patch is not in mainline yet, but can be found in the
+`./kernel-patch/` directory. The patch enables the following in kernel:
+
+- All hotkeys (FN+Key combos)
+- Control of keyboard brightness using FN+Key combos (not RGB)
+- FN+F5 (fan) to toggle fan modes. You can watch the path `/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy`
+  to see which mode you are in
+
+You will not get RGB control in kernel (yet), and rog-core is still required to
+change modes and RGB settings. The current version in master and last release
+still take full control of the interfaces
+
+**work on a version of rog-core for use with the kernel patch is in another branch** 
+
+The last version of rog-core will work with any kernel with or without this patch
+ and provide full functions.
+
+---
 rog-core is a utility for Linux to control many aspects (eventually) of the ASUS
 ROG laptops like the Zephyrus GX502GW.
 
@@ -42,6 +62,7 @@ LED brightness and mode change keys, Calc, fan-mode toggles etc.
 | G512  |     X    |         X           |       |               |     X     |       X      |
 | G712  |     X    |         X           |       |               |     X     |       X      |
 | G531  |     X    |         X           |       |               |     X     |       X      |
+| G731  |     X    |         X           |       |               |     X     |       X      |
 | G532  |     X    |         X           |       |               |     X     |       X      |
 | GA401 |     X    |         X           |   X   |               |     X     |       X      |
 | GA502 |     X    |         X           |   X   |               |     X     |       X      |
@@ -63,7 +84,8 @@ Models GA401, GA502, GU502 support LED brightness change only (no RGB).
 | G712   |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
 | GX502  |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
 | GX701  |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
-| G531   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
+| G531   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |   X   |     X       |
+| G731   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |   X   |     X       |
 | G532   |   X    |     X     |    X   |    X    |  X   |  X   |     X     |   X   |    X   |   X   |   X   |   X   |       |     X       |
 
 

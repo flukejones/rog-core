@@ -110,19 +110,25 @@ fn select_1866_device(prod: u16) -> LaptopBase {
         // TODO: actual check for the AniMe device here
         laptop.support_animatrix = true;
     // No AniMe, no RGB
-    } else if board_name.starts_with("GA502")
-        || board_name.starts_with("GU502")
-    {
+    } else if board_name.starts_with("GA502") || board_name.starts_with("GU502") {
         info!("No RGB control available");
     // RGB, per-key settings, no zones
     } else if board_name.starts_with("GX502")
         || board_name.starts_with("GX701")
         || board_name.starts_with("G531")
+        || board_name.starts_with("GL531")
         || board_name.starts_with("G532")
     {
         laptop.supported_modes = vec![
             SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
             FLASH, RGB,
+        ];
+    } else if board_name.starts_with("G531")
+        || board_name.starts_with("G731")
+    {
+        laptop.supported_modes = vec![
+            SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
+            FLASH, MULTISTATIC, RGB,
         ];
     // RGB, limited effects, no zones
     } else if board_name.starts_with("G512LI") || board_name.starts_with("G712LI") {

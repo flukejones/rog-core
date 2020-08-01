@@ -83,12 +83,28 @@ where
     /// Should only be used if the bytes you are writing are verified correct
     #[inline]
     async fn write_bytes(&self, message: &[u8]) -> Result<(), RogError> {
+        println!("1 Wrote: {:X?}", message);
         match unsafe { self.handle.as_ref() }.write_interrupt(
             self.led_endpoint,
             message,
             Duration::from_millis(5),
         ) {
-            Ok(_) => {}
+            Ok(_) => {
+                let mut buf = [0; 32];
+                match unsafe { self.handle.as_ref() }.read_interrupt(
+                    0x83,
+                    &mut buf,
+                    Duration::from_millis(5),
+                ) {
+                    Ok(_) => {
+                        println!("2 Read: {:X?}", buf);
+                    }
+                    Err(err) => match err {
+                        rusb::Error::Timeout => {}
+                        _ => error!("Failed to read to led interrupt: {:?}", err),
+                    },
+                }
+            }
             Err(err) => match err {
                 rusb::Error::Timeout => {}
                 _ => error!("Failed to write to led interrupt: {:?}", err),
