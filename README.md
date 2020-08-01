@@ -54,7 +54,7 @@ as a "Consumer Device" HID, all other fn+<key> combo are on another interface wh
 LED brightness and mode change keys, Calc, fan-mode toggles etc.
 
 | MODEL |Media keys| Additional FN+<KEY> | AniMe |Touchpad-Numpad| Fan Modes | Charge Limit |
-|=-----=|=--------=|=-------------------=|=-----=|=-------------=|=---------=|=------------=|
+|:-----:|:--------:|:-------------------:|:-----:|:-------------:|:---------:|:------------:|
 | GM501 |     X    |         X           |       |               |     X     |       X      |
 | GX502 |     X    |         X           |       |               |     X     |       X      |
 | GX531 |     X    |         X           |       |               |     X     |       X      |
@@ -75,7 +75,7 @@ LED brightness and mode change keys, Calc, fan-mode toggles etc.
 Models GA401, GA502, GU502 support LED brightness change only (no RGB).
 
 | MODEL  | SINGLE | BREATHING | STROBE | RAINBOW | STAR | RAIN | HIGHLIGHT | LASER | RIPPLE | PULSE | COMET | FLASH | ZONES | PER-KEY RGB |
-|=------=|=------=|=---------=|=------=|=-------=|=----=|=----=|=---------=|=-----=|=------=|=-----=|=-----=|=-----=|=-----=|=-----------=|
+|:------:|:------:|:---------:|:------:|:-------:|:----:|:----:|:---------:|:-----:|:------:|:-----:|:-----:|:-----:|:-----:|:-----------:|
 | G512LI |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |       |             |
 | G712LI |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |       |             |
 | GM501  |   X    |     X     |    X   |    X    |      |      |           |       |        |       |       |       |   X   |             |
