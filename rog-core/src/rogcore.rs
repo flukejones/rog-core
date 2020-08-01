@@ -1,17 +1,16 @@
 // Return show-stopping errors, otherwise map error to a log level
 
-use crate::{config::Config, error::RogError, virt_device::VirtKeys};
+use crate::{config::Config, error::RogError};
 use log::{error, info, warn};
 use rusb::{Device, DeviceHandle};
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::marker::{PhantomData, PhantomPinned};
+use std::marker::{PhantomPinned};
 use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
 use std::str::FromStr;
-use std::time::Duration;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
 static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
@@ -29,7 +28,6 @@ static BAT_CHARGE_PATH: &str = "/sys/class/power_supply/BAT0/charge_control_end_
 /// - `LED_INIT4`
 pub struct RogCore {
     handle: DeviceHandle<rusb::GlobalContext>,
-    virt_keys: VirtKeys,
     _pin: PhantomPinned,
 }
 
@@ -79,23 +77,11 @@ impl RogCore {
             device.set_auto_detach_kernel_driver(true)?;
         }
 
-        if let Err(err) = device.claim_interface(interface) {
-            warn!("Could not claim keyboard device interface: {:?}", err);
-            warn!("Sleeping 5 seconds");
-            std::thread::sleep(std::time::Duration::from_millis(5000));
-            device.claim_interface(interface)?;
-        }
-
         // std::thread::sleep(std::time::Duration::from_millis(500));
         Ok(RogCore {
             handle: device,
-            virt_keys: VirtKeys::new(),
             _pin: PhantomPinned,
         })
-    }
-
-    pub fn virt_keys(&mut self) -> &mut VirtKeys {
-        &mut self.virt_keys
     }
 
     fn get_device(vendor: u16, product: u16) -> Result<Device<rusb::GlobalContext>, rusb::Error> {
@@ -330,70 +316,8 @@ impl RogCore {
             }
         }
     }
-
-    pub fn get_raw_device_handle(&mut self) -> NonNull<DeviceHandle<rusb::GlobalContext>> {
-        // Breaking every damn lifetime guarantee rust gives us
-        unsafe {
-            NonNull::new_unchecked(&mut self.handle as *mut DeviceHandle<rusb::GlobalContext>)
-        }
-    }
 }
 
-/// Lifetime is tied to `DeviceHandle` from `RogCore`
-pub struct KeyboardReader<'d, C: 'd>
-where
-    C: rusb::UsbContext,
-{
-    handle: NonNull<DeviceHandle<C>>,
-    endpoint: u8,
-    filter: Vec<u8>,
-    _phantom: PhantomData<&'d DeviceHandle<C>>,
-}
-
-/// UNSAFE
-unsafe impl<'d, C> Send for KeyboardReader<'d, C> where C: rusb::UsbContext {}
-unsafe impl<'d, C> Sync for KeyboardReader<'d, C> where C: rusb::UsbContext {}
-
-impl<'d, C> KeyboardReader<'d, C>
-where
-    C: rusb::UsbContext,
-{
-    pub fn new(device_handle: NonNull<DeviceHandle<C>>, key_endpoint: u8, filter: Vec<u8>) -> Self {
-        KeyboardReader {
-            handle: device_handle,
-            endpoint: key_endpoint,
-            filter,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Write the bytes read from the device interrupt to the buffer arg, and returns the
-    /// count of bytes written
-    ///
-    /// `report_filter_bytes` is used to filter the data read from the interupt so
-    /// only the relevant byte array is returned.
-    pub async fn poll_keyboard(&self) -> Option<[u8; 32]> {
-        let mut buf = [0u8; 32];
-        match unsafe { self.handle.as_ref() }.read_interrupt(
-            self.endpoint,
-            &mut buf,
-            Duration::from_millis(200),
-        ) {
-            Ok(_) => {
-                if self.filter.contains(&buf[0])
-                    && (buf[1] != 0 || buf[2] != 0 || buf[3] != 0 || buf[4] != 0)
-                {
-                    return Some(buf);
-                }
-            }
-            Err(err) => match err {
-                rusb::Error::Timeout => {}
-                _ => error!("Failed to read keyboard interrupt: {:?}", err),
-            },
-        }
-        None
-    }
-}
 
 #[derive(Debug)]
 pub enum FanLevel {

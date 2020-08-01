@@ -64,12 +64,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         laptop.supported_modes().to_owned(),
     );
 
-    let keyboard_reader = KeyboardReader::new(
-        rogcore.get_raw_device_handle(),
-        laptop.key_endpoint(),
-        laptop.key_filter().to_owned(),
-    );
-
     led_writer
         .reload_last_builtin(&mut config)
         .await
@@ -89,7 +83,6 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (
         tree,
-        aura_command_sender,
         mut aura_command_recv,
         mut animatrix_recv,
         fan_mode,
@@ -161,14 +154,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{:?}", err));
                 }
             }
-            // Keyboard reads
-            let data = keyboard_reader.poll_keyboard().await;
-            if let Some(bytes) = data {
-                laptop
-                    .do_keyboard_command(&mut rogcore, &config1, bytes, aura_command_sender.clone())
-                    .await
-                    .unwrap_or_else(|err| warn!("{}", err));
-            }
+            
         }
     });
 
@@ -277,48 +263,3 @@ async fn send_boot_signals(
     Ok(())
 }
 
-// fn start_keyboard_task(
-//     fan_mode: Arc<Mutex<Option<u8>>>,
-//     charge_limit: Arc<Mutex<Option<u8>>>,
-//     config: Arc<Mutex<Config>>,
-//     aura_command_sender: mpsc::Sender<AuraModes>,
-//     mut rogcore: RogCore,
-//     laptop: LaptopBase,
-// ) -> tokio::task::JoinHandle<()> {
-//     let keyboard_reader = KeyboardReader::new(
-//         rogcore.get_raw_device_handle(),
-//         laptop.key_endpoint(),
-//         laptop.key_filter().to_owned(),
-//     );
-//
-//     tokio::spawn(async move {
-//         loop {
-//             // Fan mode
-//             if let Ok(mut lock) = fan_mode.try_lock() {
-//                 if let Some(n) = lock.take() {
-//                     let mut config = config.lock().await;
-//                     rogcore
-//                         .set_fan_mode(n, &mut config)
-//                         .unwrap_or_else(|err| warn!("{:?}", err));
-//                 }
-//             }
-//             // Charge limit
-//             if let Ok(mut lock) = charge_limit.try_lock() {
-//                 if let Some(n) = lock.take() {
-//                     let mut config = config.lock().await;
-//                     rogcore
-//                         .set_charge_limit(n, &mut config)
-//                         .unwrap_or_else(|err| warn!("{:?}", err));
-//                 }
-//             }
-//             // Keyboard reads
-//             let data = keyboard_reader.poll_keyboard().await;
-//             if let Some(bytes) = data {
-//                 laptop
-//                     .run(&mut rogcore, &config, bytes, aura_command_sender.clone())
-//                     .await
-//                     .unwrap_or_else(|err| warn!("{}", err));
-//             }
-//         }
-//     })
-// }

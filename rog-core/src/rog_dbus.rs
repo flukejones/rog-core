@@ -176,7 +176,6 @@ pub(super) fn dbus_create_tree(
     config: Arc<Mutex<Config>>,
 ) -> (
     Tree<MTSync, ()>,
-    Sender<AuraModes>,
     Receiver<AuraModes>,
     Receiver<Vec<Vec<u8>>>,
     DbusU8Type,
@@ -210,9 +209,7 @@ pub(super) fn dbus_create_tree(
             factory.object_path(DBUS_PATH, ()).introspectable().add(
                 factory
                     .interface(DBUS_IFACE, ())
-                    .add_m(set_keyboard_backlight(Mutex::new(
-                        aura_command_send.clone(),
-                    )))
+                    .add_m(set_keyboard_backlight(Mutex::new(aura_command_send)))
                     .add_m(set_animatrix(Mutex::new(animatrix_send)))
                     .add_m(set_fan_mode(fan_mode.clone()))
                     .add_m(set_charge_limit(charge_limit.clone()))
@@ -228,7 +225,6 @@ pub(super) fn dbus_create_tree(
         .add(factory.object_path("/", ()).introspectable());
     (
         tree,
-        aura_command_send,
         aura_command_recv,
         animatrix_recv,
         fan_mode,

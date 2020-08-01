@@ -40,6 +40,3 @@ serde_json = "^1.0"
 sysfs-class = "^0.1.2" # used for backlight control and baord ID
 # cpu power management
 intel-pstate = "^0.2.1"
-# virtualisation of HID, mainly for outputting consumer key codes
-uhid-virt = "^0.0.5"
-#keycode = "^0.3"
