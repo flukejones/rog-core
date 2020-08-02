@@ -1,9 +1,3 @@
-static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
-static LED_INIT2: &str = "]ASUS Tech.Inc."; // ] == 0x5d
-static LED_INIT3: [u8; 6] = [0x5d, 0x05, 0x20, 0x31, 0, 0x08];
-static LED_INIT4: &str = "^ASUS Tech.Inc."; // ^ == 0x5e
-static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
-
 // Only these two packets must be 17 bytes
 static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -13,62 +7,28 @@ use log::{error, info, warn};
 use rog_client::{
     aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
 };
-use rusb::DeviceHandle;
-use std::marker::PhantomData;
-use std::ptr::NonNull;
-use std::time::Duration;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 /// UNSAFE: Must live as long as RogCore
 ///
 /// Because we're holding a pointer to something that *may* go out of scope while the
 /// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
 /// that may cause invalididated pointer to cause the program to panic rather than continue.
-pub struct LedWriter<'d, C: 'd>
-where
-    C: rusb::UsbContext,
-{
-    handle: NonNull<DeviceHandle<C>>,
+pub struct LedWriter {
+    dev_node: String,
     supported_modes: Vec<u8>,
-    led_endpoint: u8,
-    initialised: bool,
     flip_effect_write: bool,
-    _phantom: PhantomData<&'d DeviceHandle<C>>,
 }
 
-/// UNSAFE
-unsafe impl<'d, C> Send for LedWriter<'d, C> where C: rusb::UsbContext {}
-unsafe impl<'d, C> Sync for LedWriter<'d, C> where C: rusb::UsbContext {}
-
-impl<'d, C> LedWriter<'d, C>
-where
-    C: rusb::UsbContext,
-{
+impl LedWriter {
     #[inline]
-    pub fn new(
-        device_handle: NonNull<DeviceHandle<C>>,
-        led_endpoint: u8,
-        supported_modes: Vec<u8>,
-    ) -> Self {
+    pub fn new(dev_node: String, supported_modes: Vec<u8>) -> Self {
         LedWriter {
-            handle: device_handle,
-            led_endpoint,
+            dev_node,
             supported_modes,
-            initialised: false,
             flip_effect_write: false,
-            _phantom: PhantomData,
         }
-    }
-
-    async fn initialise(&mut self) -> Result<(), RogError> {
-        if !self.initialised {
-            self.write_bytes(&LED_INIT1).await?;
-            self.write_bytes(LED_INIT2.as_bytes()).await?;
-            self.write_bytes(&LED_INIT3).await?;
-            self.write_bytes(LED_INIT4.as_bytes()).await?;
-            self.write_bytes(&LED_INIT5).await?;
-            self.initialised = true;
-        }
-        Ok(())
     }
 
     pub async fn do_command(
@@ -76,41 +36,17 @@ where
         mode: AuraModes,
         config: &mut Config,
     ) -> Result<(), RogError> {
-        self.initialise().await?;
         self.set_and_save(mode, config).await
     }
 
     /// Should only be used if the bytes you are writing are verified correct
     #[inline]
     async fn write_bytes(&self, message: &[u8]) -> Result<(), RogError> {
-        println!("1 Wrote: {:X?}", message);
-        match unsafe { self.handle.as_ref() }.write_interrupt(
-            self.led_endpoint,
-            message,
-            Duration::from_millis(5),
-        ) {
-            Ok(_) => {
-                let mut buf = [0; 32];
-                match unsafe { self.handle.as_ref() }.read_interrupt(
-                    0x83,
-                    &mut buf,
-                    Duration::from_millis(5),
-                ) {
-                    Ok(_) => {
-                        println!("2 Read: {:X?}", buf);
-                    }
-                    Err(err) => match err {
-                        rusb::Error::Timeout => {}
-                        _ => error!("Failed to read to led interrupt: {:?}", err),
-                    },
-                }
-            }
-            Err(err) => match err {
-                rusb::Error::Timeout => {}
-                _ => error!("Failed to write to led interrupt: {:?}", err),
-            },
+        if let Ok(mut file) = OpenOptions::new().write(true).open(&self.dev_node) {
+            file.write_all(message).unwrap();
+            return Ok(());
         }
-        Ok(())
+        Err(RogError::NotSupported)
     }
 
     /// Write an effect block
@@ -150,10 +86,6 @@ where
                 config.current_mode = mode_num;
                 config.set_mode_data(mode);
                 config.write();
-                info!(
-                    "Switched LED mode to {}",
-                    <&str>::from(&<AuraModes>::from(config.current_mode))
-                );
             }
         }
         Ok(())
@@ -198,7 +130,6 @@ where
 
     #[inline]
     pub async fn reload_last_builtin(&mut self, config: &mut Config) -> Result<(), RogError> {
-        self.initialise().await?;
         // set current mode (if any)
         if self.supported_modes.len() > 1 {
             if self.supported_modes.contains(&config.current_mode) {

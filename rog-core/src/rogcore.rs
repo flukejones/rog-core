@@ -2,14 +2,11 @@
 
 use crate::{config::Config, error::RogError};
 use log::{error, info, warn};
-use rusb::{Device, DeviceHandle};
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::marker::{PhantomPinned};
 use std::path::Path;
 use std::process::Command;
-use std::ptr::NonNull;
 use std::str::FromStr;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
@@ -26,72 +23,11 @@ static BAT_CHARGE_PATH: &str = "/sys/class/power_supply/BAT0/charge_control_end_
 /// - `LED_INIT4`
 /// - `LED_INIT2`
 /// - `LED_INIT4`
-pub struct RogCore {
-    handle: DeviceHandle<rusb::GlobalContext>,
-    _pin: PhantomPinned,
-}
+pub struct RogCore {}
 
 impl RogCore {
-    pub fn new(vendor: u16, product: u16, match_endpoint: u8) -> Result<RogCore, Box<dyn Error>> {
-        let device = RogCore::get_device(vendor, product).map_err(|err| {
-            error!("Could not find keyboard device: {:?}", err);
-            err
-        })?;
-
-        let dev_config = device.config_descriptor(0).map_err(|err| {
-            error!("Could not get keyboard device config: {:?}", err);
-            err
-        })?;
-        info!("ACTIVE CONFIG: {:?}", dev_config.number());
-
-        // Interface with outputs
-        let mut interface = 2; // The interface with keyboard consumer device and LED control
-                               // is #2 on 0x1866 device at least
-        for iface in dev_config.interfaces() {
-            for desc in iface.descriptors() {
-                for endpoint in desc.endpoint_descriptors() {
-                    if endpoint.address() == match_endpoint {
-                        info!("INTERVAL: {:?}", endpoint.interval());
-                        info!("MAX_PKT_SIZE: {:?}", endpoint.max_packet_size());
-                        info!("SYNC: {:?}", endpoint.sync_type());
-                        info!("TRANSFER_TYPE: {:?}", endpoint.transfer_type());
-                        info!("ENDPOINT: {:X?}", endpoint.address());
-                        info!("INTERFACE: {:X?}", desc.interface_number());
-                        interface = desc.interface_number();
-                        break;
-                    }
-                }
-            }
-        }
-
-        let mut device = device.open().map_err(|err| {
-            error!("Could not open device: {:?}", err);
-            err
-        })?;
-
-        if let Err(err) = device.set_auto_detach_kernel_driver(true) {
-            warn!("Auto-detach kernel driver failed: {:?}", err);
-            warn!("Trying device reset");
-            device.reset()?;
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            device.set_auto_detach_kernel_driver(true)?;
-        }
-
-        // std::thread::sleep(std::time::Duration::from_millis(500));
-        Ok(RogCore {
-            handle: device,
-            _pin: PhantomPinned,
-        })
-    }
-
-    fn get_device(vendor: u16, product: u16) -> Result<Device<rusb::GlobalContext>, rusb::Error> {
-        for device in rusb::devices()?.iter() {
-            let device_desc = device.device_descriptor()?;
-            if device_desc.vendor_id() == vendor && device_desc.product_id() == product {
-                return Ok(device);
-            }
-        }
-        Err(rusb::Error::NoDevice)
+    pub fn new(vendor: u16, product: u16) -> Self {
+        RogCore {}
     }
 
     fn get_fan_path() -> Result<&'static str, std::io::Error> {
@@ -317,7 +253,6 @@ impl RogCore {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub enum FanLevel {

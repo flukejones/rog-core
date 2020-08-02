@@ -119,6 +119,7 @@ Models GA401, GA502, GU502 support LED brightness change only (no RGB).
 - `libdbus-1-dev`
 - `llvm`
 - `libclang-dev`
+- `libudev-dev`
 
 ## Installing
 

@@ -23,6 +23,12 @@ pub mod anime_matrix;
 
 pub mod error;
 
+// static LED_INIT1: [u8; 2] = [0x5d, 0xb9];
+// static LED_INIT2: &str = "]ASUS Tech.Inc."; // ] == 0x5d
+// static LED_INIT3: [u8; 6] = [0x5d, 0x05, 0x20, 0x31, 0, 0x08];
+// static LED_INIT4: &str = "^ASUS Tech.Inc."; // ^ == 0x5e
+// static LED_INIT5: [u8; 6] = [0x5e, 0x05, 0x20, 0x31, 0, 0x08];
+
 /// Writes aout the correct byte string for brightness
 ///
 /// The HID descriptor looks like:

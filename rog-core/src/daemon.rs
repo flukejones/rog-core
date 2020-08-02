@@ -34,21 +34,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     info!("Config loaded");
 
-    let mut rogcore = RogCore::new(
-        laptop.usb_vendor(),
-        laptop.usb_product(),
-        laptop.key_endpoint(),
-    )
-    .map_or_else(
-        |err| {
-            error!("{}", err);
-            panic!("{}", err);
-        },
-        |daemon| {
-            info!("RogCore loaded");
-            daemon
-        },
-    );
+    let mut rogcore = RogCore::new(laptop.usb_vendor(), laptop.usb_product());
 
     // Reload settings
     rogcore
@@ -59,8 +45,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
 
     let mut led_writer = LedWriter::new(
-        rogcore.get_raw_device_handle(),
-        laptop.led_endpoint(),
+        "/dev/hidraw2".to_string(),
         laptop.supported_modes().to_owned(),
     );
 
@@ -136,6 +121,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     // spawning this in a function causes a segfault for reasons I haven't investigated yet
     tokio::spawn(async move {
         loop {
+            // TODO: MAKE SYS COMMANDS OPERATE USING CHANNEL LIKE AURA MODES
             // Fan mode
             if let Ok(mut lock) = fan_mode.try_lock() {
                 if let Some(n) = lock.take() {
@@ -154,7 +140,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         .unwrap_or_else(|err| warn!("{:?}", err));
                 }
             }
-            
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     });
 
@@ -262,4 +248,3 @@ async fn send_boot_signals(
         .unwrap_or_else(|_| 0);
     Ok(())
 }
-

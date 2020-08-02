@@ -1,10 +1,8 @@
-use rog_client::{
-    aura_modes::{
-        AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, MULTISTATIC, PULSE, RAIN, RAINBOW,
-        RGB, RIPPLE, SINGLE, STAR, STROBE,
-    },
-};
 use log::{info, warn};
+use rog_client::aura_modes::{
+    AuraModes, BREATHING, COMET, FLASH, HIGHLIGHT, LASER, MULTISTATIC, PULSE, RAIN, RAINBOW, RGB,
+    RIPPLE, SINGLE, STAR, STROBE,
+};
 
 static HELP_ADDRESS: &str = "https://github.com/flukejones/rog-core";
 
@@ -21,8 +19,6 @@ pub(crate) fn match_laptop() -> LaptopBase {
                         usb_product: 0x1854,
                         //from `lsusb -vd 0b05:1866`
                         led_endpoint: 0x04,
-                        //from `lsusb -vd 0b05:1866`
-                        key_endpoint: 0x83,
                         supported_modes: vec![SINGLE, BREATHING, STROBE],
                         support_animatrix: false,
                     };
@@ -47,8 +43,6 @@ fn select_1866_device(prod: u16) -> LaptopBase {
         usb_product: prod,
         //from `lsusb -vd 0b05:1866`
         led_endpoint: 0x04,
-        //from `lsusb -vd 0b05:1866`
-        key_endpoint: 0x83,
         supported_modes: vec![],
         support_animatrix: false,
     };
@@ -72,12 +66,22 @@ fn select_1866_device(prod: u16) -> LaptopBase {
             SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
             FLASH, RGB,
         ];
-    } else if board_name.starts_with("G531")
-        || board_name.starts_with("G731")
-    {
+    } else if board_name.starts_with("G531") || board_name.starts_with("G731") {
         laptop.supported_modes = vec![
-            SINGLE, BREATHING, STROBE, RAINBOW, STAR, RAIN, HIGHLIGHT, LASER, RIPPLE, PULSE, COMET,
-            FLASH, MULTISTATIC, RGB,
+            SINGLE,
+            BREATHING,
+            STROBE,
+            RAINBOW,
+            STAR,
+            RAIN,
+            HIGHLIGHT,
+            LASER,
+            RIPPLE,
+            PULSE,
+            COMET,
+            FLASH,
+            MULTISTATIC,
+            RGB,
         ];
     // RGB, limited effects, no zones
     } else if board_name.starts_with("G512LI") || board_name.starts_with("G712LI") {
@@ -116,7 +120,6 @@ pub(super) struct LaptopBase {
     usb_vendor: u16,
     usb_product: u16,
     led_endpoint: u8,
-    key_endpoint: u8,
     supported_modes: Vec<u8>,
     support_animatrix: bool,
 }
@@ -124,9 +127,6 @@ pub(super) struct LaptopBase {
 impl LaptopBase {
     pub(super) fn led_endpoint(&self) -> u8 {
         self.led_endpoint
-    }
-    pub(super) fn key_endpoint(&self) -> u8 {
-        self.key_endpoint
     }
     pub(super) fn usb_vendor(&self) -> u16 {
         self.usb_vendor
