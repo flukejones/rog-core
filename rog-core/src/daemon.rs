@@ -45,14 +45,24 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
 
     let mut led_writer = LedWriter::new(
-        "/dev/hidraw2".to_string(),
+        "1866",
         laptop.supported_modes().to_owned(),
+    ).map_or_else(
+        |err| {
+            error!("{}", err);
+            None
+        },
+        |ledwriter| {
+            info!("LED Writer loaded");
+            Some(ledwriter)
+        },
     );
 
-    led_writer
-        .reload_last_builtin(&mut config)
+    if let Some(writer) = led_writer.as_mut() {
+        writer.reload_last_builtin(&mut config)
         .await
         .unwrap_or_else(|err| warn!("Reload settings: {}", err));
+    }
 
     // Set up the mutexes
     let config = Arc::new(Mutex::new(config));
@@ -149,17 +159,18 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         connection.process_all();
 
         while let Some(command) = aura_command_recv.recv().await {
+            if let Some(writer) = led_writer.as_mut() {
             let mut config = config.lock().await;
             match &command {
                 AuraModes::RGB(_) => {
-                    led_writer
+                    writer
                         .do_command(command, &mut config)
                         .await
                         .unwrap_or_else(|err| warn!("{}", err));
                 }
                 _ => {
                     let json = serde_json::to_string(&command)?;
-                    led_writer
+                    writer
                         .do_command(command, &mut config)
                         .await
                         .unwrap_or_else(|err| warn!("{}", err));
@@ -171,7 +182,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                         )
                         .unwrap_or_else(|_| 0);
                 }
-            }
+            }}
         }
     }
 }

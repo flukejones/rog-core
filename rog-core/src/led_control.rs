@@ -10,11 +10,6 @@ use rog_client::{
 use std::fs::OpenOptions;
 use std::io::Write;
 
-/// UNSAFE: Must live as long as RogCore
-///
-/// Because we're holding a pointer to something that *may* go out of scope while the
-/// pointer is held. We're relying on access to struct to be behind a Mutex, and for behaviour
-/// that may cause invalididated pointer to cause the program to panic rather than continue.
 pub struct LedWriter {
     dev_node: String,
     supported_modes: Vec<u8>,
@@ -23,12 +18,30 @@ pub struct LedWriter {
 
 impl LedWriter {
     #[inline]
-    pub fn new(dev_node: String, supported_modes: Vec<u8>) -> Self {
-        LedWriter {
-            dev_node,
-            supported_modes,
-            flip_effect_write: false,
+    pub fn new(idProduct: &str, supported_modes: Vec<u8>) -> Result<Self, std::io::Error> {
+        let mut enumerator = udev::Enumerator::new()?;
+        enumerator.match_subsystem("hidraw")?;
+
+        for device in enumerator.scan_devices()? {
+            if let Some(parent) = device.parent_with_subsystem_devtype("usb", "usb_device")? {
+                if parent.attribute_value("idProduct").unwrap() == idProduct
+                // && device.parent().unwrap().sysnum().unwrap() == 3
+                {
+                    if let Some(dev_node) = device.devnode() {
+                        info!("Using device at: {:?}", dev_node);
+                        return Ok(LedWriter {
+                            dev_node: dev_node.to_string_lossy().to_string(),
+                            supported_modes,
+                            flip_effect_write: false,
+                        });
+                    }
+                }
+            }
         }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Device node not found",
+        ))
     }
 
     pub async fn do_command(
@@ -50,8 +63,6 @@ impl LedWriter {
     }
 
     /// Write an effect block
-    ///
-    /// `aura_effect_init` must be called any effect routine, and called only once.
     #[inline]
     async fn write_effect(&mut self, effect: &[Vec<u8>]) -> Result<(), RogError> {
         if self.flip_effect_write {

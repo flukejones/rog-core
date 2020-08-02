@@ -20,6 +20,7 @@ path = "src/main.rs"
 [dependencies]
 rog-client = { path = "../rog-client" }
 rusb = "^0.6.0"
+udev = "^0.4.0"
 
 # cli and logging
 gumdrop = "^0.8.0"
