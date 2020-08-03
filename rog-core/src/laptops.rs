@@ -11,14 +11,12 @@ pub(crate) fn match_laptop() -> LaptopBase {
         let device_desc = device.device_descriptor().unwrap();
         if device_desc.vendor_id() == 0x0b05 {
             match device_desc.product_id() {
-                0x1869 | 0x1866 => return select_1866_device(device_desc.product_id()),
+                0x1866 => return select_1866_device("1866".to_owned()),
+                0x1869 => return select_1866_device("1869".to_owned()),
                 0x1854 => {
                     info!("Found GL753 or similar");
                     return LaptopBase {
-                        usb_vendor: 0x0B05,
-                        usb_product: 0x1854,
-                        //from `lsusb -vd 0b05:1866`
-                        led_endpoint: 0x04,
+                        usb_product: "1854".to_string(),
                         supported_modes: vec![SINGLE, BREATHING, STROBE],
                         support_animatrix: false,
                     };
@@ -30,7 +28,7 @@ pub(crate) fn match_laptop() -> LaptopBase {
     panic!("could not match laptop");
 }
 
-fn select_1866_device(prod: u16) -> LaptopBase {
+fn select_1866_device(prod: String) -> LaptopBase {
     let dmi = sysfs_class::DmiId::default();
     let board_name = dmi.board_name().expect("Could not get board_name");
     let prod_name = dmi.product_name().expect("Could not get board_name");
@@ -39,10 +37,7 @@ fn select_1866_device(prod: u16) -> LaptopBase {
     info!("Board name: {}", board_name.trim());
 
     let mut laptop = LaptopBase {
-        usb_vendor: 0x0B05,
         usb_product: prod,
-        //from `lsusb -vd 0b05:1866`
-        led_endpoint: 0x04,
         supported_modes: vec![],
         support_animatrix: false,
     };
@@ -117,22 +112,14 @@ fn select_1866_device(prod: u16) -> LaptopBase {
 }
 
 pub(super) struct LaptopBase {
-    usb_vendor: u16,
-    usb_product: u16,
-    led_endpoint: u8,
+    usb_product: String,
     supported_modes: Vec<u8>,
     support_animatrix: bool,
 }
 
 impl LaptopBase {
-    pub(super) fn led_endpoint(&self) -> u8 {
-        self.led_endpoint
-    }
-    pub(super) fn usb_vendor(&self) -> u16 {
-        self.usb_vendor
-    }
-    pub(super) fn usb_product(&self) -> u16 {
-        self.usb_product
+    pub(super) fn usb_product(&self) -> &str {
+        &self.usb_product
     }
     pub(super) fn supported_modes(&self) -> &[u8] {
         &self.supported_modes

@@ -1,10 +1,11 @@
 use crate::{
-    animatrix_control::{AniMeWriter, AnimatrixCommand},
     config::Config,
+    ctrl_anime::{AniMeWriter, AnimatrixCommand},
+    ctrl_charge::CtrlCharge,
+    ctrl_fan_cpu::CtrlFanAndCPU,
+    ctrl_leds::LedWriter,
+    dbus::dbus_create_tree,
     laptops::match_laptop,
-    led_control::LedWriter,
-    rog_dbus::dbus_create_tree,
-    rogcore::*,
 };
 
 use dbus::{channel::Sender, nonblock::Process, nonblock::SyncConnection, tree::Signal};
@@ -34,34 +35,58 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     info!("Config loaded");
 
-    let mut rogcore = RogCore::new(laptop.usb_vendor(), laptop.usb_product());
+    let mut led_control = LedWriter::new(laptop.usb_product(), laptop.supported_modes().to_owned())
+        .map_or_else(
+            |err| {
+                error!("{}", err);
+                None
+            },
+            |ledwriter| {
+                info!("LED Writer loaded");
+                Some(ledwriter)
+            },
+        );
 
-    // Reload settings
-    rogcore
-        .fan_mode_reload(&mut config)
-        .unwrap_or_else(|err| warn!("Fan mode: {}", err));
-    rogcore
-        .bat_charge_limit_reload(&mut config)
-        .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
-
-    let mut led_writer = LedWriter::new(
-        "1866",
-        laptop.supported_modes().to_owned(),
-    ).map_or_else(
+    let mut charge_control = CtrlCharge::new().map_or_else(
         |err| {
             error!("{}", err);
             None
         },
         |ledwriter| {
-            info!("LED Writer loaded");
+            info!("Charge control loaded");
             Some(ledwriter)
         },
     );
 
-    if let Some(writer) = led_writer.as_mut() {
-        writer.reload_last_builtin(&mut config)
-        .await
-        .unwrap_or_else(|err| warn!("Reload settings: {}", err));
+    let mut fan_control = CtrlFanAndCPU::new().map_or_else(
+        |err| {
+            error!("{}", err);
+            None
+        },
+        |ledwriter| {
+            info!("Fan & CPU control loaded");
+            Some(ledwriter)
+        },
+    );
+
+    // Reload settings
+    if let Some(ctrlr) = fan_control.as_mut() {
+        ctrlr
+            .fan_mode_reload(&mut config)
+            .unwrap_or_else(|err| warn!("Fan mode: {}", err));
+    }
+
+    if let Some(ctrlr) = charge_control.as_mut() {
+        ctrlr
+            .bat_charge_limit_reload(&mut config)
+            .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
+    }
+
+    if let Some(writer) = led_control.as_mut() {
+        writer
+            .reload_last_builtin(&mut config)
+            .await
+            .unwrap_or_else(|err| warn!("Reload settings: {}", err));
     }
 
     // Set up the mutexes
@@ -133,24 +158,34 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         loop {
             // TODO: MAKE SYS COMMANDS OPERATE USING CHANNEL LIKE AURA MODES
             // Fan mode
-            if let Ok(mut lock) = fan_mode.try_lock() {
-                if let Some(n) = lock.take() {
-                    let mut config = config1.lock().await;
-                    rogcore
-                        .set_fan_mode(n, &mut config)
-                        .unwrap_or_else(|err| warn!("{:?}", err));
+            if let Some(ctrlr) = fan_control.as_mut() {
+                let mut config = config1.lock().await;
+                ctrlr
+                    .fan_mode_check_change(&mut config)
+                    .unwrap_or_else(|err| warn!("{:?}", err));
+
+                if let Ok(mut lock) = fan_mode.try_lock() {
+                    if let Some(n) = lock.take() {
+                        let mut config = config1.lock().await;
+                        ctrlr
+                            .set_fan_mode(n, &mut config)
+                            .unwrap_or_else(|err| warn!("{:?}", err));
+                    }
                 }
             }
+
             // Charge limit
-            if let Ok(mut lock) = charge_limit.try_lock() {
-                if let Some(n) = lock.take() {
-                    let mut config = config1.lock().await;
-                    rogcore
-                        .set_charge_limit(n, &mut config)
-                        .unwrap_or_else(|err| warn!("{:?}", err));
+            if let Some(ctrlr) = charge_control.as_mut() {
+                if let Ok(mut lock) = charge_limit.try_lock() {
+                    if let Some(n) = lock.take() {
+                        let mut config = config1.lock().await;
+                        ctrlr
+                            .set_charge_limit(n, &mut config)
+                            .unwrap_or_else(|err| warn!("{:?}", err));
+                    }
                 }
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            tokio::time::delay_for(std::time::Duration::from_millis(500)).await;
         }
     });
 
@@ -159,30 +194,31 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         connection.process_all();
 
         while let Some(command) = aura_command_recv.recv().await {
-            if let Some(writer) = led_writer.as_mut() {
-            let mut config = config.lock().await;
-            match &command {
-                AuraModes::RGB(_) => {
-                    writer
-                        .do_command(command, &mut config)
-                        .await
-                        .unwrap_or_else(|err| warn!("{}", err));
+            if let Some(writer) = led_control.as_mut() {
+                let mut config = config.lock().await;
+                match &command {
+                    AuraModes::RGB(_) => {
+                        writer
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{}", err));
+                    }
+                    _ => {
+                        let json = serde_json::to_string(&command)?;
+                        writer
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{}", err));
+                        connection
+                            .send(
+                                led_changed_signal
+                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                    .append1(json),
+                            )
+                            .unwrap_or_else(|_| 0);
+                    }
                 }
-                _ => {
-                    let json = serde_json::to_string(&command)?;
-                    writer
-                        .do_command(command, &mut config)
-                        .await
-                        .unwrap_or_else(|err| warn!("{}", err));
-                    connection
-                        .send(
-                            led_changed_signal
-                                .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                .append1(json),
-                        )
-                        .unwrap_or_else(|_| 0);
-                }
-            }}
+            }
         }
     }
 }

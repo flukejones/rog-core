@@ -1,5 +1,5 @@
+use daemon::ctrl_fan_cpu::FanLevel;
 use daemon::daemon::start_daemon;
-use daemon::rogcore::FanLevel;
 use gumdrop::Options;
 use log::info;
 use log::LevelFilter;

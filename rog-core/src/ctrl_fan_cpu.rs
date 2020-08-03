@@ -1,33 +1,24 @@
-// Return show-stopping errors, otherwise map error to a log level
-
-use crate::{config::Config, error::RogError};
+use crate::config::Config;
 use log::{error, info, warn};
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::Path;
-use std::process::Command;
 use std::str::FromStr;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
 static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
 static AMD_BOOST_PATH: &str = "/sys/devices/system/cpu/cpufreq/boost";
-static BAT_CHARGE_PATH: &str = "/sys/class/power_supply/BAT0/charge_control_end_threshold";
 
-/// ROG device controller
-///
-/// For the GX502GW the LED setup sequence looks like:
-///
-/// -` LED_INIT1`
-/// - `LED_INIT3`
-/// - `LED_INIT4`
-/// - `LED_INIT2`
-/// - `LED_INIT4`
-pub struct RogCore {}
+pub struct CtrlFanAndCPU {
+    path: &'static str,
+}
 
-impl RogCore {
-    pub fn new(vendor: u16, product: u16) -> Self {
-        RogCore {}
+impl CtrlFanAndCPU {
+    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
+        let path = CtrlFanAndCPU::get_fan_path()?;
+
+        Ok(CtrlFanAndCPU { path })
     }
 
     fn get_fan_path() -> Result<&'static str, std::io::Error> {
@@ -43,42 +34,56 @@ impl RogCore {
         }
     }
 
-    pub fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        let path = RogCore::get_fan_path()?;
-        let mut file = OpenOptions::new().write(true).open(path)?;
+    pub(super) fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        let mut file = OpenOptions::new().write(true).open(self.path)?;
         file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", self.path, err));
         self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
         info!("Reloaded fan mode: {:?}", FanLevel::from(config.fan_mode));
         Ok(())
     }
 
-    pub fn set_fan_mode(&mut self, n: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        let path = RogCore::get_fan_path()?;
-        let mut fan_ctrl = OpenOptions::new().read(true).write(true).open(path)?;
+    pub(super) fn fan_mode_check_change(
+        &mut self,
+        config: &mut Config,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut file = OpenOptions::new().read(true).open(self.path)?;
+        let mut buf = [0u8; 1];
+        file.read_exact(&mut buf)?;
+        if let Some(num) = char::from(buf[0]).to_digit(10) {
+            if config.fan_mode != num as u8 {
+                config.fan_mode = num as u8;
+                config.write();
+                self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
+                info!(
+                    "Fan mode was changed: {:?}",
+                    FanLevel::from(config.fan_mode)
+                );
+            }
+            return Ok(());
+        }
+        let err = std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Fan-level could not be parsed",
+        );
+        Err(Box::new(err))
+    }
+
+    pub(super) fn set_fan_mode(
+        &mut self,
+        n: u8,
+        config: &mut Config,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut fan_ctrl = OpenOptions::new().write(true).open(self.path)?;
 
         config.fan_mode = n;
         config.write();
         fan_ctrl
             .write_all(format!("{:?}\n", config.fan_mode).as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", path, err));
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", self.path, err));
         info!("Fan mode set to: {:?}", FanLevel::from(config.fan_mode));
         self.set_pstate_for_fan_mode(FanLevel::from(n), config)?;
         Ok(())
-    }
-
-    pub fn fan_mode_step(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        // re-read the config here in case a user changed the pstate settings
-        config.read();
-
-        let mut n = config.fan_mode;
-        // wrap around the step number
-        if n < 2 {
-            n += 1;
-        } else {
-            n = 0;
-        }
-        self.set_fan_mode(n, config)
     }
 
     fn set_pstate_for_fan_mode(
@@ -171,88 +176,9 @@ impl RogCore {
         }
         Ok(())
     }
-
-    pub fn bat_charge_limit_reload(&self, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        config.read();
-        info!("Reloaded battery charge limit");
-        self.set_charge_limit(config.bat_charge_limit, config)
-    }
-
-    pub fn set_charge_limit(&self, limit: u8, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        if limit < 20 || limit > 100 {
-            warn!(
-                "Unable to set battery charge limit, must be between 20-100: requested {}",
-                limit
-            );
-        }
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .open(BAT_CHARGE_PATH)
-            .map_err(|err| {
-                warn!("Failed to open battery charge limit path: {:?}", err);
-                err
-            })?;
-        file.write_all(limit.to_string().as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", BAT_CHARGE_PATH, err));
-        info!("Battery charge limit: {}", limit);
-
-        config.bat_charge_limit = limit;
-        config.write();
-
-        Ok(())
-    }
-
-    /// A direct call to systemd to suspend the PC.
-    ///
-    /// This avoids desktop environments being required to handle it
-    /// (which means it works while in a TTY also)
-    pub fn suspend_with_systemd(&self) {
-        std::process::Command::new("systemctl")
-            .arg("suspend")
-            .spawn()
-            .map_or_else(|err| warn!("Failed to suspend: {}", err), |_| {});
-    }
-
-    /// A direct call to rfkill to suspend wireless devices.
-    ///
-    /// This avoids desktop environments being required to handle it (which
-    /// means it works while in a TTY also)
-    pub fn toggle_airplane_mode(&self) {
-        match Command::new("rfkill").arg("list").output() {
-            Ok(output) => {
-                if output.status.success() {
-                    if let Ok(out) = String::from_utf8(output.stdout) {
-                        if out.contains(": yes") {
-                            Command::new("rfkill")
-                                .arg("unblock")
-                                .arg("all")
-                                .spawn()
-                                .map_or_else(
-                                    |err| warn!("Could not unblock rf devices: {}", err),
-                                    |_| {},
-                                );
-                        } else {
-                            Command::new("rfkill")
-                                .arg("block")
-                                .arg("all")
-                                .spawn()
-                                .map_or_else(
-                                    |err| warn!("Could not block rf devices: {}", err),
-                                    |_| {},
-                                );
-                        }
-                    }
-                } else {
-                    warn!("Could not list rf devices");
-                }
-            }
-            Err(err) => {
-                warn!("Could not list rf devices: {}", err);
-            }
-        }
-    }
 }
+
+use crate::error::RogError;
 
 #[derive(Debug)]
 pub enum FanLevel {

@@ -3,7 +3,7 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 use crate::{config::Config, error::RogError};
-use log::{error, info, warn};
+use log::{info, warn};
 use rog_client::{
     aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
 };
@@ -18,17 +18,18 @@ pub struct LedWriter {
 
 impl LedWriter {
     #[inline]
-    pub fn new(idProduct: &str, supported_modes: Vec<u8>) -> Result<Self, std::io::Error> {
+    pub fn new(id_product: &str, supported_modes: Vec<u8>) -> Result<Self, std::io::Error> {
         let mut enumerator = udev::Enumerator::new()?;
         enumerator.match_subsystem("hidraw")?;
 
         for device in enumerator.scan_devices()? {
-            if let Some(parent) = device.parent_with_subsystem_devtype("usb", "usb_device")? {
-                if parent.attribute_value("idProduct").unwrap() == idProduct
+            if let Some(parent) = device
+                .parent_with_subsystem_devtype("usb", "usb_device")? {
+                if parent.attribute_value("idProduct").unwrap() == id_product
                 // && device.parent().unwrap().sysnum().unwrap() == 3
                 {
                     if let Some(dev_node) = device.devnode() {
-                        info!("Using device at: {:?}", dev_node);
+                        info!("Using device at: {:?} for LED control", dev_node);
                         return Ok(LedWriter {
                             dev_node: dev_node.to_string_lossy().to_string(),
                             supported_modes,
