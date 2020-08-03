@@ -4,6 +4,10 @@ use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 static BAT_CHARGE_PATH: &str = "/sys/class/power_supply/BAT0/charge_control_end_threshold";
 
@@ -16,6 +20,22 @@ impl CtrlCharge {
         let path = CtrlCharge::get_battery_path()?;
 
         Ok(CtrlCharge { path })
+    }
+
+    /// Spawns two tasks which continuously check for changes
+    pub(crate) fn spawn_task(
+        ctrlr: CtrlCharge,
+        config: Arc<Mutex<Config>>,
+        mut recv: Receiver<u8>,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            while let Some(n) = recv.recv().await {
+                let mut config = config.lock().await;
+                ctrlr
+                    .set_charge_limit(n, &mut config)
+                    .unwrap_or_else(|err| warn!("{:?}", err));
+            }
+        })
     }
 
     fn get_battery_path() -> Result<&'static str, std::io::Error> {

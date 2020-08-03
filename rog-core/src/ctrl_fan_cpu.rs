@@ -5,6 +5,10 @@ use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 static FAN_TYPE_1_PATH: &str = "/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy";
 static FAN_TYPE_2_PATH: &str = "/sys/devices/platform/asus-nb-wmi/fan_boost_mode";
@@ -19,6 +23,39 @@ impl CtrlFanAndCPU {
         let path = CtrlFanAndCPU::get_fan_path()?;
 
         Ok(CtrlFanAndCPU { path })
+    }
+
+    /// Spawns two tasks which continuously check for changes
+    pub(crate) fn spawn_task(
+        ctrlr: CtrlFanAndCPU,
+        config: Arc<Mutex<Config>>,
+        mut recv: Receiver<u8>,
+    ) -> JoinHandle<()> {
+        let gate1 = Arc::new(Mutex::new(ctrlr));
+        let gate2 = gate1.clone();
+        let config1 = config.clone();
+        // spawn an endless loop
+        tokio::spawn(async move {
+            while let Some(mode) = recv.recv().await {
+                let mut config = config1.lock().await;
+                if let Ok(mut lock) = gate1.try_lock() {
+                    lock.set_fan_mode(mode, &mut config)
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+            }
+        });
+        // need to watch file path
+        tokio::spawn(async move {
+            loop {
+                if let Ok(mut lock) = gate2.try_lock() {
+                    let mut config = config.lock().await;
+                    lock.fan_mode_check_change(&mut config)
+                        .unwrap_or_else(|err| warn!("{:?}", err));
+                }
+
+                tokio::time::delay_for(std::time::Duration::from_millis(500)).await;
+            }
+        })
     }
 
     fn get_fan_path() -> Result<&'static str, std::io::Error> {

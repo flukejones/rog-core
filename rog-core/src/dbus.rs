@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::daemon::DbusU8Type;
 use dbus::tree::{Factory, MTSync, Method, MethodErr, Signal, Tree};
 use log::warn;
 use rog_client::{aura_modes::AuraModes, DBUS_IFACE, DBUS_PATH};
@@ -99,16 +98,16 @@ fn set_animatrix(
         .annotate("org.freedesktop.DBus.Method.NoReply", "true")
 }
 
-fn set_fan_mode(data: DbusU8Type) -> Method<MTSync, ()> {
+fn set_fan_mode(sender: Mutex<Sender<u8>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("SetFanMode", (), {
             move |m| {
-                if let Ok(mut lock) = data.try_lock() {
+                if let Ok(mut lock) = sender.try_lock() {
                     let mut iter = m.msg.iter_init();
                     let byte: u8 = iter.read()?;
-                    *lock = Some(byte);
+                    lock.try_send(byte).unwrap_or_else(|_err| {});
                     Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
@@ -151,16 +150,16 @@ fn get_charge_limit(config: Arc<Mutex<Config>>) -> Method<MTSync, ()> {
         .outarg::<u8, _>("limit")
 }
 
-fn set_charge_limit(data: DbusU8Type) -> Method<MTSync, ()> {
+fn set_charge_limit(sender: Mutex<Sender<u8>>) -> Method<MTSync, ()> {
     let factory = Factory::new_sync::<()>();
     factory
         // method for ledmessage
         .method("SetChargeLimit", (), {
             move |m| {
-                if let Ok(mut lock) = data.try_lock() {
+                if let Ok(mut lock) = sender.try_lock() {
                     let mut iter = m.msg.iter_init();
                     let byte: u8 = iter.read()?;
-                    *lock = Some(byte);
+                    lock.try_send(byte).unwrap_or_else(|_err| {});
                     Ok(vec![])
                 } else {
                     Err(MethodErr::failed("Could not lock daemon for access"))
@@ -178,16 +177,16 @@ pub(super) fn dbus_create_tree(
     Tree<MTSync, ()>,
     Receiver<AuraModes>,
     Receiver<Vec<Vec<u8>>>,
-    DbusU8Type,
-    DbusU8Type,
+    Receiver<u8>,
+    Receiver<u8>,
     Arc<Signal<()>>,
     Arc<Signal<()>>,
     Arc<Signal<()>>,
 ) {
     let (aura_command_send, aura_command_recv) = channel::<AuraModes>(1);
     let (animatrix_send, animatrix_recv) = channel::<Vec<Vec<u8>>>(1);
-    let fan_mode: DbusU8Type = Arc::new(Mutex::new(None));
-    let charge_limit: DbusU8Type = Arc::new(Mutex::new(None));
+    let (fan_mode_send, fan_mode_recv) = channel::<u8>(1);
+    let (charge_send, charge_recv) = channel::<u8>(1);
 
     let factory = Factory::new_sync::<()>();
 
@@ -211,8 +210,8 @@ pub(super) fn dbus_create_tree(
                     .interface(DBUS_IFACE, ())
                     .add_m(set_keyboard_backlight(Mutex::new(aura_command_send)))
                     .add_m(set_animatrix(Mutex::new(animatrix_send)))
-                    .add_m(set_fan_mode(fan_mode.clone()))
-                    .add_m(set_charge_limit(charge_limit.clone()))
+                    .add_m(set_fan_mode(Mutex::new(fan_mode_send)))
+                    .add_m(set_charge_limit(Mutex::new(charge_send)))
                     .add_m(get_fan_mode(config.clone()))
                     .add_m(get_charge_limit(config.clone()))
                     .add_m(get_keyboard_backlight(config.clone()))
@@ -227,8 +226,8 @@ pub(super) fn dbus_create_tree(
         tree,
         aura_command_recv,
         animatrix_recv,
-        fan_mode,
-        charge_limit,
+        fan_mode_recv,
+        charge_recv,
         key_backlight_changed,
         fanmode_changed,
         chrg_limit_changed,

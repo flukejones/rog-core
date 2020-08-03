@@ -14,6 +14,8 @@ use rog_client::error::AuraError;
 use rusb::{Device, DeviceHandle};
 use std::error::Error;
 use std::time::Duration;
+use tokio::sync::mpsc::Receiver;
+use tokio::task::JoinHandle;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -54,6 +56,21 @@ impl AniMeWriter {
         Ok(AniMeWriter {
             handle: device,
             initialised: false,
+        })
+    }
+
+    /// Spawns two tasks which continuously check for changes
+    pub(crate) fn spawn_task(
+        mut ctrlr: AniMeWriter,
+        mut recv: Receiver<Vec<Vec<u8>>>,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            while let Some(image) = recv.recv().await {
+                ctrlr
+                    .do_command(AnimatrixCommand::WriteImage(image))
+                    .await
+                    .unwrap_or_else(|err| warn!("{}", err));
+            }
         })
     }
 

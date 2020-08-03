@@ -1,24 +1,16 @@
 use crate::{
-    config::Config,
-    ctrl_anime::{AniMeWriter, AnimatrixCommand},
-    ctrl_charge::CtrlCharge,
-    ctrl_fan_cpu::CtrlFanAndCPU,
-    ctrl_leds::LedWriter,
-    dbus::dbus_create_tree,
-    laptops::match_laptop,
+    config::Config, ctrl_anime::AniMeWriter, ctrl_charge::CtrlCharge, ctrl_fan_cpu::CtrlFanAndCPU,
+    ctrl_leds::LedWriter, dbus::dbus_create_tree, laptops::match_laptop,
 };
 
-use dbus::{channel::Sender, nonblock::Process, nonblock::SyncConnection, tree::Signal};
+use dbus::{channel::Sender, nonblock::SyncConnection, tree::Signal};
 
 use dbus_tokio::connection;
 use log::{error, info, warn};
-use rog_client::{aura_modes::AuraModes, DBUS_IFACE, DBUS_NAME, DBUS_PATH};
+use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
-
-pub(super) type DbusU8Type = Arc<Mutex<Option<u8>>>;
 
 // Timing is such that:
 // - interrupt write is minimum 1ms (sometimes lower)
@@ -30,10 +22,8 @@ pub(super) type DbusU8Type = Arc<Mutex<Option<u8>>>;
 //
 // DBUS processing takes 6ms if not tokiod
 pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
-    let mut laptop = match_laptop();
+    let laptop = match_laptop();
     let mut config = Config::default().load(laptop.supported_modes());
-
-    info!("Config loaded");
 
     let mut led_control = LedWriter::new(laptop.usb_product(), laptop.supported_modes().to_owned())
         .map_or_else(
@@ -42,7 +32,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
                 None
             },
             |ledwriter| {
-                info!("LED Writer loaded");
+                info!("Device has keyboard backlight control");
                 Some(ledwriter)
             },
         );
@@ -53,7 +43,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             None
         },
         |ledwriter| {
-            info!("Charge control loaded");
+            info!("Device has battery charge threshold control");
             Some(ledwriter)
         },
     );
@@ -64,7 +54,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             None
         },
         |ledwriter| {
-            info!("Fan & CPU control loaded");
+            info!("Device has thermal throttle control");
             Some(ledwriter)
         },
     );
@@ -103,10 +93,10 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
 
     let (
         tree,
-        mut aura_command_recv,
-        mut animatrix_recv,
-        fan_mode,
-        charge_limit,
+        aura_command_recv,
+        animatrix_recv,
+        fan_mode_recv,
+        charge_limit_recv,
         led_changed_signal,
         fanmode_signal,
         charge_limit_signal,
@@ -132,95 +122,36 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         charge_limit_signal,
     );
 
-    // Keyboard reader goes in separate task because we want a high interrupt timeout
-    // and don't want that to hold up other tasks, or miss keystrokes
-
-    // Possible Animatrix
-    if laptop.support_animatrix() {
-        if let Ok(mut animatrix_writer) = AniMeWriter::new() {
-            info!("Device has an AniMe Matrix display");
-            tokio::spawn(async move {
-                while let Some(image) = animatrix_recv.recv().await {
-                    animatrix_writer
-                        .do_command(AnimatrixCommand::WriteImage(image))
-                        .await
-                        .unwrap_or_else(|err| warn!("{}", err));
-                }
-            });
-            laptop.set_support_animatrix(false);
-        }
+    let mut handles = Vec::new();
+    // Begin all tasks
+    if let Ok(ctrlr) = AniMeWriter::new() {
+        info!("Device has an AniMe Matrix display");
+        handles.push(AniMeWriter::spawn_task(ctrlr, animatrix_recv));
     }
 
-    // start the keyboard reader and laptop-action loop
-    let config1 = config.clone();
-    // spawning this in a function causes a segfault for reasons I haven't investigated yet
-    tokio::spawn(async move {
-        loop {
-            // TODO: MAKE SYS COMMANDS OPERATE USING CHANNEL LIKE AURA MODES
-            // Fan mode
-            if let Some(ctrlr) = fan_control.as_mut() {
-                let mut config = config1.lock().await;
-                ctrlr
-                    .fan_mode_check_change(&mut config)
-                    .unwrap_or_else(|err| warn!("{:?}", err));
-
-                if let Ok(mut lock) = fan_mode.try_lock() {
-                    if let Some(n) = lock.take() {
-                        let mut config = config1.lock().await;
-                        ctrlr
-                            .set_fan_mode(n, &mut config)
-                            .unwrap_or_else(|err| warn!("{:?}", err));
-                    }
-                }
-            }
-
-            // Charge limit
-            if let Some(ctrlr) = charge_control.as_mut() {
-                if let Ok(mut lock) = charge_limit.try_lock() {
-                    if let Some(n) = lock.take() {
-                        let mut config = config1.lock().await;
-                        ctrlr
-                            .set_charge_limit(n, &mut config)
-                            .unwrap_or_else(|err| warn!("{:?}", err));
-                    }
-                }
-            }
-            tokio::time::delay_for(std::time::Duration::from_millis(500)).await;
-        }
-    });
-
-    // start the main loop
-    loop {
-        connection.process_all();
-
-        while let Some(command) = aura_command_recv.recv().await {
-            if let Some(writer) = led_control.as_mut() {
-                let mut config = config.lock().await;
-                match &command {
-                    AuraModes::RGB(_) => {
-                        writer
-                            .do_command(command, &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{}", err));
-                    }
-                    _ => {
-                        let json = serde_json::to_string(&command)?;
-                        writer
-                            .do_command(command, &mut config)
-                            .await
-                            .unwrap_or_else(|err| warn!("{}", err));
-                        connection
-                            .send(
-                                led_changed_signal
-                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
-                                    .append1(json),
-                            )
-                            .unwrap_or_else(|_| 0);
-                    }
-                }
-            }
-        }
+    if let Some(ctrlr) = fan_control.take() {
+        handles.push(CtrlFanAndCPU::spawn_task(ctrlr, config.clone(), fan_mode_recv));
     }
+
+    if let Some(ctrlr) = charge_control.take() {
+        handles.push(CtrlCharge::spawn_task(ctrlr, config.clone(), charge_limit_recv));
+    }
+
+    if let Some(ctrlr) = led_control.take() {
+        handles.push(LedWriter::spawn_task(
+            ctrlr,
+            config.clone(),
+            aura_command_recv,
+            connection.clone(),
+            led_changed_signal,
+        ));
+    }
+
+    for handle in handles {
+        handle.await?;
+    }
+
+    Ok(())
 }
 
 fn start_signal_task(

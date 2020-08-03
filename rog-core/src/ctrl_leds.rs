@@ -3,12 +3,18 @@ static LED_APPLY: [u8; 17] = [0x5d, 0xb4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static LED_SET: [u8; 17] = [0x5d, 0xb5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 use crate::{config::Config, error::RogError};
+use dbus::{channel::Sender, nonblock::SyncConnection, tree::Signal};
 use log::{info, warn};
 use rog_client::{
-    aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, LED_MSG_LEN,
+    aura_brightness_bytes, aura_modes::AuraModes, fancy::KeyColourArray, DBUS_IFACE, DBUS_PATH,
+    LED_MSG_LEN,
 };
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::Arc;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 pub struct LedWriter {
     dev_node: String,
@@ -23,8 +29,7 @@ impl LedWriter {
         enumerator.match_subsystem("hidraw")?;
 
         for device in enumerator.scan_devices()? {
-            if let Some(parent) = device
-                .parent_with_subsystem_devtype("usb", "usb_device")? {
+            if let Some(parent) = device.parent_with_subsystem_devtype("usb", "usb_device")? {
                 if parent.attribute_value("idProduct").unwrap() == id_product
                 // && device.parent().unwrap().sysnum().unwrap() == 3
                 {
@@ -43,6 +48,43 @@ impl LedWriter {
             std::io::ErrorKind::NotFound,
             "Device node not found",
         ))
+    }
+
+    /// Spawns two tasks which continuously check for changes
+    pub(crate) fn spawn_task(
+        mut ctrlr: LedWriter,
+        config: Arc<Mutex<Config>>,
+        mut recv: Receiver<AuraModes>,
+        connection: Arc<SyncConnection>,
+        signal: Arc<Signal<()>>,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            while let Some(command) = recv.recv().await {
+                let mut config = config.lock().await;
+                match &command {
+                    AuraModes::RGB(_) => {
+                        ctrlr
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{}", err));
+                    }
+                    _ => {
+                        let json = serde_json::to_string(&command).unwrap();
+                        ctrlr
+                            .do_command(command, &mut config)
+                            .await
+                            .unwrap_or_else(|err| warn!("{}", err));
+                        connection
+                            .send(
+                                signal
+                                    .msg(&DBUS_PATH.into(), &DBUS_IFACE.into())
+                                    .append1(json),
+                            )
+                            .unwrap_or_else(|_| 0);
+                    }
+                }
+            }
+        })
     }
 
     pub async fn do_command(
@@ -91,6 +133,14 @@ impl LedWriter {
                 config.brightness = n;
                 config.write();
                 info!("LED brightness set to {:#?}", n);
+            }
+            AuraModes::RGB(v) => {
+                if v.is_empty() || v[0].is_empty() {
+                    let bytes = KeyColourArray::get_init_msg();
+                    self.write_bytes(&bytes).await?;
+                } else {
+                    self.write_effect(&v).await?;
+                }
             }
             _ => {
                 let mode_num: u8 = u8::from(&mode);

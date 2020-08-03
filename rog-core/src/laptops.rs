@@ -18,7 +18,6 @@ pub(crate) fn match_laptop() -> LaptopBase {
                     return LaptopBase {
                         usb_product: "1854".to_string(),
                         supported_modes: vec![SINGLE, BREATHING, STROBE],
-                        support_animatrix: false,
                     };
                 }
                 _ => {}
@@ -39,16 +38,13 @@ fn select_1866_device(prod: String) -> LaptopBase {
     let mut laptop = LaptopBase {
         usb_product: prod,
         supported_modes: vec![],
-        support_animatrix: false,
     };
 
     // AniMe, no RGB
-    if board_name.starts_with("GA401") {
-        info!("No RGB control available");
-        // TODO: actual check for the AniMe device here
-        laptop.support_animatrix = true;
-    // No AniMe, no RGB
-    } else if board_name.starts_with("GA502") || board_name.starts_with("GU502") {
+    if board_name.starts_with("GA401")
+        || board_name.starts_with("GA502")
+        || board_name.starts_with("GU502")
+    {
         info!("No RGB control available");
     // RGB, per-key settings, no zones
     } else if board_name.starts_with("GX502")
@@ -114,7 +110,6 @@ fn select_1866_device(prod: String) -> LaptopBase {
 pub(super) struct LaptopBase {
     usb_product: String,
     supported_modes: Vec<u8>,
-    support_animatrix: bool,
 }
 
 impl LaptopBase {
@@ -123,11 +118,5 @@ impl LaptopBase {
     }
     pub(super) fn supported_modes(&self) -> &[u8] {
         &self.supported_modes
-    }
-    pub(super) fn support_animatrix(&self) -> bool {
-        self.support_animatrix
-    }
-    pub(super) fn set_support_animatrix(&mut self, supported: bool) {
-        self.support_animatrix = supported;
     }
 }
