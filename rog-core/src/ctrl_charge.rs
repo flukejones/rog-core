@@ -15,28 +15,59 @@ pub struct CtrlCharge {
     path: &'static str,
 }
 
-impl CtrlCharge {
-    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
-        let path = CtrlCharge::get_battery_path()?;
+use ::dbus::{nonblock::SyncConnection, tree::Signal};
+use async_trait::async_trait;
 
-        Ok(CtrlCharge { path })
-    }
+#[async_trait]
+impl crate::Controller for CtrlCharge {
+    type A = u8;
 
     /// Spawns two tasks which continuously check for changes
-    pub(crate) fn spawn_task(
-        ctrlr: CtrlCharge,
+    fn spawn_task(
+        self,
         config: Arc<Mutex<Config>>,
-        mut recv: Receiver<u8>,
+        mut recv: Receiver<Self::A>,
+        _: Option<Arc<SyncConnection>>,
+        _: Option<Arc<Signal<()>>>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             while let Some(n) = recv.recv().await {
                 let mut config = config.lock().await;
-                ctrlr
-                    .set_charge_limit(n, &mut config)
+                self.set_charge_limit(n, &mut config)
                     .unwrap_or_else(|err| warn!("{:?}", err));
             }
         })
     }
+
+    async fn reload_from_config(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        config.read();
+        info!("Reloaded battery charge limit");
+        self.set_charge_limit(config.bat_charge_limit, config)
+    }
+}
+
+impl CtrlCharge {
+    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
+        let path = CtrlCharge::get_battery_path()?;
+        info!("Device has battery charge threshold control");
+        Ok(CtrlCharge { path })
+    }
+
+    // /// Spawns two tasks which continuously check for changes
+    // pub(crate) fn spawn_task(
+    //     self,
+    //     config: Arc<Mutex<Config>>,
+    //     mut recv: Receiver<u8>,
+    // ) -> JoinHandle<()> {
+    //     tokio::spawn(async move {
+    //         while let Some(n) = recv.recv().await {
+    //             let mut config = config.lock().await;
+    //             self
+    //                 .set_charge_limit(n, &mut config)
+    //                 .unwrap_or_else(|err| warn!("{:?}", err));
+    //         }
+    //     })
+    // }
 
     fn get_battery_path() -> Result<&'static str, std::io::Error> {
         if Path::new(BAT_CHARGE_PATH).exists() {
@@ -49,14 +80,14 @@ impl CtrlCharge {
         }
     }
 
-    pub(super) fn bat_charge_limit_reload(
-        &self,
-        config: &mut Config,
-    ) -> Result<(), Box<dyn Error>> {
-        config.read();
-        info!("Reloaded battery charge limit");
-        self.set_charge_limit(config.bat_charge_limit, config)
-    }
+    // pub(super) fn reload_from_config(
+    //     &self,
+    //     config: &mut Config,
+    // ) -> Result<(), Box<dyn Error>> {
+    //     config.read();
+    //     info!("Reloaded battery charge limit");
+    //     self.set_charge_limit(config.bat_charge_limit, config)
+    // }
 
     pub(super) fn set_charge_limit(
         &self,

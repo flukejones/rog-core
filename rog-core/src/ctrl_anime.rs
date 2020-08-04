@@ -9,12 +9,15 @@ const INIT: u8 = 0xc2;
 const APPLY: u8 = 0xc3;
 const SET: u8 = 0xc4;
 
-use log::{error, warn};
+use crate::config::Config;
+use log::{error, info, warn};
 use rog_client::error::AuraError;
 use rusb::{Device, DeviceHandle};
 use std::error::Error;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 #[allow(dead_code)]
@@ -26,16 +29,45 @@ pub enum AnimatrixCommand {
     //ReloadLast,
 }
 
-pub struct AniMeWriter {
+pub struct CtrlAnimeDisplay {
     handle: DeviceHandle<rusb::GlobalContext>,
     initialised: bool,
 }
 
-impl AniMeWriter {
+use ::dbus::{nonblock::SyncConnection, tree::Signal};
+use async_trait::async_trait;
+
+#[async_trait]
+impl crate::Controller for CtrlAnimeDisplay {
+    type A = Vec<Vec<u8>>;
+
+    /// Spawns two tasks which continuously check for changes
+    fn spawn_task(
+        mut self,
+        _: Arc<Mutex<Config>>,
+        mut recv: Receiver<Self::A>,
+        _: Option<Arc<SyncConnection>>,
+        _: Option<Arc<Signal<()>>>,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            while let Some(image) = recv.recv().await {
+                self.do_command(AnimatrixCommand::WriteImage(image))
+                    .await
+                    .unwrap_or_else(|err| warn!("{}", err));
+            }
+        })
+    }
+
+    async fn reload_from_config(&mut self, _: &mut Config) -> Result<(), Box<dyn Error>> {
+        Ok(())
+    }
+}
+
+impl CtrlAnimeDisplay {
     #[inline]
-    pub fn new() -> Result<AniMeWriter, Box<dyn Error>> {
+    pub fn new() -> Result<CtrlAnimeDisplay, Box<dyn Error>> {
         // We don't expect this ID to ever change
-        let device = AniMeWriter::get_device(0x0b05, 0x193b).map_err(|err| {
+        let device = CtrlAnimeDisplay::get_device(0x0b05, 0x193b).map_err(|err| {
             warn!("Could not get AniMe display handle: {:?}", err);
             err
         })?;
@@ -53,24 +85,10 @@ impl AniMeWriter {
             err
         })?;
 
-        Ok(AniMeWriter {
+        info!("Device has an AniMe Matrix display");
+        Ok(CtrlAnimeDisplay {
             handle: device,
             initialised: false,
-        })
-    }
-
-    /// Spawns two tasks which continuously check for changes
-    pub(crate) fn spawn_task(
-        mut ctrlr: AniMeWriter,
-        mut recv: Receiver<Vec<Vec<u8>>>,
-    ) -> JoinHandle<()> {
-        tokio::spawn(async move {
-            while let Some(image) = recv.recv().await {
-                ctrlr
-                    .do_command(AnimatrixCommand::WriteImage(image))
-                    .await
-                    .unwrap_or_else(|err| warn!("{}", err));
-            }
         })
     }
 

@@ -1,12 +1,13 @@
 use crate::{
-    config::Config, ctrl_anime::AniMeWriter, ctrl_charge::CtrlCharge, ctrl_fan_cpu::CtrlFanAndCPU,
-    ctrl_leds::LedWriter, dbus::dbus_create_tree, laptops::match_laptop,
+    config::Config, ctrl_anime::CtrlAnimeDisplay, ctrl_charge::CtrlCharge, ctrl_fan_cpu::CtrlFanAndCPU,
+    ctrl_leds::CtrlKbdBacklight, dbus::dbus_create_tree, laptops::match_laptop,
 };
 
 use dbus::{channel::Sender, nonblock::SyncConnection, tree::Signal};
 
+use crate::Controller;
 use dbus_tokio::connection;
-use log::{error, info, warn};
+use log::{error, warn};
 use rog_client::{DBUS_IFACE, DBUS_NAME, DBUS_PATH};
 use std::error::Error;
 use std::sync::Arc;
@@ -25,16 +26,13 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     let laptop = match_laptop();
     let mut config = Config::default().load(laptop.supported_modes());
 
-    let mut led_control = LedWriter::new(laptop.usb_product(), laptop.supported_modes().to_owned())
+    let mut led_control = CtrlKbdBacklight::new(laptop.usb_product(), laptop.supported_modes().to_owned())
         .map_or_else(
             |err| {
                 error!("{}", err);
                 None
             },
-            |ledwriter| {
-                info!("Device has keyboard backlight control");
-                Some(ledwriter)
-            },
+            Some,
         );
 
     let mut charge_control = CtrlCharge::new().map_or_else(
@@ -42,10 +40,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             error!("{}", err);
             None
         },
-        |ledwriter| {
-            info!("Device has battery charge threshold control");
-            Some(ledwriter)
-        },
+        Some,
     );
 
     let mut fan_control = CtrlFanAndCPU::new().map_or_else(
@@ -53,34 +48,28 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
             error!("{}", err);
             None
         },
-        |ledwriter| {
-            info!("Device has thermal throttle control");
-            Some(ledwriter)
-        },
+        Some,
     );
 
     // Reload settings
-    if let Some(ctrlr) = fan_control.as_mut() {
-        ctrlr
-            .fan_mode_reload(&mut config)
+    if let Some(ctrl) = fan_control.as_mut() {
+        ctrl.reload_from_config(&mut config)
+            .await
             .unwrap_or_else(|err| warn!("Fan mode: {}", err));
     }
 
-    if let Some(ctrlr) = charge_control.as_mut() {
-        ctrlr
-            .bat_charge_limit_reload(&mut config)
+    if let Some(ctrl) = charge_control.as_mut() {
+        ctrl.reload_from_config(&mut config)
+            .await
             .unwrap_or_else(|err| warn!("Battery charge limit: {}", err));
     }
 
-    if let Some(writer) = led_control.as_mut() {
-        writer
-            .reload_last_builtin(&mut config)
+    if let Some(ctrl) = led_control.as_mut() {
+        ctrl.reload_from_config(&mut config)
             .await
             .unwrap_or_else(|err| warn!("Reload settings: {}", err));
     }
 
-    // Set up the mutexes
-    let config = Arc::new(Mutex::new(config));
     let (resource, connection) = connection::new_system_sync()?;
     tokio::spawn(async {
         let err = resource.await;
@@ -91,6 +80,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         .request_name(DBUS_NAME, false, true, true)
         .await?;
 
+    let config = Arc::new(Mutex::new(config));
     let (
         tree,
         aura_command_recv,
@@ -101,6 +91,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         fanmode_signal,
         charge_limit_signal,
     ) = dbus_create_tree(config.clone());
+
     // We add the tree to the connection so that incoming method calls will be handled.
     tree.start_receive_send(&*connection);
 
@@ -122,28 +113,26 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
         charge_limit_signal,
     );
 
-    let mut handles = Vec::new();
     // Begin all tasks
-    if let Ok(ctrlr) = AniMeWriter::new() {
-        info!("Device has an AniMe Matrix display");
-        handles.push(AniMeWriter::spawn_task(ctrlr, animatrix_recv));
+    let mut handles = Vec::new();
+    if let Ok(ctrl) = CtrlAnimeDisplay::new() {
+        handles.push(ctrl.spawn_task(config.clone(), animatrix_recv, None, None));
     }
 
-    if let Some(ctrlr) = fan_control.take() {
-        handles.push(CtrlFanAndCPU::spawn_task(ctrlr, config.clone(), fan_mode_recv));
+    if let Some(ctrl) = fan_control.take() {
+        handles.push(ctrl.spawn_task(config.clone(), fan_mode_recv, None, None));
     }
 
-    if let Some(ctrlr) = charge_control.take() {
-        handles.push(CtrlCharge::spawn_task(ctrlr, config.clone(), charge_limit_recv));
+    if let Some(ctrl) = charge_control.take() {
+        handles.push(ctrl.spawn_task(config.clone(), charge_limit_recv, None, None));
     }
 
-    if let Some(ctrlr) = led_control.take() {
-        handles.push(LedWriter::spawn_task(
-            ctrlr,
+    if let Some(ctrl) = led_control.take() {
+        handles.push(ctrl.spawn_task(
             config.clone(),
             aura_command_recv,
-            connection.clone(),
-            led_changed_signal,
+            Some(connection.clone()),
+            Some(led_changed_signal),
         ));
     }
 
@@ -154,6 +143,7 @@ pub async fn start_daemon() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+// TODO: Move these in to the controllers tasks
 fn start_signal_task(
     connection: Arc<SyncConnection>,
     config: Arc<Mutex<Config>>,
@@ -179,6 +169,7 @@ fn start_signal_task(
                     )
                     .unwrap_or_else(|_| 0);
             }
+
             if config.bat_charge_limit != last_charge_limit {
                 last_charge_limit = config.bat_charge_limit;
                 connection
@@ -200,7 +191,9 @@ async fn send_boot_signals(
     charge_limit_signal: Arc<Signal<()>>,
     led_changed_signal: Arc<Signal<()>>,
 ) -> Result<(), Box<dyn Error>> {
+
     let config = config.lock().await;
+
     if let Some(data) = config.get_led_mode_data(config.current_mode) {
         connection
             .send(
@@ -210,6 +203,7 @@ async fn send_boot_signals(
             )
             .unwrap_or_else(|_| 0);
     }
+
     connection
         .send(
             fanmode_signal
@@ -217,6 +211,7 @@ async fn send_boot_signals(
                 .append1(config.fan_mode),
         )
         .unwrap_or_else(|_| 0);
+
     connection
         .send(
             charge_limit_signal
@@ -224,5 +219,6 @@ async fn send_boot_signals(
                 .append1(config.bat_charge_limit),
         )
         .unwrap_or_else(|_| 0);
+
     Ok(())
 }

@@ -18,20 +18,22 @@ pub struct CtrlFanAndCPU {
     path: &'static str,
 }
 
-impl CtrlFanAndCPU {
-    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
-        let path = CtrlFanAndCPU::get_fan_path()?;
+use ::dbus::{nonblock::SyncConnection, tree::Signal};
+use async_trait::async_trait;
 
-        Ok(CtrlFanAndCPU { path })
-    }
+#[async_trait]
+impl crate::Controller for CtrlFanAndCPU {
+    type A = u8;
 
     /// Spawns two tasks which continuously check for changes
-    pub(crate) fn spawn_task(
-        ctrlr: CtrlFanAndCPU,
+    fn spawn_task(
+        self,
         config: Arc<Mutex<Config>>,
-        mut recv: Receiver<u8>,
+        mut recv: Receiver<Self::A>,
+        _: Option<Arc<SyncConnection>>,
+        _: Option<Arc<Signal<()>>>,
     ) -> JoinHandle<()> {
-        let gate1 = Arc::new(Mutex::new(ctrlr));
+        let gate1 = Arc::new(Mutex::new(self));
         let gate2 = gate1.clone();
         let config1 = config.clone();
         // spawn an endless loop
@@ -58,6 +60,23 @@ impl CtrlFanAndCPU {
         })
     }
 
+    async fn reload_from_config(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
+        let mut file = OpenOptions::new().write(true).open(self.path)?;
+        file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
+            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", self.path, err));
+        self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
+        info!("Reloaded fan mode: {:?}", FanLevel::from(config.fan_mode));
+        Ok(())
+    }
+}
+
+impl CtrlFanAndCPU {
+    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
+        let path = CtrlFanAndCPU::get_fan_path()?;
+        info!("Device has thermal throttle control");
+        Ok(CtrlFanAndCPU { path })
+    }
+
     fn get_fan_path() -> Result<&'static str, std::io::Error> {
         if Path::new(FAN_TYPE_1_PATH).exists() {
             Ok(FAN_TYPE_1_PATH)
@@ -69,15 +88,6 @@ impl CtrlFanAndCPU {
                 "Fan mode not available",
             ))
         }
-    }
-
-    pub(super) fn fan_mode_reload(&mut self, config: &mut Config) -> Result<(), Box<dyn Error>> {
-        let mut file = OpenOptions::new().write(true).open(self.path)?;
-        file.write_all(format!("{:?}\n", config.fan_mode).as_bytes())
-            .unwrap_or_else(|err| error!("Could not write to {}, {:?}", self.path, err));
-        self.set_pstate_for_fan_mode(FanLevel::from(config.fan_mode), config)?;
-        info!("Reloaded fan mode: {:?}", FanLevel::from(config.fan_mode));
-        Ok(())
     }
 
     pub(super) fn fan_mode_check_change(

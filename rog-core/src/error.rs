@@ -1,9 +1,12 @@
 use std::fmt;
 
+#[derive(Debug)]
 pub enum RogError {
     ParseFanLevel,
     NotSupported,
 }
+
+impl std::error::Error for RogError {}
 
 impl fmt::Display for RogError {
     // This trait requires `fmt` with this exact signature.
