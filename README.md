@@ -1,20 +1,9 @@
 # ROG-Core
 
 **NOTICE:**
-I have completed kernel patches to move a large chunk of rog-core functionality
-in to the Linux kernel. The patch is not in mainline yet, but can be found in the
-`./kernel-patch/` directory. The patch enables the following in kernel:
+rog-core is now obsoleted and you will get a better experience using the [dkms module](https://gitlab.com/asus-linux/hid-asus-rog) or [patch](https://gitlab.com/asus-linux/asus-nb-ctrl/-/tree/next/kernel-patch), and [asus-nb-ctrl](https://gitlab.com/asus-linux/asus-nb-ctrl).
 
-- All hotkeys (FN+Key combos)
-- Control of keyboard brightness using FN+Key combos (not RGB)
-- FN+F5 (fan) to toggle fan modes. You can watch the path `/sys/devices/platform/asus-nb-wmi/throttle_thermal_policy`
-  to see which mode you are in
-
-You will not get RGB control in kernel (yet), and rog-core is still required to
-change modes and RGB settings. The current version in master and last release
-still take full control of the interfaces
-
-**work on a version of rog-core for use with the kernel patch is in another branch** 
+---
 
 The last version of rog-core will work with any kernel with or without this patch
  and provide full functions.
